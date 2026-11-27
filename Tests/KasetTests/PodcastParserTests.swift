@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the PodcastParser.
 @Suite(.tags(.parser))
 struct PodcastParserTests {
-    // MARK: - parseDiscovery Tests
-
     @Test("Parse empty response returns empty sections")
     func parseEmptyResponse() {
         let data: [String: Any] = [:]
@@ -37,8 +34,6 @@ struct PodcastParserTests {
         #expect(sections.count == 2)
     }
 
-    // MARK: - parseContinuation Tests
-
     @Test("Parse empty continuation returns empty sections")
     func parseEmptyContinuation() {
         let data: [String: Any] = [:]
@@ -52,8 +47,6 @@ struct PodcastParserTests {
         let sections = PodcastParser.parseContinuation(data)
         #expect(sections.count == 2)
     }
-
-    // MARK: - parseShowDetail Tests
 
     @Test("Parse empty show detail returns placeholder show")
     func parseEmptyShowDetail() {
@@ -118,8 +111,6 @@ struct PodcastParserTests {
         #expect(detail.hasMore == true)
     }
 
-    // MARK: - parseEpisodesContinuation Tests
-
     @Test("Parse empty episodes continuation")
     func parseEmptyEpisodesContinuation() {
         let data: [String: Any] = [:]
@@ -145,8 +136,6 @@ struct PodcastParserTests {
         #expect(continuation.hasMore == false)
     }
 
-    // MARK: - isPodcastShow Tests
-
     @Test("isPodcastShow returns true for MPSPP prefix")
     func isPodcastShowWithMPSPPPrefix() {
         #expect(PodcastParser.isPodcastShow("MPSPP12345") == true)
@@ -158,8 +147,6 @@ struct PodcastParserTests {
         #expect(PodcastParser.isPodcastShow("UC12345") == false)
         #expect(PodcastParser.isPodcastShow("MPRE12345") == false)
     }
-
-    // MARK: - Test Data Helpers
 
     private func makeDiscoveryData(withCarousel: Bool, withShelf: Bool) -> [String: Any] {
         var sections: [[String: Any]] = []
@@ -286,7 +273,6 @@ struct PodcastParserTests {
         ]
 
         if let token = continuationToken {
-            // Add continuation to the music shelf
             if var contents = data["contents"] as? [String: Any],
                var singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
                var tabs = singleColumn["tabs"] as? [[String: Any]],
@@ -317,8 +303,6 @@ struct PodcastParserTests {
         return data
     }
 
-    /// Creates show detail data using the twoColumnBrowseResultsRenderer format
-    /// which is the current format the parser uses for subscription status.
     private func makeShowDetailDataTwoColumn(
         title: String,
         isSubscribed: Bool = false

@@ -1,15 +1,5 @@
-// swiftlint:disable file_length
-
 import SwiftUI
 
-// MARK: - YouTubeWatchView
-
-/// Watch page for a YouTube video: the extracted video surface with native
-/// controls, metadata, and the related list.
-///
-/// The surface is the singleton `YouTubeWatchWebView`, docked here while
-/// this view owns it. Navigating away while playing hands the surface off
-/// to the floating window (`YouTubeVideoWindowController`).
 struct YouTubeWatchView: View {
     fileprivate static let brandAccent = PackageResourceLookup.brandAccent
 
@@ -31,15 +21,10 @@ struct YouTubeWatchView: View {
     @State private var settings = SettingsManager.shared
     @State private var isVideoControlsRegionOnScreen = true
 
-    /// The ambient backdrop style to render: the user's chosen style, or `.off`
-    /// when they've disabled the feature in Settings → YouTube.
     private var ambientStyle: AmbientBackdropStyle {
         self.settings.resolvedAmbientStyle
     }
 
-    /// 0…1 playback position, only while THIS view's video is the one playing,
-    /// for the `.live` storyboard crossfade. `nil` otherwise (guards NaN when
-    /// duration is still 0 at cold load).
     private var ambientLiveFraction: Double? {
         guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId,
               self.youtubePlayer.duration > 0
@@ -47,9 +32,6 @@ struct YouTubeWatchView: View {
         return min(max(self.youtubePlayer.progress / self.youtubePlayer.duration, 0), 1)
     }
 
-    /// Storyboard spec for the fine-grained `.live` color, but only while THIS
-    /// view's video is the one playing — so a previous video's sheets never
-    /// tint a newly-opened watch page.
     private var ambientStoryboardSpec: String? {
         guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else {
             return nil
@@ -81,8 +63,6 @@ struct YouTubeWatchView: View {
                         self.isVideoControlsRegionOnScreen = isVisible
                     }
 
-                // Below the video: title/metadata + chapters/comments down the
-                // left, the related rail down the right.
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
                         self.metadataSection
@@ -107,9 +87,6 @@ struct YouTubeWatchView: View {
             .padding(.vertical, 20)
         }
         .disabled(self.viewModel.ask.isExpanded)
-        // PROTOTYPE: full-bleed ambient color behind the page. `.ignoresSafeArea`
-        // (inside the modifier) lets it bleed under the bottom player-bar inset,
-        // so the bar's Liquid Glass capsule refracts the live color.
         .ambientVideoBackdrop(
             videoId: self.video.videoId,
             thumbnailURL: self.video.thumbnailURL,
@@ -117,9 +94,7 @@ struct YouTubeWatchView: View {
             liveFraction: self.ambientLiveFraction,
             storyboardSpec: self.ambientStoryboardSpec
         )
-        // The in-page metadata shows the title; keep the bar clean.
         .navigationTitle(String(localized: ""))
-        // Let the ambient reach under the nav bar, like the other accent pages.
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .toolbar {
             if self.viewModel.ask.isAvailable {
@@ -162,21 +137,11 @@ struct YouTubeWatchView: View {
         return YouTubeAskPlayerOffset.milliseconds(for: self.youtubePlayer.progress)
     }
 
-    // MARK: - Video Surface
-
-    /// Whether this view currently presents the live playback surface.
     private var presentsLiveSurface: Bool {
         self.youtubePlayer.currentVideo?.videoId == self.video.videoId
             && self.youtubePlayer.surfaceLocation == .inline
     }
 
-    /// Whether the player controls sit on the docked video instead of the
-    /// bottom bar (Settings → YouTube → Show Controls on Video). Only while the
-    /// strip they occupy is on screen: scrolled down to the comments, or with a
-    /// tall video's bottom edge below the fold, the bottom bar takes them back
-    /// so exactly one bar is reachable at a time. Ask Gemini disables and
-    /// covers the page, so the bottom bar (outside both) takes over while it's
-    /// open.
     private var showsControlsOnVideo: Bool {
         self.settings.showYouTubeControlsOnVideo
             && self.presentsLiveSurface
@@ -184,12 +149,10 @@ struct YouTubeWatchView: View {
             && !self.viewModel.ask.isExpanded
     }
 
-    /// Height of the bottom bar inset while it is shown.
     private var bottomPlayerBarHeight: CGFloat {
         self.showsControlsOnVideo ? 0 : YouTubeInlineControlsVisibility.controlsRegionHeight
     }
 
-    /// Whether this view's video is currently playing in the floating window.
     private var playsInFloatingWindow: Bool {
         self.youtubePlayer.currentVideo?.videoId == self.video.videoId
             && self.youtubePlayer.surfaceLocation == .floating
@@ -198,16 +161,12 @@ struct YouTubeWatchView: View {
     @ViewBuilder
     private var videoSurface: some View {
         if self.presentsLiveSurface {
-            // Clean video surface — playback is controlled from the Liquid
-            // Glass player bar, at the bottom of the window or on the video.
             YouTubeWatchSurfaceView()
                 .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
                 .aspectRatio(16 / 9, contentMode: .fit)
                 .youtubeInlineVideoControls(isEnabled: self.showsControlsOnVideo)
                 .clipShape(.rect(cornerRadius: 12))
         } else if self.playsInFloatingWindow {
-            // Native PiP-style placeholder while the video plays in the
-            // pop-out window.
             Rectangle()
                 .fill(.black)
                 .aspectRatio(16 / 9, contentMode: .fit)
@@ -263,8 +222,6 @@ struct YouTubeWatchView: View {
         }
     }
 
-    /// Starts playback of this view's video, or adopts the surface if this
-    /// video is already playing (e.g. docking back from the floating window).
     private func startOrAdoptPlayback(startAt: Double? = nil) {
         YouTubeWatchPlaybackLifecycle.presentSurface(
             video: self.video,
@@ -274,8 +231,6 @@ struct YouTubeWatchView: View {
             data: self.viewModel.data
         )
     }
-
-    // MARK: - Metadata
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -349,7 +304,6 @@ struct YouTubeWatchView: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(self.viewModel.isSubscribed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
             .padding(.horizontal, 16)
-            // Same height as the avatar / name + subscriber-count block.
             .frame(height: 36)
             .compatGlass(
                 interactive: true,
@@ -361,8 +315,6 @@ struct YouTubeWatchView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
     }
-
-    // MARK: - Chapters
 
     private var chaptersSection: some View {
         YouTubeChaptersSection(
@@ -409,8 +361,6 @@ struct YouTubeWatchView: View {
         return currentTime < self.viewModel.data.chapters[nextIndex].startTime
     }
 
-    // MARK: - Related Column
-
     private var relatedColumn: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Related", comment: "Related videos section header")
@@ -447,8 +397,6 @@ struct YouTubeWatchView: View {
             }
         }
     }
-
-    // MARK: - Comments
 
     private var commentsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -548,7 +496,6 @@ struct YouTubeWatchView: View {
         self.authService.hasPersonalAccount
     }
 
-    /// Whether the composer holds postable text (drives the send accent).
     private var hasCommentDraft: Bool {
         !self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -563,10 +510,6 @@ struct YouTubeWatchView: View {
     }
 }
 
-// MARK: - CommentThread
-
-/// A comment with its action row (like/dislike, replies) and, when
-/// expanded, its indented reply thread.
 private struct CommentThread: View {
     let comment: YouTubeComment
     let viewModel: YouTubeWatchViewModel
@@ -648,10 +591,6 @@ private struct CommentThread: View {
     }
 }
 
-// MARK: - CommentRow
-
-/// One comment: avatar, author + time, text, and working like/dislike.
-/// The author (avatar/name) navigates to their channel.
 private struct CommentRow: View {
     let comment: YouTubeComment
     let isLiked: Bool
@@ -718,7 +657,6 @@ private struct CommentRow: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// Wraps content in a channel link when the author's channel is known.
     @ViewBuilder
     private func authorLink(@ViewBuilder content: () -> some View) -> some View {
         if let channelId = self.comment.authorChannelId {
@@ -754,9 +692,6 @@ private struct CommentRow: View {
     }
 }
 
-// MARK: - YouTubeChaptersSection
-
-/// Watch-page chapters. The carousel hugs the cards, and the header collapses it.
 struct YouTubeChaptersSection: View {
     let chapters: [YouTubeChapter]
     let isActiveChapter: (YouTubeChapter) -> Bool
@@ -807,10 +742,6 @@ struct YouTubeChaptersSection: View {
                     controlVerticalAlignment: .center,
                     contentInset: 0
                 ) {
-                    // Lazy so long chapter lists don't load every thumbnail up
-                    // front. A lazy stack sizes its height from the cards it has
-                    // built, so `ChapterCard` reserves both title lines to keep
-                    // every card, and the hugged row, the same height.
                     LazyHStack(alignment: .top, spacing: 10) {
                         ForEach(self.chapters) { chapter in
                             Button {
@@ -833,8 +764,6 @@ struct YouTubeChaptersSection: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.chaptersSection)
     }
 }
-
-// MARK: - ChapterCard
 
 private struct ChapterCard: View {
     let chapter: YouTubeChapter
@@ -896,9 +825,6 @@ private struct ChapterCard: View {
     }
 }
 
-// MARK: - RelatedVideoRow
-
-/// Compact related-rail row sized for the right column.
 private struct RelatedVideoRow: View {
     let video: YouTubeVideo
 
@@ -935,8 +861,6 @@ private struct RelatedVideoRow: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"

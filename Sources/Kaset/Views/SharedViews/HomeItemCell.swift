@@ -1,25 +1,11 @@
 import AppKit
 import SwiftUI
 
-// MARK: - HomeItemCell
-
-/// Native card as a single layer-backed view with no backing store of its
-/// own. Everything static — title, subtitle, explicit badge, chart rank, like
-/// button — is a cached bitmap on a sublayer; the artwork and its hover lift
-/// are sublayers too; the glass play overlay is the one piece of SwiftUI,
-/// hosted only while the card is hovered.
-///
-/// One `NSView` per card is the point: SwiftUI detaches and re-attaches each
-/// shelf's platform view as it crosses the viewport, and AppKit's cost for
-/// that (and for every scroll frame while attached) scales with the number of
-/// views in the subtree. Measured with a multi-view card it was ~7 dropped
-/// frames per scroll pass; with a 3-view card, under 1.
 @MainActor
 final class HomeItemCell: NSView {
     static let artworkHeight: CGFloat = 160
     static let squareWidth: CGFloat = 160
     static let videoWidth: CGFloat = 284
-    /// Artwork + 8pt gap + two title lines + subtitle.
     static let height: CGFloat = 220
     static let cornerRadius: CGFloat = 8
     static let likeButtonSize: CGFloat = 22
@@ -30,24 +16,16 @@ final class HomeItemCell: NSView {
     }
 
     var menuProvider: (() -> NSMenu?)?
-    /// Called when the like control (drawn at the artwork's top-trailing corner) is clicked.
     var likeAction: (() -> Void)?
 
     private let artwork = HomeItemArtworkLayers()
-    /// Like control and chart rank sit above the artwork.
     private let likeLayer = CALayer()
     private let rankLayer = CALayer()
-    /// Title, subtitle and explicit badge, rendered once into a cached bitmap.
-    /// A layer (rather than `draw(_:)`) because AppKit redisplays a view's
-    /// backing store every time SwiftUI re-attaches the shelf at the viewport
-    /// edge, and re-typesetting every card's text there dropped frames.
     private let textLayer = CALayer()
     private var textLayerKey: String?
     private var playOverlay: NSHostingView<AnyView>?
 
     private(set) var item: HomeSectionItem?
-    /// `item.homeCardSubtitle`, parsed once per configure rather than on
-    /// every re-attach.
     private var subtitle = ""
     private var rank: Int?
     private var playlistPlayAction: (() -> Void)?
@@ -68,7 +46,6 @@ final class HomeItemCell: NSView {
         self.layer?.addSublayer(self.artwork.liftLayer)
         self.likeLayer.contentsGravity = .center
         self.likeLayer.isHidden = true
-        // The view is flipped, so "top" gravity lands at the visual bottom.
         self.rankLayer.contentsGravity = .topLeft
         self.rankLayer.isHidden = true
         self.layer?.addSublayer(self.rankLayer)
@@ -87,7 +64,6 @@ final class HomeItemCell: NSView {
         true
     }
 
-    /// Frame of the like control in the view's coordinates, or nil when it is not shown.
     var likeButtonFrame: NSRect? {
         guard self.showsLikeButton, let item else { return nil }
         return self.likeControlFrame(width: Self.width(for: item))
@@ -124,9 +100,7 @@ final class HomeItemCell: NSView {
         CATransaction.setDisableActions(true)
         self.artwork.layout(in: NSRect(x: 0, y: 0, width: width, height: Self.artworkHeight), scale: scale)
         self.textLayer.frame = NSRect(x: 0, y: Self.artworkHeight, width: width, height: Self.height - Self.artworkHeight)
-        // Flipped view: layer frames are in the view's (top-left origin) space.
         self.likeLayer.frame = self.likeControlFrame(width: width)
-        // Mirrors the SwiftUI card: leading 8, 60pt above the card's bottom.
         self.rankLayer.frame = NSRect(x: self.isRightToLeft ? 0 : 8, y: 0, width: width - 8, height: Self.height - 60)
         self.rankLayer.contentsGravity = self.isRightToLeft ? .topRight : .topLeft
         if self.overlayScale != scale {
@@ -135,8 +109,6 @@ final class HomeItemCell: NSView {
         CATransaction.commit()
     }
 
-    /// Off-window cards (shelves SwiftUI has detached) drop their text bitmap;
-    /// re-attaching restores it from the shared cache in `updateLayer`.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if self.window == nil {
@@ -176,8 +148,6 @@ final class HomeItemCell: NSView {
         CATransaction.commit()
     }
 
-    /// The unliked glyph resolves a dynamic color; bitmap resolution must also
-    /// match the destination layer's backing scale.
     private static var likeImages: [String: CGImage] = [:]
 
     private func likeImage(liked: Bool, scale: CGFloat) -> CGImage? {
@@ -201,8 +171,6 @@ final class HomeItemCell: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // Text colors are dynamic but baked into the text bitmap (re-resolved
-        // by `updateLayer`); the layer images resolve system colors when rendered.
         self.needsDisplay = true
         if let item {
             self.artwork.refreshAppearance(for: item)
@@ -231,8 +199,6 @@ final class HomeItemCell: NSView {
         self.menuProvider?() ?? super.menu(for: event)
     }
 
-    // MARK: Configuration
-
     func configure(
         item: HomeSectionItem,
         rank: Int?,
@@ -255,8 +221,6 @@ final class HomeItemCell: NSView {
            self.allowsLikeActions == allowsLikeActions,
            hasSamePlayAction
         {
-            // The hosted overlay carries the forwarded environment; keep it
-            // current if it is showing.
             if self.isHovered {
                 self.updatePlayOverlay()
             }
@@ -271,15 +235,10 @@ final class HomeItemCell: NSView {
         self.imageLoadTask = nil
 
         self.artwork.configure(item: item)
-        // Like state is pushed by the shelf; keep it across a metadata-only
-        // refresh of the same song so the card doesn't flash to "unliked".
         if !sameSong {
             self.isLiked = false
-            // A card that changes song drops its hover; a metadata refresh of
-            // the same song keeps it (the shelf still tracks it as hovered).
             self.setHovered(false, animated: false)
         } else if self.isHovered {
-            // Width or environment may have changed: re-place the overlay.
             self.updatePlayOverlay()
         }
         self.loadArtwork(for: item)
@@ -300,7 +259,6 @@ final class HomeItemCell: NSView {
         self.updateAccessibilityActions()
     }
 
-    /// Called on click, Return/Space, or an accessibility press.
     var activateAction: (() -> Void)?
 
     private func updateAccessibilityActions() {
@@ -327,11 +285,6 @@ final class HomeItemCell: NSView {
         return true
     }
 
-    // MARK: Keyboard
-
-    /// Like AppKit's own buttons, cards join the key view loop only under Full
-    /// Keyboard Access: with hundreds of cards alive, unconditional first-responder
-    /// status made every shelf re-attach rebuild the window's key loop.
     override var acceptsFirstResponder: Bool {
         NSApp.isFullKeyboardAccessEnabled
     }
@@ -365,7 +318,6 @@ final class HomeItemCell: NSView {
         guard self.window?.firstResponder === self, event.keyCode == 49,
               event.modifierFlags.isDisjoint(with: [.command, .control, .option, .shift])
         else { return super.performKeyEquivalent(with: event) }
-        // Focused controls handle Space before the app's Play/Pause shortcut.
         self.keyDown(with: event)
         return true
     }
@@ -376,7 +328,7 @@ final class HomeItemCell: NSView {
             return
         }
         switch event.keyCode {
-        case 36, 76, 49: // Return, Enter, Space
+        case 36, 76, 49:
             if self.isLikeFocused {
                 self.likeAction?()
             } else {
@@ -387,8 +339,6 @@ final class HomeItemCell: NSView {
         }
     }
 
-    /// Two keyboard targets share the card's single view. Tab visits the like
-    /// control before moving to the next card; Shift-Tab reverses that order.
     private func moveKeyboardFocus(backwards: Bool) {
         if backwards {
             if self.isLikeFocused {
@@ -426,8 +376,6 @@ final class HomeItemCell: NSView {
         let urls = Self.thumbnailURLs(for: item)
         guard !urls.isEmpty else { return }
         let targetSize = CGSize(width: Self.width(for: item), height: Self.artworkHeight)
-        // A memory-cache hit is applied synchronously with no fade, so a
-        // rebuilt shelf shows its artwork in the same frame it appears.
         if let url = urls.first, let cached = ImageCache.shared.cachedImage(for: url, targetSize: targetSize) {
             self.artwork.setImage(cached, animated: false)
             return
@@ -447,8 +395,6 @@ final class HomeItemCell: NSView {
         }
     }
 
-    /// Same candidate order as `HomeSectionItemCard`: wide video thumbnail first
-    /// for video songs, then the standard artwork, then the fallback.
     static func thumbnailURLs(for item: HomeSectionItem) -> [URL] {
         var candidates: [URL?] = []
         if item.isVideoSong, case let .song(song) = item {
@@ -460,10 +406,6 @@ final class HomeItemCell: NSView {
         return candidates.compactMap(\.self).filter { seen.insert($0).inserted }
     }
 
-    // MARK: Like status
-
-    /// Like status is observed once per shelf (see `HomeItemShelfView`) and
-    /// pushed here, rather than registering an observation per card.
     func setLiked(_ liked: Bool) {
         guard liked != self.isLiked else { return }
         self.isLiked = liked
@@ -482,8 +424,6 @@ final class HomeItemCell: NSView {
         }
     }
 
-    // MARK: Hover
-
     func setHovered(_ hovered: Bool, animated: Bool) {
         guard hovered != self.isHovered || !animated else { return }
         self.isHovered = hovered
@@ -492,8 +432,6 @@ final class HomeItemCell: NSView {
         self.updateOverlayLayers()
     }
 
-    /// The glass play icon is the one piece of SwiftUI on the card, hosted only
-    /// while this card is hovered, so at most one such view exists per shelf.
     private func updatePlayOverlay() {
         guard let item, case .song = item, self.isHovered else {
             self.playOverlay?.removeFromSuperview()
@@ -518,8 +456,6 @@ final class HomeItemCell: NSView {
         }
     }
 
-    // MARK: Drawing
-
     private static let titleFont = NSFont.systemFont(ofSize: 13, weight: .medium)
     private static let subtitleFont = NSFont.systemFont(ofSize: 11)
     private static let badgeFont = NSFont.systemFont(ofSize: 8, weight: .semibold)
@@ -542,8 +478,6 @@ final class HomeItemCell: NSView {
         let subtitle = self.subtitle
         let isRightToLeft = self.isRightToLeft
         let isExplicit = self.isExplicit
-        // The bitmap is reused whenever this key matches, so it must name every
-        // input `drawText` reads; a new input missing here shows stale text.
         let key = [
             item.title, subtitle, "\(isExplicit)", "\(width)", "\(isRightToLeft)",
             self.effectiveAppearance.name.rawValue, "\(scale)",
@@ -552,10 +486,7 @@ final class HomeItemCell: NSView {
         var image = Self.textImages.object(forKey: key as NSString)
         if image == nil {
             self.effectiveAppearance.performAsCurrentDrawingAppearance {
-                // Only the band below the artwork holds text.
                 let size = NSSize(width: width, height: Self.height - Self.artworkHeight)
-                // Every color `drawText` sets is a neutral gray, so gray + alpha
-                // is lossless, except for color emoji in YouTube titles.
                 let grayscale = !Self.mayContainColorGlyphs(item.title + subtitle)
                 image = HomeItemLayerImage.render(size: size, scale: scale, flipped: true, grayscale: grayscale) { _ in
                     NSGraphicsContext.current?.cgContext.translateBy(x: 0, y: -Self.artworkHeight)
@@ -566,12 +497,9 @@ final class HomeItemCell: NSView {
                 Self.textImages.setObject(image, forKey: key as NSString, cost: image.bytesPerRow * image.height)
             }
         }
-        // A failed render records no key, so the next display pass retries it.
         self.setTextImage(image, key: image == nil ? nil : key, scale: scale)
     }
 
-    /// Swaps the text bitmap without the standalone layer's implicit
-    /// `contents` fade. A nil key makes the next display pass resolve it again.
     private func setTextImage(_ image: CGImage?, key: String?, scale: CGFloat? = nil) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -583,11 +511,6 @@ final class HomeItemCell: NSView {
         self.textLayerKey = key
     }
 
-    /// Emoji-presentation characters, any character followed by the emoji
-    /// variation selector, and supplementary-plane emoji draw as color glyphs.
-    /// The last covers text-default emoji such as 🎙 (U+1F399), which CoreText
-    /// still draws from Apple Color Emoji; text-default symbols below U+1F000
-    /// (♥, ▶, ™) draw from monochrome fonts.
     static func mayContainColorGlyphs(_ text: String) -> Bool {
         text.unicodeScalars.contains { scalar in
             scalar.value == 0xFE0F || scalar.properties.isEmojiPresentation
@@ -595,8 +518,6 @@ final class HomeItemCell: NSView {
         }
     }
 
-    /// Rendered text bitmaps shared across cells, so a shelf that SwiftUI
-    /// rebuilds reuses its cards' text instead of typesetting it again.
     private static let textImages: NSCache<NSString, CGImage> = {
         let cache = NSCache<NSString, CGImage>()
         cache.totalCostLimit = 24 * 1024 * 1024
@@ -608,9 +529,6 @@ final class HomeItemCell: NSView {
         let badgeSize: CGFloat = 12
         let titleMaxWidth = width - (isExplicit ? badgeSize + 6 : 0)
 
-        // Title: up to two lines, last line truncated, like the SwiftUI card.
-        // Word-wrapping paragraph + `truncatesLastVisibleLine` gives the
-        // ellipsis on line two; a tail-truncating paragraph would force one line.
         let wrapping = NSMutableParagraphStyle()
         wrapping.lineBreakMode = .byWordWrapping
         wrapping.alignment = isRightToLeft ? .right : .left
@@ -662,16 +580,8 @@ final class HomeItemCell: NSView {
     }
 }
 
-// MARK: - HomeItemArtworkLayers
-
-/// Artwork layer stack: a lift layer (scale + shadow on hover) containing a
-/// rounded, clipping content layer with the placeholder gradient, the
-/// placeholder icon, and the decoded bitmap (aspect fill for square artwork,
-/// aspect fit over a tinted backdrop for video).
 @MainActor
 private final class HomeItemArtworkLayers {
-    /// Carries the hover lift. Its own layer because it needs a centered
-    /// anchor point, which AppKit view layers don't have.
     let liftLayer = CALayer()
     private let contentLayer = CALayer()
     private let gradientLayer = CAGradientLayer()
@@ -746,7 +656,6 @@ private final class HomeItemArtworkLayers {
         CATransaction.commit()
     }
 
-    /// Re-resolves the appearance-dependent layer colors (video backdrop).
     func refreshAppearance(for item: HomeSectionItem) {
         guard item.isVideoSong else { return }
         CATransaction.begin()
@@ -762,11 +671,9 @@ private final class HomeItemArtworkLayers {
         self.imageLayer.contents = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         self.imageLayer.isHidden = false
         self.iconLayer.isHidden = true
-        // Aspect-fitted video artwork still needs its backdrop in the margins.
         self.gradientLayer.isHidden = self.imageLayer.contentsGravity != .resizeAspect
         CATransaction.commit()
         guard animated else { return }
-        // Match the SwiftUI card's crossfade on a fresh load.
         let fade = CABasicAnimation(keyPath: "opacity")
         fade.fromValue = 0
         fade.toValue = 1
@@ -774,8 +681,6 @@ private final class HomeItemArtworkLayers {
         self.imageLayer.add(fade, forKey: "fadeIn")
     }
 
-    /// Hover lift: scale the artwork and add a shadow, matching the SwiftUI
-    /// card's `ThumbnailHoverLift`.
     func setLifted(_ lifted: Bool, animated: Bool) {
         let apply = {
             self.liftLayer.transform = lifted ? CATransform3DMakeScale(1.02, 1.02, 1) : CATransform3DIdentity
@@ -792,8 +697,6 @@ private final class HomeItemArtworkLayers {
         CATransaction.commit()
     }
 
-    // MARK: Placeholder
-
     private static func placeholderSymbol(for item: HomeSectionItem) -> String {
         switch item {
         case .song: item.isVideoSong ? "play.rectangle" : "music.note"
@@ -803,8 +706,6 @@ private final class HomeItemArtworkLayers {
         }
     }
 
-    /// Same scheme as `HomeSectionItemCard`: mood cards use the API color,
-    /// everything else a title-derived hue pair.
     private static func placeholderColors(for item: HomeSectionItem) -> [NSColor] {
         if case let .playlist(playlist) = item,
            let colorHex = playlist.description,
@@ -823,7 +724,6 @@ private final class HomeItemArtworkLayers {
         ]
     }
 
-    /// Tinted symbol bitmaps, rendered once per symbol and backing scale.
     private static var placeholderIcons: [String: CGImage] = [:]
 
     private static func placeholderIcon(named symbol: String, scale: CGFloat) -> CGImage? {
@@ -845,12 +745,8 @@ private final class HomeItemArtworkLayers {
     }
 }
 
-// MARK: - HomeItemLayerImage
-
 @MainActor
 private enum HomeItemLayerImage {
-    /// Produces a bitmap with an explicit pixels-per-point ratio for CALayer.
-    /// `grayscale` halves the bitmap for content drawn only in neutral colors.
     static func render(
         size: NSSize,
         scale: CGFloat,

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SearchResponseParser Support
-
 extension SearchResponseParser {
     static func splitMetadataText(_ text: String) -> [String] {
         text.replacingOccurrences(of: "·", with: "•")
@@ -154,7 +152,6 @@ extension SearchResponseParser {
                 numberText.append(".")
                 sawDecimalSeparator = true
             } else if !sawDigit, character.isWhitespace {
-                // Permit leading whitespace already preserved by unusual Unicode spacing.
             } else {
                 break
             }

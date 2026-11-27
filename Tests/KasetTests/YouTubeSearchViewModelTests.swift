@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeSearchViewModelTests
-
 @Suite("YouTubeSearchViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeSearchViewModelTests {
@@ -70,7 +68,6 @@ struct YouTubeSearchViewModelTests {
         await self.sut.search()
 
         if case .error = self.sut.loadingState {
-            // expected
         } else {
             Issue.record("Expected error state, got \(self.sut.loadingState)")
         }
@@ -86,7 +83,7 @@ struct YouTubeSearchViewModelTests {
         )
         self.mockClient.searchContinuation = YouTubeSearchResponse(
             videos: [
-                MockYouTubeClient.makeVideo(videoId: "video-0"), // duplicate
+                MockYouTubeClient.makeVideo(videoId: "video-0"),
                 MockYouTubeClient.makeVideo(videoId: "video-extra"),
             ],
             channels: [],

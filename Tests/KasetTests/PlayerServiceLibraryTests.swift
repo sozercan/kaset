@@ -4,7 +4,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for PlayerService+Library extension (like/dislike/library actions).
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
@@ -24,15 +23,12 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         self.playerService.setAuthService(self.authService)
     }
 
-    // MARK: - Like Current Track Tests
-
     @Test("likeCurrentTrack does nothing when no current track")
     func likeCurrentTrackNoTrack() async {
         #expect(self.playerService.currentTrack == nil)
 
         self.playerService.likeCurrentTrack()
 
-        // Allow time for any async task to complete
         try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == false)
@@ -95,10 +91,8 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         self.playerService.likeCurrentTrack()
 
-        // Optimistic update should happen immediately
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
         let reverted = await self.waitUntilLikeStatus(.indifferent)
         #expect(reverted)
     }
@@ -311,8 +305,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.mockClient.rateSongCalled == false)
     }
 
-    // MARK: - Dislike Current Track Tests
-
     @Test("dislikeCurrentTrack does nothing when no current track")
     func dislikeCurrentTrackNoTrack() async {
         #expect(self.playerService.currentTrack == nil)
@@ -382,7 +374,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
         let reverted = await self.waitUntilLikeStatus(.indifferent)
         #expect(reverted)
     }
@@ -421,8 +412,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
         #expect(self.mockClient.rateSongCalled == false)
     }
-
-    // MARK: - Toggle Library Status Tests
 
     @Test("toggleLibraryStatus does nothing when no current track")
     func toggleLibraryStatusNoTrack() async {
@@ -1081,8 +1070,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "add-token", remove: "remove-token"))
     }
 
-    // MARK: - Update Like Status Tests
-
     @Test("Initial track status uses Song rating without feedback tokens")
     func initialTrackStatusUsesSongRatingWithoutFeedbackTokens() {
         var song = TestFixtures.makeSong(id: "row-rating-without-tokens")
@@ -1410,8 +1397,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrack?.artists == fetchedArtists)
         #expect(self.playerService.queue.first?.artists == fetchedArtists)
     }
-
-    // MARK: - Reset Track Status Tests
 
     @Test("resetTrackStatus clears observed WebView like status evidence")
     func resetTrackStatusClearsWebViewLikeStatusEvidence() {

@@ -1,9 +1,5 @@
 import AppIntents
 
-/// App Shortcuts: Siri phrases and Spotlight actions that work without any setup.
-///
-/// Phrases are localized from `AppShortcuts.xcstrings`; `Scripts/build-app.sh` fails the
-/// build when a phrase here has no catalog entry. Every phrase must name the app.
 struct KasetShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(

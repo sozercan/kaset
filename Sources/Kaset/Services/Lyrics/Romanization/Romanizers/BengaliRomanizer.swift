@@ -1,6 +1,5 @@
 import Foundation
 
-/// Romanizes Bengali text using macOS's built-in CFStringTokenizer.
 enum BengaliRomanizer {
     static func romanize(_ text: String) -> String? {
         let cfText = text as CFString

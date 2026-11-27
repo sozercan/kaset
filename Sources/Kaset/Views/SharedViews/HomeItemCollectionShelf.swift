@@ -1,21 +1,12 @@
 import AppKit
 import SwiftUI
 
-// MARK: - HomeItemShelfSection
-
-// A header plus a horizontal shelf of ``HomeSectionItem`` cards for the Home,
-// Explore, Charts, New Releases and Moods pages. Only the header is SwiftUI: the
-// shelf is a plain `NSScrollView` of single-view native cards, with native glass
-// paging arrows. See ADR-0038 for the measurements behind each piece.
-
 struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
     let accessibilityLabel: String
     let items: [HomeSectionItem]
     let isChart: Bool
     let contentInset: CGFloat
-    /// Invoked on click (or Return) with the item and its index in `items`.
     let action: (HomeSectionItem, Int) -> Void
-    /// Optional quick-play action for playlists, exposed as an accessibility action.
     let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
     let header: () -> Header
     let contextMenu: ((HomeSectionItem, Int) -> MenuContent)?
@@ -43,9 +34,6 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             self.header()
-                // The header keeps the resting inset; the shelf below reaches
-                // edge-to-edge and insets its own content so items scroll under
-                // the floating glass sidebar.
                 .padding(.horizontal, self.contentInset)
 
             HomeItemCollectionShelf(
@@ -57,8 +45,6 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
                 contextMenu: self.contextMenu.map { menu in { item, index in AnyView(menu(item, index)) } },
                 accessibilityLabel: self.accessibilityLabel
             )
-            // The paging arrows are native (see `HomeItemShelfContainerView`);
-            // only the shelf's accessibility container stays in SwiftUI.
             .accessibilityElement(children: .contain)
             .accessibilityLabel(self.accessibilityLabel)
         }
@@ -86,9 +72,6 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
     }
 }
 
-// MARK: - HomeItemCollectionShelf
-
-/// Thin SwiftUI wrapper around ``HomeItemShelfView``.
 struct HomeItemCollectionShelf: NSViewRepresentable {
     let items: [HomeSectionItem]
     let isChart: Bool
@@ -98,8 +81,6 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
     let contextMenu: ((HomeSectionItem, Int) -> AnyView)?
     let accessibilityLabel: String
 
-    /// Forwarded into the hosted play overlay and context menu so they see the
-    /// same observable services as the rest of the page.
     @Environment(\.self) private var environment
 
     func makeCoordinator() -> HomeItemShelfView {
@@ -117,9 +98,6 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
         self.configure(context.coordinator)
     }
 
-    /// The shelf's size is fixed by its container. Without this, SwiftUI sizes the
-    /// platform view through Auto Layout (`intrinsicLayoutTraits` and a window
-    /// constraint pass) every time a shelf is realized mid-scroll.
     func sizeThatFits(_ proposal: ProposedViewSize, nsView _: HomeItemShelfContainerView, context _: Context) -> CGSize? {
         CGSize(width: proposal.width ?? 0, height: HomeItemCell.height)
     }
@@ -141,13 +119,6 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
     }
 }
 
-// MARK: - HomeItemShelfView
-
-/// The AppKit shelf: a horizontal `NSScrollView` whose document view owns one
-/// ``HomeItemCell`` per item for the shelf's lifetime. A shelf holds at most a
-/// few dozen items, so nothing is recycled: `NSCollectionView` reuse rebuilt
-/// and reconfigured every cell each time a shelf scrolled back onto the page,
-/// and that rebuild was the single dropped frame per shelf that remained.
 @MainActor
 final class HomeItemShelfView: NSObject {
     struct Configuration {
@@ -201,7 +172,6 @@ final class HomeItemShelfView: NSObject {
             if hasWindow {
                 self.refreshHoverFromMouseLocation()
             } else {
-                // A shelf detached while hovered never receives `mouseExited`.
                 self.updateHover(at: nil)
                 self.containerView.setHovering(false)
             }
@@ -218,26 +188,18 @@ final class HomeItemShelfView: NSObject {
         self.containerView.install(scrollView: self.scrollView, contentInset: contentInset)
         self.containerView.pageHandler = { [weak self] side in
             guard let self else { return }
-            // Arrows are physical; paging is logical.
             self.page(CarouselShelfDirection(isLeft: side == .left, in: self.configuration.environment.layoutDirection))
         }
         self.scrollView.hasHorizontalScroller = false
         self.scrollView.hasVerticalScroller = false
         self.scrollView.horizontalScrollElasticity = .allowed
         self.scrollView.verticalScrollElasticity = .none
-        // Vertical wheel/trackpad scrolling over a shelf must reach the page's
-        // vertical scroll view: with predominant-axis scrolling the shelf only
-        // consumes horizontal gestures.
         self.scrollView.usesPredominantAxisScrolling = true
         self.scrollView.drawsBackground = false
         self.scrollView.contentView.postsBoundsChangedNotifications = true
-        // A resize can change the frame without posting a bounds notification.
         self.scrollView.contentView.postsFrameChangedNotifications = true
     }
 
-    /// Scroll observers live only while the shelf is installed. SwiftUI
-    /// removes and re-adds platform views as they cross the viewport, so this
-    /// must survive multiple attach/detach cycles.
     func installObservers() {
         guard self.observers.isEmpty else { return }
         self.observers = [
@@ -264,19 +226,12 @@ final class HomeItemShelfView: NSObject {
             NotificationCenter.default.removeObserver(observer)
         }
         self.observers = []
-        // Retire the like-status observation with the rest: bumping the tick
-        // fires and disposes the armed registration, whose callback is inert
-        // for the old generation. `installObservers()` re-arms it.
         self.likeObservationGeneration += 1
         self.observedSongIDs = []
         self.observationTick.value += 1
     }
 
-    // MARK: Configuration
-
     func apply(_ configuration: Configuration) {
-        // Card widths depend on item metadata, so a same-ID item that gains or
-        // loses video mode is a layout change too.
         let layoutKey = { (items: [HomeSectionItem]) in items.map { "\($0.id)@\(HomeItemCell.width(for: $0))" } }
         let directionChanged = self.configuration.environment.layoutDirection != configuration.environment.layoutDirection
         let structureChanged = layoutKey(self.configuration.items) != layoutKey(configuration.items)
@@ -293,16 +248,12 @@ final class HomeItemShelfView: NSObject {
         if structureChanged {
             self.rebuildCells()
         } else {
-            // Same items: reconfigure in place so titles, explicit flags, like
-            // availability and the menu's captured item track the model.
-            // `configure` is a no-op when nothing relevant changed.
             self.configureCells()
         }
     }
 
     private func rebuildCells() {
         let items = self.configuration.items
-        // Grow or shrink the pool; existing cells are reconfigured in place.
         while self.cells.count > items.count {
             self.cells.removeLast().removeFromSuperview()
         }
@@ -315,8 +266,6 @@ final class HomeItemShelfView: NSObject {
         self.configureCells()
         self.documentView.cells = self.cells
         self.layoutCells()
-        // Drop the previous hover explicitly (the cell may have been retained)
-        // and re-resolve it from the pointer for the new layout.
         if let hovered = self.hoveredIndex, hovered < self.cells.count {
             self.cells[hovered].setHovered(false, animated: false)
         }
@@ -334,7 +283,6 @@ final class HomeItemShelfView: NSObject {
         let widths = self.configuration.items.map { HomeItemCell.width(for: $0) }
         let contentWidth = widths.isEmpty ? 0 : widths.reduce(0, +)
             + CGFloat(widths.count - 1) * Self.itemSpacing + 2 * self.contentInset
-        // Fill the viewport so a short RTL shelf still starts at the right inset.
         let documentWidth = max(contentWidth, self.layoutViewportWidth)
         var position = self.contentInset
         for (index, width) in widths.enumerated() {
@@ -369,22 +317,14 @@ final class HomeItemShelfView: NSObject {
                 return NSHostingMenu(rootView: contextMenu(item, index).environment(\.self, self.configuration.environment))
             }
         }
-        // Keep the registration for unchanged songs, but resolve their current
-        // metadata fallback even when the manager's cache has not changed.
         self.observeLikeStatus()
         self.pushLikedState()
     }
-
-    // MARK: Like status
 
     private var likeObservationGeneration = 0
     private var observedSongIDs: [String] = []
     private let observationTick = ObservationTick()
 
-    /// One armed observation per shelf: reads every song's liked state under
-    /// tracking, pushes it to the cards, and re-arms from its own callback.
-    /// Routine representable updates must not add registrations, so a new
-    /// observation is only started when the observed song set changes.
     private func observeLikeStatus(force: Bool = false) {
         let songs: [(Int, Song)] = self.configuration.items.enumerated().compactMap { index, item in
             if case let .song(song) = item {
@@ -392,15 +332,11 @@ final class HomeItemShelfView: NSObject {
             }
             return nil
         }
-        // Identity includes the position: non-song cards moving around the
-        // same songs still changes which card each liked state belongs to.
         let songIDs = songs.map { "\($0.0):\($0.1.id)" }
         guard force || songIDs != self.observedSongIDs else { return }
         self.observedSongIDs = songIDs
         self.likeObservationGeneration += 1
         let generation = self.likeObservationGeneration
-        // Bumping the tick fires (and so disposes) the previous one-shot
-        // registration, whose callback is inert for the old generation.
         self.observationTick.value += 1
         let manager = SongLikeStatusManager.shared
         guard !songs.isEmpty else { return }
@@ -431,12 +367,6 @@ final class HomeItemShelfView: NSObject {
         self.configuration.action(self.configuration.items[index], index)
     }
 
-    // MARK: Hover
-
-    /// Resolves which cell (if any) is under `point` in document coordinates
-    /// and moves the hover state there. Driven by mouse moves and by
-    /// scroll-bounds changes, so cells that slide out from under a stationary
-    /// pointer (paging, momentum) drop their hover.
     private func updateHover(at point: NSPoint?) {
         let next = point.flatMap { self.documentView.cellIndex(at: $0) }
         guard next != self.hoveredIndex else { return }
@@ -452,21 +382,15 @@ final class HomeItemShelfView: NSObject {
     private func refreshHoverFromMouseLocation() {
         guard let window = self.scrollView.window else { return }
         let point = self.documentView.convert(window.mouseLocationOutsideOfEventStream, from: nil)
-        // The tracking area is active only in the key window, so no
-        // `mouseExited` would clear hover resolved while the window is not key.
         let inside = window.isKeyWindow && self.documentView.visibleRect.contains(point)
         self.updateHover(at: inside ? point : nil)
         self.containerView.setHovering(inside)
     }
 
-    // MARK: Overflow + paging
-
     private func scrollGeometryDidChange() {
         guard !self.isLayingOutCells else { return }
         let visible = self.scrollView.contentView.bounds
         if visible.width != self.layoutViewportWidth {
-            // AppKit may already have clamped the physical origin after a
-            // resize. Preserve the previously recorded distance from leading.
             self.layoutCells()
         } else {
             let maxX = max(0, self.documentView.frame.width - visible.width)
@@ -479,12 +403,8 @@ final class HomeItemShelfView: NSObject {
 
     private func updateOverflow() {
         let visible = self.scrollView.contentView.bounds
-        // Before SwiftUI sizes the shelf every item looks clipped; reporting
-        // that would show an arrow only to fade it out at the real width.
         guard visible.width > 0 else { return }
         let contentWidth = self.documentView.frame.width
-        // The first report lands while the shelf is being built (often as it
-        // scrolls into view); only later changes animate.
         self.containerView.setArrows(
             left: visible.minX > 1,
             right: contentWidth - visible.maxX > 1,
@@ -516,26 +436,16 @@ final class HomeItemShelfView: NSObject {
     }
 }
 
-// MARK: - ObservationTick
-
-/// An observable counter read inside a tracked closure so that bumping it
-/// fires — and thereby disposes — an otherwise one-shot observation.
 @MainActor
 @Observable
 private final class ObservationTick {
     var value = 0
 }
 
-// MARK: - HomeItemShelfDocumentView
-
-/// Flipped document view holding the shelf's cell views; owns the single
-/// tracking area used for hover and turns clicks into item activations.
 @MainActor
 private final class HomeItemShelfDocumentView: NSView {
     var hoverHandler: ((NSPoint?) -> Void)?
-    /// Called with whether the view is now in a window.
     var windowHandler: ((Bool) -> Void)?
-    /// `(index, isLikeControl)`.
     var clickHandler: ((Int, Bool) -> Void)?
     var cells: [HomeItemCell] = []
     private var trackingArea: NSTrackingArea?
@@ -589,8 +499,6 @@ private final class HomeItemShelfDocumentView: NSView {
         self.hoverHandler?(nil)
     }
 
-    /// Choose the recipient once per gesture, including its momentum and
-    /// zero-delta end events. Wheel events without phases remain independent.
     override func scrollWheel(with event: NSEvent) {
         guard let page = self.enclosingScrollView?.enclosingScrollView else {
             self.scrollsPageForGesture = nil
@@ -625,8 +533,6 @@ private final class HomeItemShelfDocumentView: NSView {
             } else if isEnding {
                 self.scrollsPageForGesture = false
             } else {
-                // Start events can precede the first movement. Deliver them
-                // to the chosen scroll view before its first nonzero sample.
                 if phase.contains(.began) || momentum.contains(.began) {
                     self.pendingScrollStartEvents.append(event)
                 }
@@ -640,8 +546,6 @@ private final class HomeItemShelfDocumentView: NSView {
             self.routeScrollEvent(start, to: destination)
         }
         self.routeScrollEvent(event, to: destination)
-        // A physical end can be followed by momentum. Retain the recipient
-        // until momentum finishes or another gesture begins.
         if phase.contains(.cancelled) || !momentum.isDisjoint(with: [.ended, .cancelled]) {
             self.scrollsPageForGesture = nil
         }
@@ -655,7 +559,6 @@ private final class HomeItemShelfDocumentView: NSView {
         }
     }
 
-    /// What is under `point`: the card, its like control, or nothing.
     private func target(at point: NSPoint) -> PressTarget? {
         guard let index = self.cellIndex(at: point) else { return nil }
         let cell = self.cells[index]
@@ -669,8 +572,6 @@ private final class HomeItemShelfDocumentView: NSView {
         self.pressTarget = self.target(at: self.convert(event.locationInWindow, from: nil))
     }
 
-    /// A press only dispatches if it is released on the same target it began
-    /// on, so dragging off the like control (or onto it) cancels.
     override func mouseUp(with event: NSEvent) {
         defer { self.pressTarget = nil }
         let point = self.convert(event.locationInWindow, from: nil)

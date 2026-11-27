@@ -1,11 +1,5 @@
 import Foundation
 
-/// Centralizes Library identity semantics that YouTube Music exposes through multiple ID shapes.
-///
-/// Library playlist tiles can surface either a `VL...` browse ID or the raw playlist ID, while
-/// followed artists can surface as `MPLAUC...` library browse IDs or public `UC...` channel IDs.
-/// This module gives parsers, view models, and test adapters one interface for equality,
-/// canonical artist values, and stable de-duplication.
 enum LibraryContentIdentity {
     static func playlistKey(for playlistID: String) -> String {
         if playlistID.hasPrefix("VL") {

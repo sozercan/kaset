@@ -1,9 +1,6 @@
 import CoreTransferable
 import Foundation
 
-// MARK: - Song
-
-/// Represents a song/track from YouTube Music.
 struct Song: Identifiable, Codable, Hashable {
     let id: String
     let title: String
@@ -14,40 +11,22 @@ struct Song: Identifiable, Codable, Hashable {
     let videoId: String
     let isPlayable: Bool
 
-    /// Whether this track has a music video available.
     var hasVideo: Bool?
 
-    /// The type of music video (OMV, ATV, UGC, etc.).
-    /// Use `musicVideoType?.hasVideoContent` to check if video is worth displaying.
     var musicVideoType: MusicVideoType?
 
-    /// Like/dislike status of the song (nil if unknown).
     var likeStatus: LikeStatus?
 
-    /// Whether the song is in the user's library (nil if unknown).
     var isInLibrary: Bool?
 
-    /// Feedback tokens for library add/remove operations.
     var feedbackTokens: FeedbackTokens?
 
-    /// Whether this song carries an explicit-content badge (nil if unknown).
     var isExplicit: Bool?
 
-    /// This track's occurrence-specific identifier within a playlist, required to remove
-    /// the correct instance (the same song can appear more than once in a playlist).
-    /// Only populated when the song was parsed from a playlist's track list.
     var playlistSetVideoId: String?
 
-    /// Video ID of this track's audio recording, when the row itself is a music video.
-    ///
-    /// Album rows are sometimes official music videos (`MUSIC_VIDEO_TYPE_OMV`). YouTube
-    /// Music still advertises the audio recording of the same track in the row's
-    /// credits menu, and this carries that ID. `nil` when the row is already an audio
-    /// recording or when no credits entry was present — use `preferredAudioVideoId`
-    /// to resolve either case.
     var audioTrackVideoId: String?
 
-    /// The audio recording to prefer for this track, falling back to `videoId`.
     var preferredAudioVideoId: String {
         self.audioTrackVideoId ?? self.videoId
     }
@@ -71,7 +50,6 @@ struct Song: Identifiable, Codable, Hashable {
         case audioTrackVideoId
     }
 
-    /// Memberwise initializer with default values for mutable properties.
     init(
         id: String,
         title: String,
@@ -169,7 +147,6 @@ struct Song: Identifiable, Codable, Hashable {
         )
     }
 
-    /// An ID-only song titled "Loading..." whose title, artists and artwork are filled in later.
     static func placeholder(videoId: String) -> Song {
         Song(
             id: videoId,
@@ -179,12 +156,10 @@ struct Song: Identifiable, Codable, Hashable {
         )
     }
 
-    /// Display string for artists (comma-separated).
     var artistsDisplay: String {
         self.artists.map(\.name).joined(separator: ", ")
     }
 
-    /// Formatted duration string (e.g., "3:45").
     var durationDisplay: String {
         guard let duration else { return "--:--" }
         let minutes = Int(duration) / 60
@@ -192,12 +167,10 @@ struct Song: Identifiable, Codable, Hashable {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    /// YouTube's public video thumbnail as a fallback when the API doesn't provide one.
     var fallbackThumbnailURL: URL? {
         URL(string: "https://i.ytimg.com/vi/\(self.videoId)/hqdefault.jpg")
     }
 
-    /// YouTube's public high-quality 16:9 thumbnail for wide video cards.
     var wideHighQualityThumbnailURL: URL? {
         var components = URLComponents(string: "https://i.ytimg.com/vi/\(self.videoId)/hq720.jpg")
         components?.queryItems = [URLQueryItem(name: "kaset", value: "wide-v2")]
@@ -206,7 +179,6 @@ struct Song: Identifiable, Codable, Hashable {
 }
 
 extension Song {
-    /// Creates a Song from YouTube Music API response data.
     init?(from data: [String: Any]) {
         guard let videoId = data["videoId"] as? String else { return nil }
 
@@ -214,21 +186,18 @@ extension Song {
         self.videoId = videoId
         self.title = (data["title"] as? String) ?? "Unknown Title"
 
-        // Parse artists
         if let artistsData = data["artists"] as? [[String: Any]] {
             self.artists = artistsData.compactMap { Artist(from: $0) }
         } else {
             self.artists = []
         }
 
-        // Parse album
         if let albumData = data["album"] as? [String: Any] {
             self.album = Album(from: albumData)
         } else {
             self.album = nil
         }
 
-        // Parse duration (in seconds)
         if let durationSeconds = data["duration_seconds"] as? Double {
             self.duration = durationSeconds
         } else if let durationString = data["duration"] as? String {
@@ -237,7 +206,6 @@ extension Song {
             self.duration = nil
         }
 
-        // Parse thumbnail
         if let thumbnails = data["thumbnails"] as? [[String: Any]],
            let lastThumbnail = thumbnails.last,
            let urlString = lastThumbnail["url"] as? String
@@ -251,7 +219,6 @@ extension Song {
         self.isExplicit = ParsingHelpers.extractIsExplicit(from: data)
     }
 
-    /// Parses duration string like "3:45" to TimeInterval.
     private static func parseDuration(_ string: String) -> TimeInterval? {
         let components = string.split(separator: ":").compactMap { Int($0) }
         guard components.count >= 2 else { return nil }
@@ -265,11 +232,8 @@ extension Song {
     }
 }
 
-// MARK: - Equatable & Hashable
-
 extension Song {
     static func == (lhs: Song, rhs: Song) -> Bool {
-        // Compare by video ID for identity equality
         lhs.videoId == rhs.videoId
     }
 
@@ -277,8 +241,6 @@ extension Song {
         hasher.combine(self.videoId)
     }
 }
-
-// MARK: Transferable
 
 extension Song: Transferable {
     static var transferRepresentation: some TransferRepresentation {

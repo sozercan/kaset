@@ -1,8 +1,6 @@
 "Ad" = "Reklam";
 "Advertisement" = "Reklam";
 
-// Localizable.strings
-
 "%lld songs" = "%lld şarkı";
 "%lld songs listened today" = "Bugün %lld şarkı dinlendi";
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "\"Canlı\", video oynatıldıkça renkleri değiştirir; diğerleri sabit kalır";
@@ -557,7 +555,6 @@
 "YouTube" = "YouTube";
 "YouTube video" = "YouTube videosu";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Gemini'ye Sor";
 "Ask about this video..." = "Bu video hakkında sorun...";
 "Ask anything about this video..." = "Bu video hakkında istediğinizi sorun...";
@@ -578,7 +575,6 @@
 "Ask Gemini response ready" = "Gemini'ye Sor yanıtı hazır";
 "New Ask Gemini chat ready" = "Yeni Gemini sohbeti hazır";
 
-// Appearance
 "Appearance" = "Görünüm";
 "App Appearance" = "Uygulama Görünümü";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Kaset için açık veya koyu modu seçin ya da macOS ayarını kullanın";
@@ -586,7 +582,6 @@
 "Light Mode" = "Açık Mod";
 "Dark Mode" = "Koyu Mod";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "Müzik Çal";
 "Play Song" = "Şarkı Çal";
 "Play Playlist" = "Çalma Listesi Çal";
@@ -633,7 +628,6 @@
 "Couldn't play “%@”." = "“%@” çalınamadı.";
 "Couldn't rate “%@”." = "“%@” derecelendirilemedi.";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "Uzantı okunamadı. Uzantıyı kaldırıp yeniden ekleyin.";
 "The extension's access changed. Review it again before enabling it." = "Uzantının erişimi değişti. Etkinleştirmeden önce yeniden inceleyin.";
 "Extension Error" = "Uzantı Hatası";

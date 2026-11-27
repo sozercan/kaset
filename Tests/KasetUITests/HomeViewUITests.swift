@@ -1,41 +1,30 @@
 import XCTest
 
-/// UI tests for the HomeView.
 @MainActor
 final class HomeViewUITests: KasetUITestCase {
-    // MARK: - Basic Display
-
     func testHomeViewDisplaysTitle() {
         launchWithMockHome()
 
         navigateToHome()
 
-        // Verify Home title is displayed
         let title = app.staticTexts["Home"]
         XCTAssertTrue(waitForElement(title), "Home title should be visible")
     }
 
     func testHomeViewShowsLoadingState() {
-        // Launch without mock data to see loading state
         launchDefault()
 
         navigateToHome()
 
-        // The view should eventually load or show content
-        // In test mode, it should transition quickly
         let homeTitle = app.staticTexts["Home"]
         XCTAssertTrue(waitForElement(homeTitle, timeout: 10))
     }
-
-    // MARK: - Content Display
 
     func testHomeViewDisplaysSections() {
         launchWithMockHome(sectionCount: 3, itemsPerSection: 5)
 
         navigateToHome()
 
-        // Wait for content to load
-        // Look for section titles in the scroll view
         let scrollView = app.scrollViews[TestAccessibilityID.Home.scrollView]
         XCTAssertTrue(waitForElement(scrollView, timeout: 10), "Scroll view should exist")
     }
@@ -48,39 +37,30 @@ final class HomeViewUITests: KasetUITestCase {
         let scrollView = app.scrollViews[TestAccessibilityID.Home.scrollView]
         XCTAssertTrue(waitForElement(scrollView))
 
-        // Verify scrolling works
         scrollView.swipeUp()
         scrollView.swipeDown()
     }
-
-    // MARK: - Player Bar Presence
 
     func testHomeViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
 
-        // Player bar should be visible at the bottom
-        // Look for play/pause button as indicator
         let playPauseButton = app.buttons.matching(
             NSPredicate(format: "label CONTAINS 'Play' OR label CONTAINS 'Pause'")
         ).firstMatch
         XCTAssertTrue(waitForElement(playPauseButton, timeout: 10), "Player bar should show play/pause button")
     }
 
-    // MARK: - Navigation from Home
-
     func testCanNavigateFromHomeToOtherViews() {
         launchWithMockHome()
 
         navigateToHome()
 
-        // Navigate to Search
         navigateToSearch()
         let searchTitle = app.staticTexts["Search"]
         XCTAssertTrue(waitForElement(searchTitle))
 
-        // Navigate back to Home
         navigateToHome()
         let homeTitle = app.staticTexts["Home"]
         XCTAssertTrue(waitForElement(homeTitle))

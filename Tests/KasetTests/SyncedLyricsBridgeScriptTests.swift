@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - SyncedLyricsBridgeScriptTests
-
 @Suite(.serialized, .tags(.service))
 struct SyncedLyricsBridgeScriptTests {
     @Test("Synced lyrics display bucket follows current line")
@@ -229,7 +227,7 @@ struct SyncedLyricsBridgeScriptTests {
         let lineMessageCount = context.evaluateScript("postedMessages.filter(function(m) { return m.type === 'LYRICS_LINE'; }).length")?.toInt32() ?? -1
 
         #expect(timeoutCountBeforeStart == 0)
-        #expect(finalTimeoutCount == 1) // explicit start only; seek after stop adds none
+        #expect(finalTimeoutCount == 1)
         #expect(lineMessageCount == 1)
     }
 
@@ -313,8 +311,6 @@ struct SyncedLyricsBridgeScriptTests {
         }
     }
 }
-
-// MARK: - TestScriptError
 
 private enum TestScriptError: Error {
     case javaScriptException(String)

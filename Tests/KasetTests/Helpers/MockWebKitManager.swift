@@ -1,12 +1,8 @@
 import Foundation
 @testable import Kaset
 
-/// A mock implementation of WebKitManagerProtocol for testing.
-/// Does not interact with real WebKit or file storage.
 @MainActor
 final class MockWebKitManager: WebKitManagerProtocol {
-    // MARK: - Response Stubs
-
     var allCookies: [HTTPCookie] = []
     var sapisidValue: String?
     var getSAPISIDGate: (@Sendable () async -> Void)?
@@ -30,25 +26,15 @@ final class MockWebKitManager: WebKitManagerProtocol {
     var waitForInitialCookieRestoreResult: CookieRestoreResult = .ready
     var waitForInitialCookieRestoreGate: (@Sendable () async -> Void)?
 
-    /// When set, `switchSessionIdentity` throws this error instead of succeeding.
     var switchSessionIdentityError: Error?
 
-    /// Per-call scripted outcomes (front of queue first); `nil` = succeed. Takes
-    /// precedence over `switchSessionIdentityError` while non-empty.
     var switchSessionIdentityErrorQueue: [Error?] = []
 
-    /// Optional async gate awaited inside `switchSessionIdentity` so a test can
-    /// hold a pin "in flight" to exercise cancel/await ordering.
     var switchSessionIdentityGate: (@Sendable () async -> Void)?
 
-    /// Per-call gates (front of queue first); `nil` = no gate for that call.
-    /// Takes precedence over `switchSessionIdentityGate` while non-empty.
     var switchSessionIdentityGateQueue: [(@Sendable () async -> Void)?] = []
 
-    /// URLs passed to `switchSessionIdentity`, in call order.
     private(set) var switchSessionIdentityURLs: [URL] = []
-
-    // MARK: - Call Tracking
 
     private(set) var getAllCookiesCalled = false
     private(set) var getCookiesForDomainCalled = false
@@ -77,8 +63,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
     private(set) var switchSessionIdentityExpectedBrandIds: [String?] = []
     private(set) var switchSessionIdentityCompletedBrandIds: [String?] = []
     private(set) var callSequence: [String] = []
-
-    // MARK: - Protocol Implementation
 
     func getAllCookies() async -> [HTTPCookie] {
         self.getAllCookiesCalled = true
@@ -138,7 +122,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.clearAllDataCalled = true
         self.callSequence.append("clearAllData")
         await self.clearAllDataGate?()
-        // Does NOT clear real data - this is a mock
         self.allCookies = []
         self.sapisidValue = nil
         self.activeCookieBackupTransaction = nil
@@ -151,7 +134,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.forceBackupCookiesCallCount += 1
         self.callSequence.append("forceBackupCookies")
         await self.forceBackupCookiesGate?()
-        // Does NOT interact with real file storage
         if !self.forceBackupCookiesResults.isEmpty {
             return self.forceBackupCookiesResults.removeFirst()
         }
@@ -250,7 +232,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
     func logAuthCookies() async {
         self.logAuthCookiesCalled = true
-        // No-op in mock
     }
 
     func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws {
@@ -260,9 +241,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.switchSessionIdentityURLs.append(signinURL)
         self.callSequence.append("switchSessionIdentity")
 
-        // Optional gate: lets a test hold a "pin" in flight (e.g. a cold-launch
-        // restore) to exercise cancel/await ordering. Honors cooperative
-        // cancellation so the production cancel+await returns promptly.
         let gate = if !self.switchSessionIdentityGateQueue.isEmpty {
             self.switchSessionIdentityGateQueue.removeFirst()
         } else {
@@ -273,7 +251,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
             try Task.checkCancellation()
         }
 
-        // Per-call failure scripting (front of queue), else the sticky error.
         if !self.switchSessionIdentityErrorQueue.isEmpty {
             if let scripted = self.switchSessionIdentityErrorQueue.removeFirst() {
                 throw scripted
@@ -285,9 +262,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.switchSessionIdentityCompletedBrandIds.append(expectedBrandId)
     }
 
-    // MARK: - Helper Methods
-
-    /// Resets all call tracking.
     func reset() {
         self.getAllCookiesCalled = false
         self.getCookiesForDomainCalled = false

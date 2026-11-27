@@ -1,8 +1,6 @@
 import Testing
 @testable import Kaset
 
-// MARK: - MusicPlaybackEndedIdentityRecoveryTests
-
 @Suite(.tags(.service))
 struct MusicPlaybackEndedIdentityRecoveryTests {
     @Test("Ended retry refreshes identity after metadata resolves")

@@ -3,8 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-// MARK: - PlayerBarNavigationTests
-
 @MainActor
 @Suite(.serialized, .tags(.model))
 struct PlayerBarNavigationTests {
@@ -22,8 +20,6 @@ struct PlayerBarNavigationTests {
             libraryTargetId: libraryTargetId
         )
     }
-
-    // MARK: - Navigation
 
     @Test("appending(to:) pushes artists and albums onto the path")
     func appendingPushesOntoPath() {
@@ -58,8 +54,6 @@ struct PlayerBarNavigationTests {
         pushedAction.openArtist?(Self.artist)
         #expect(store.path.count == 2)
     }
-
-    // MARK: - Current Route
 
     @Test("Only album pages report album IDs, including the loaded library alias")
     func albumIDsIncludeLibraryAlias() {
@@ -112,8 +106,6 @@ struct PlayerBarNavigationTests {
         #expect(!PlayerBarCurrentRoute.isArtist(Self.artist, routeArtistID: nil))
     }
 
-    // MARK: - Hosting
-
     private static func host(_ view: some View, until isReady: () -> Bool) -> NSWindow {
         _ = NSApplication.shared
         let window = NSWindow(
@@ -126,7 +118,6 @@ struct PlayerBarNavigationTests {
         window.contentView = NSHostingView(rootView: view)
         window.orderFrontRegardless()
 
-        // The first hosted window in a test process can take seconds to warm up.
         let deadline = Date().addingTimeInterval(30)
         while !isReady(), Date() < deadline {
             RunLoop.main.run(until: Date().addingTimeInterval(0.01))
@@ -134,8 +125,6 @@ struct PlayerBarNavigationTests {
         return window
     }
 }
-
-// MARK: - PathStore
 
 @MainActor
 private final class PathStore {
@@ -146,14 +135,10 @@ private final class PathStore {
     }
 }
 
-// MARK: - ActionProbe
-
 @MainActor
 private final class ActionProbe {
     var actions: [String: PlayerBarNavigationAction] = [:]
 }
-
-// MARK: - ActionReader
 
 private struct ActionReader: View {
     let label: String

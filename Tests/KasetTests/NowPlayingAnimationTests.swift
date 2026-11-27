@@ -2,10 +2,6 @@ import AppKit
 import Testing
 @testable import Kaset
 
-// MARK: - NowPlayingAnimationTests
-
-/// The equalizer and the player bar marquee animate with Core Animation, so the
-/// render server drives their frames; these tests pin the animation setup.
 @Suite(.tags(.model))
 @MainActor
 struct NowPlayingAnimationTests {
@@ -44,8 +40,6 @@ struct NowPlayingAnimationTests {
             isRightToLeft: false
         )
     }
-
-    // MARK: Equalizer
 
     @Test("Playing bars repeat in Core Animation while in a window")
     func equalizerAnimatesInWindow() {
@@ -96,8 +90,6 @@ struct NowPlayingAnimationTests {
         #expect(view.hitTest(NSPoint(x: 7, y: 7)) == nil)
     }
 
-    // MARK: Marquee cycle
-
     @Test("Titles that fit, or Reduce Motion, never scroll")
     func marqueeCycleOnlyForOverflow() {
         #expect(PlayerBarMarqueeCycle(textWidth: 100, containerWidth: 110, reduceMotion: false) == nil)
@@ -119,7 +111,6 @@ struct NowPlayingAnimationTests {
         #expect(offsets.first?.time == 0)
         #expect(offsets.last?.time == cycle.period)
         #expect(abs(offsets[1].time - 1.2) < 0.0001)
-        // Scrolling ends one reset fade before the period does, and jumps back at once.
         #expect(abs(offsets[2].time - (cycle.period - PlayerBarMarqueeCycle.resetFadeDuration)) < 0.0001)
         #expect(offsets[2].time == offsets[3].time)
 
@@ -130,8 +121,6 @@ struct NowPlayingAnimationTests {
             #expect(zip(keyframes, keyframes.dropFirst()).allSatisfy { $0 <= $1 })
         }
     }
-
-    // MARK: Marquee view
 
     @Test("Overflowing titles scroll in Core Animation; fitting titles stay put")
     func marqueeViewAnimatesOnlyOverflow() throws {
@@ -146,8 +135,6 @@ struct NowPlayingAnimationTests {
         let scroll = view.layer?.sublayers?.first?.animation(forKey: PlayerBarMarqueeView.scrollAnimationKey)
         #expect(scroll?.duration == period)
         #expect(scroll?.repeatCount == .infinity)
-        // The fade tracks leave `duration` at 0; adding the group gives them its duration,
-        // so they span the whole cycle rather than the 0.25 s animation default.
         let fade = try #require(view.layer?.mask?.animation(forKey: PlayerBarMarqueeView.fadeAnimationKey) as? CAAnimationGroup)
         #expect(fade.duration == period)
         #expect(fade.repeatCount == .infinity)

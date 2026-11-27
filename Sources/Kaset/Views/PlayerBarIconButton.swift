@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarIconButton
-
 struct PlayerBarIconButton<Icon: View>: View {
     let action: () -> Void
     var isSelected = false
@@ -55,16 +53,12 @@ struct PlayerBarIconButton<Icon: View>: View {
     }
 }
 
-// MARK: - PlayerBarIconButtonMetrics
-
 private enum PlayerBarIconButtonMetrics {
     static let size: CGFloat = 28
     static let cornerRadius: CGFloat = 8
     static let hoverOpacity = 0.08
     static let selectedOpacity = 0.06
 }
-
-// MARK: - PlayerBarIconButtonStyle
 
 private struct PlayerBarIconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -74,8 +68,6 @@ private struct PlayerBarIconButtonStyle: ButtonStyle {
             .animation(AppAnimation.quick, value: configuration.isPressed)
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

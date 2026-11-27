@@ -1,9 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - MiniPlayerWindowController
-
-/// Manages the Apple Music-style floating mini player window.
 @MainActor
 final class MiniPlayerWindowController {
     static let shared = MiniPlayerWindowController()
@@ -17,7 +14,6 @@ final class MiniPlayerWindowController {
 
     private init() {}
 
-    /// Creates an isolated controller without presenting a window or loading playback.
     static func makeTestInstance(window: NSWindow, playerService: PlayerService) -> MiniPlayerWindowController {
         let controller = MiniPlayerWindowController()
         controller.window = window

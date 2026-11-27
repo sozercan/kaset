@@ -91,3 +91,6 @@ Measured, and therefore rejected:
   material where SwiftUI uses `.ultraThinMaterial`.
 - `CarouselShelfSection`/`CarouselShelf` remain for non-`HomeSectionItem`
   shelves (Favorites, Artist detail, Podcasts, YouTube).
+- Card updates compare rendering and action metadata in addition to playback
+  identity. `Song` equality alone would hide changes to a row's title, artwork,
+  or action payload when the video ID is unchanged.

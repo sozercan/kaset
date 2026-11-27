@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LRCParser
-
 enum LRCParser {
     static func parse(_ raw: String) -> SyncedLyrics? {
         var unmergedLines: [SyncedLyricLine] = []
@@ -9,7 +7,6 @@ enum LRCParser {
 
         let lines = raw.components(separatedBy: .newlines)
 
-        // Match regex for timestamps and metadata
         let timeRegex = try? NSRegularExpression(pattern: "\\[(\\d{2,}):(\\d{2})\\.(\\d{2,3})\\]")
         let metadataRegex = try? NSRegularExpression(pattern: "\\[([a-z]+):([^\\]]+)\\]")
         let wordRegex = try? NSRegularExpression(pattern: "<(\\d{2,}):(\\d{2})\\.(\\d{2,3})>([^<]+)")
@@ -18,7 +15,6 @@ enum LRCParser {
             let nsLine = line as NSString
             let fullRange = NSRange(location: 0, length: nsLine.length)
 
-            // Check for metadata
             if let metaMatch = metadataRegex?.firstMatch(in: line, options: [], range: fullRange) {
                 let key = nsLine.substring(with: metaMatch.range(at: 1)).lowercased()
                 let value = nsLine.substring(with: metaMatch.range(at: 2)).trimmingCharacters(in: .whitespaces)
@@ -27,7 +23,6 @@ enum LRCParser {
                     offsetMs = offset
                 }
 
-                // If it's pure metadata and has no lyric text or time tag, skip
                 if (try? NSRegularExpression(pattern: "^\\[([a-z]+):([^\\]]+)\\]\\s*$").firstMatch(in: line, options: [], range: fullRange)) != nil {
                     continue
                 }
@@ -40,10 +35,8 @@ enum LRCParser {
                 continue
             }
 
-            // Text extraction
             var textOnly = regex.stringByReplacingMatches(in: line, options: [], range: fullRange, withTemplate: "")
 
-            // Find word level timing
             var words: [TimedWord]?
             if let wRegex = wordRegex {
                 let nsText = textOnly as NSString
@@ -91,7 +84,6 @@ enum LRCParser {
 
         var processedLines: [SyncedLyricLine] = []
 
-        // Auto-insert empty line at 0ms if first > 300ms
         if let first = unmergedLines.first, first.timeInMs > 300 {
             processedLines.append(SyncedLyricLine(timeInMs: 0, duration: first.timeInMs, text: "", words: nil))
         }
@@ -102,7 +94,7 @@ enum LRCParser {
                 let next = unmergedLines[i + 1]
                 line.duration = next.timeInMs - line.timeInMs
             } else {
-                line.duration = 5000 // default 5 seconds end blank
+                line.duration = 5000
             }
             processedLines.append(line)
         }
@@ -110,7 +102,6 @@ enum LRCParser {
         return SyncedLyrics(lines: processedLines, source: "Parsed")
     }
 
-    /// ".1" -> 100, ".12" -> 120, ".123" -> 123
     private static func parseCentsToMs(_ cc: String) -> Int {
         var str = cc
         while str.count < 3 {

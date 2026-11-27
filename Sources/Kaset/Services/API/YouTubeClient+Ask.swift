@@ -196,9 +196,6 @@ extension YouTubeClient {
         case 200 ... 299:
             break
         case 401, 403:
-            // Match YouTubeClient's established InnerTube auth handling: both
-            // statuses expire the matching identity generation, never a newer
-            // session that signed in while this request was in flight.
             self.handleAskAuthenticationFailure(snapshot: snapshot)
             throw YTMusicError.authExpired
         case 429:

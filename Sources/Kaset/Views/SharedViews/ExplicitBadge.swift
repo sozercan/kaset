@@ -1,9 +1,5 @@
 import SwiftUI
 
-/// Compact "E" badge marking explicit-content tracks.
-///
-/// Mirrors YouTube Music's inline `MUSIC_EXPLICIT_BADGE` indicator. Render
-/// only when `Song.isExplicit == true`.
 struct ExplicitBadge: View {
     var body: some View {
         Text(String(localized: "E"))

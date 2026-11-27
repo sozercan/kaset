@@ -1,10 +1,6 @@
 import Foundation
 
-// MARK: - Mock UI-Test Default Data
-
 extension MockUITestYTMusicClient {
-    // MARK: - Default Data
-
     static func defaultHomeSections() -> [HomeSection] {
         [
             HomeSection(

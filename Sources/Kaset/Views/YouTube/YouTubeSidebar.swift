@@ -1,12 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeSidebar
-
-/// Sidebar navigation for the YouTube (video) experience.
-///
-/// Mirrors the music `Sidebar` structure so toggling sources feels native:
-/// main items on top, a Discover section, and a Collection section, with the
-/// shared footer (source toggle + profile) at the bottom.
 struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
     var onReselect: ((YouTubeNavigationItem) -> Void)?
@@ -14,7 +7,6 @@ struct YouTubeSidebar: View {
 
     var body: some View {
         List {
-            // Main navigation
             Section {
                 self.row(for: .search)
                 self.row(for: .home)
@@ -23,14 +15,12 @@ struct YouTubeSidebar: View {
                 }
             }
 
-            // Discover section
             Section(String(localized: "Discover")) {
                 self.row(for: .explore)
                 self.row(for: .shorts)
             }
 
             if self.hasPersonalAccount {
-                // Collection section
                 Section(String(localized: "Collection")) {
                     self.row(for: .likedVideos)
                     self.row(for: .watchLater)
@@ -73,8 +63,6 @@ struct YouTubeSidebar: View {
         HapticService.navigation()
     }
 }
-
-// MARK: - AccessibilityID.YouTubeSidebar
 
 extension AccessibilityID {
     enum YouTubeSidebar {

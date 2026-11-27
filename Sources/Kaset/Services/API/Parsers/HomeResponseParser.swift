@@ -1,14 +1,11 @@
 import Foundation
 
-/// Parser for home page and explore page responses from YouTube Music API.
 enum HomeResponseParser {
     private static let logger = DiagnosticsLogger.api
 
-    /// Parses the main home/explore response.
     static func parse(_ data: [String: Any]) -> HomeResponse {
         var sections: [HomeSection] = []
 
-        // Navigate to contents
         guard let contents = data["contents"] as? [String: Any],
               let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
               let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
@@ -18,7 +15,6 @@ enum HomeResponseParser {
               let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
               let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         else {
-            // Log what top-level keys we have for debugging
             self.logger.debug("HomeResponseParser: No standard structure found. Top keys: \(data.keys.sorted())")
             if let contents = data["contents"] as? [String: Any] {
                 self.logger.debug("HomeResponseParser: Contents keys: \(contents.keys.sorted())")
@@ -36,13 +32,10 @@ enum HomeResponseParser {
         return HomeResponse(sections: sections)
     }
 
-    /// Parses a continuation response for additional sections.
     static func parseContinuation(_ data: [String: Any]) -> [HomeSection] {
         var sections: [HomeSection] = []
 
-        // Try continuationContents
         if let continuationContents = data["continuationContents"] as? [String: Any] {
-            // Try sectionListContinuation
             if let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any],
                let contents = sectionListContinuation["contents"] as? [[String: Any]]
             {
@@ -53,7 +46,6 @@ enum HomeResponseParser {
                 }
             }
 
-            // Try musicShelfContinuation
             if let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any] {
                 if let section = parseMusicShelf(shelfContinuation) {
                     sections.append(section)
@@ -64,7 +56,6 @@ enum HomeResponseParser {
         return sections
     }
 
-    /// Extracts continuation token from the main response.
     static func extractContinuationToken(from data: [String: Any]) -> String? {
         guard let contents = data["contents"] as? [String: Any],
               let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
@@ -83,7 +74,6 @@ enum HomeResponseParser {
         return token
     }
 
-    /// Extracts continuation token from a continuation response.
     static func extractContinuationTokenFromContinuation(_ data: [String: Any]) -> String? {
         if let continuationContents = data["continuationContents"] as? [String: Any],
            let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any],
@@ -97,35 +87,27 @@ enum HomeResponseParser {
         return nil
     }
 
-    // MARK: - Section Parsing
-
     static func parseHomeSection(_ data: [String: Any]) -> HomeSection? {
-        // Try musicCarouselShelfRenderer (most common - horizontal carousels)
         if let carouselRenderer = data["musicCarouselShelfRenderer"] as? [String: Any] {
             return self.parseMusicCarouselShelf(carouselRenderer)
         }
 
-        // Try musicShelfRenderer (vertical song lists)
         if let shelfRenderer = data["musicShelfRenderer"] as? [String: Any] {
             return self.parseMusicShelf(shelfRenderer)
         }
 
-        // Try musicCardShelfRenderer (large featured cards like mixes)
         if let cardShelfRenderer = data["musicCardShelfRenderer"] as? [String: Any] {
             return self.parseMusicCardShelf(cardShelfRenderer)
         }
 
-        // Try musicImmersiveCarouselShelfRenderer (immersive carousels with backgrounds)
         if let immersiveCarouselRenderer = data["musicImmersiveCarouselShelfRenderer"] as? [String: Any] {
             return self.parseMusicImmersiveCarouselShelf(immersiveCarouselRenderer)
         }
 
-        // Try gridRenderer (used for charts and grids)
         if let gridRenderer = data["gridRenderer"] as? [String: Any] {
             return self.parseGridRenderer(gridRenderer)
         }
 
-        // Try itemSectionRenderer (wrapper for other renderers)
         if let itemSectionRenderer = data["itemSectionRenderer"] as? [String: Any],
            let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
         {
@@ -136,7 +118,6 @@ enum HomeResponseParser {
             }
         }
 
-        // Log unrecognized renderers for debugging
         let rendererKeys = data.keys.filter { $0.hasSuffix("Renderer") }
         if !rendererKeys.isEmpty {
             self.logger.debug("HomeResponseParser: Unrecognized renderer(s): \(rendererKeys)")
@@ -162,7 +143,6 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
@@ -191,7 +171,6 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
@@ -227,7 +206,6 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
@@ -256,7 +234,6 @@ enum HomeResponseParser {
 
         guard !items.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = items.first.map { Self.extractItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
@@ -292,28 +269,21 @@ enum HomeResponseParser {
 
         guard !sectionItems.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = sectionItems.first.map { Self.extractItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
-        // Check if this is a chart section based on title, not renderer type
         return HomeSection(id: stableId, title: title, items: sectionItems, isChart: ParsingHelpers.isChartSection(title))
     }
 
-    // MARK: - Item Parsing
-
     static func parseHomeSectionItem(_ data: [String: Any]) -> HomeSectionItem? {
-        // Try musicTwoRowItemRenderer (albums, playlists)
         if let twoRowRenderer = data["musicTwoRowItemRenderer"] as? [String: Any] {
             return self.parseTwoRowItem(twoRowRenderer)
         }
 
-        // Try musicResponsiveListItemRenderer (songs)
         if let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] {
             return self.parseResponsiveListItem(responsiveRenderer)
         }
 
-        // Try musicNavigationButtonRenderer (moods/genres category buttons)
         if let buttonRenderer = data["musicNavigationButtonRenderer"] as? [String: Any] {
             return self.parseNavigationButton(buttonRenderer)
         }
@@ -322,7 +292,6 @@ enum HomeResponseParser {
     }
 
     private static func parseNavigationButton(_ data: [String: Any]) -> HomeSectionItem? {
-        // Extract title from buttonText
         guard let buttonText = data["buttonText"] as? [String: Any],
               let runs = buttonText["runs"] as? [[String: Any]],
               let firstRun = runs.first,
@@ -331,7 +300,6 @@ enum HomeResponseParser {
             return nil
         }
 
-        // Extract browse endpoint
         guard let clickCommand = data["clickCommand"] as? [String: Any],
               let browseEndpoint = clickCommand["browseEndpoint"] as? [String: Any],
               let browseId = browseEndpoint["browseId"] as? String
@@ -339,13 +307,9 @@ enum HomeResponseParser {
             return nil
         }
 
-        // Moods/genres browse IDs often start with "FEmusic_moods_and_genres_category"
-        // but the actual content is a playlist. Create a unique ID using browseId + params
-        // to avoid duplicate IDs when the same browseId appears in multiple sections.
         let params = browseEndpoint["params"] as? String
         let uniqueId = params != nil ? "\(browseId)_\(params!)" : browseId
 
-        // Try to extract thumbnail URL (some navigation buttons have iconImage)
         var thumbnailURL: URL?
         if let iconImage = data["iconImage"] as? [String: Any],
            let thumbnails = iconImage["thumbnails"] as? [[String: Any]],
@@ -355,13 +319,10 @@ enum HomeResponseParser {
             thumbnailURL = URL(string: ParsingHelpers.normalizeURL(urlString))
         }
 
-        // Extract the leftStripeColor from solid block (mood/genre card color)
-        // This is a 32-bit ARGB color value from the YouTube Music API
         var colorHex: String?
         if let solid = data["solid"] as? [String: Any],
            let colorValue = solid["leftStripeColor"] as? Int
         {
-            // Convert to hex string (ARGB format from API, we'll use RGB portion)
             let rgb = colorValue & 0x00FF_FFFF
             colorHex = String(format: "#%06X", rgb)
         }
@@ -369,7 +330,7 @@ enum HomeResponseParser {
         let playlist = Playlist(
             id: uniqueId,
             title: title,
-            description: colorHex, // Store color hex in description for mood cards
+            description: colorHex,
             thumbnailURL: thumbnailURL,
             trackCount: nil,
             author: nil,
@@ -391,7 +352,6 @@ enum HomeResponseParser {
             return nil
         }
 
-        // Check for watchEndpoint (song/video)
         if let watchEndpoint = navigationEndpoint["watchEndpoint"] as? [String: Any],
            let videoId = watchEndpoint["videoId"] as? String
         {
@@ -409,7 +369,6 @@ enum HomeResponseParser {
             return .song(song)
         }
 
-        // Check for browseEndpoint
         if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String
         {
@@ -428,7 +387,6 @@ enum HomeResponseParser {
 
     private static func parseResponsiveListItem(_ data: [String: Any]) -> HomeSectionItem? {
         guard let videoId = ParsingHelpers.extractVideoId(from: data) else {
-            // Might be a non-song item
             if let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
                let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
                let browseId = browseEndpoint["browseId"] as? String
@@ -505,9 +463,6 @@ enum HomeResponseParser {
         }
     }
 
-    // MARK: - Helpers
-
-    /// Extracts a stable ID from a HomeSectionItem for identity purposes.
     private static func extractItemId(_ item: HomeSectionItem) -> String {
         switch item {
         case let .song(song): song.id
@@ -533,7 +488,6 @@ enum HomeResponseParser {
     }
 
     private static func determineBrowseItemType(browseId: String, pageType: String?) -> BrowseItemType? {
-        // Check pageType first (most reliable)
         if pageType == "MUSIC_PAGE_TYPE_ALBUM" {
             return .album
         }
@@ -544,7 +498,6 @@ enum HomeResponseParser {
             return .artist
         }
 
-        // Fall back to browseId prefix
         if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
             return .album
         }

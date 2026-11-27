@@ -1,8 +1,6 @@
 "Ad" = "Pub";
 "Advertisement" = "Publicité";
 
-// Localizable.strings
-
 "%lld songs" = "%lld morceaux";
 "%lld songs listened today" = "%lld morceaux écoutés aujourd'hui";
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "\"En direct\" fait évoluer les couleurs pendant la lecture de la vidéo ; les autres restent constantes";
@@ -557,7 +555,6 @@
 "YouTube" = "YouTube";
 "YouTube video" = "Vidéo YouTube";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Demander à Gemini";
 "Ask about this video..." = "Posez une question sur cette vidéo...";
 "Ask anything about this video..." = "Posez n'importe quelle question sur cette vidéo...";
@@ -578,7 +575,6 @@
 "Ask Gemini response ready" = "Réponse de Demander à Gemini prête";
 "New Ask Gemini chat ready" = "La nouvelle conversation « Demander à Gemini » est prête";
 
-// Appearance
 "Appearance" = "Apparence";
 "App Appearance" = "Apparence de l'app";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Choisissez le mode clair ou sombre pour Kaset, ou suivez le réglage de macOS";
@@ -586,7 +582,6 @@
 "Light Mode" = "Mode clair";
 "Dark Mode" = "Mode sombre";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "Lire de la musique";
 "Play Song" = "Lire un morceau";
 "Play Playlist" = "Lire une playlist";
@@ -633,7 +628,6 @@
 "Couldn't play “%@”." = "Impossible de lire « %@ ».";
 "Couldn't rate “%@”." = "Impossible d'évaluer « %@ ».";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "Impossible de lire l’extension. Supprimez-la, puis ajoutez-la à nouveau.";
 "The extension's access changed. Review it again before enabling it." = "Les accès de l’extension ont changé. Vérifiez-la à nouveau avant de l’activer.";
 "Extension Error" = "Erreur de l’extension";

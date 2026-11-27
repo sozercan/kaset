@@ -1,9 +1,6 @@
 import FoundationModels
 import SwiftUI
 
-// MARK: - PlaylistDetailView
-
-/// Detail view for a playlist showing its tracks.
 @available(macOS 26.0, *)
 struct PlaylistDetailView: View {
     let playlist: Playlist
@@ -15,19 +12,12 @@ struct PlaylistDetailView: View {
     @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
     @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
-    /// Whether the refine playlist sheet is visible.
     @State var showRefineSheet: Bool = false
-    /// Whether an add/remove Library request is currently in flight.
     @State var libraryMutationActivity = PlaylistDetailLibraryMutationActivity()
-    /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
-    /// Partial playlist changes during streaming.
     @State private var partialChanges: PlaylistChanges.PartiallyGenerated?
-    /// Whether AI is processing the refine request.
     @State private var isRefining: Bool = false
-    /// Error message from refine operation.
     @State private var refineError: String?
-    /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
         if self.playlist.isAlbum {
             return self.libraryViewModel?.isInLibrary(
@@ -90,9 +80,6 @@ struct PlaylistDetailView: View {
                     )
             }
         }
-        // Keyed on `.idle` so the load re-runs when the view model drops back to it
-        // (e.g. a like-status scope change invalidates Liked Music pagination);
-        // a plain `.task` runs once and would leave the loading spinner up forever.
         .task(id: self.viewModel.loadingState == .idle) {
             guard self.viewModel.loadingState == .idle else { return }
             await self.viewModel.ensureLoaded()
@@ -119,16 +106,12 @@ struct PlaylistDetailView: View {
                         await self.refinePlaylist(tracks: detail.tracks, prompt: prompt)
                     },
                     onApply: {
-                        // Playlist modification via API not yet implemented
-                        // For now, just close the sheet
                         self.showRefineSheet = false
                     }
                 )
             }
         }
     }
-
-    // MARK: - Views
 
     private func contentView(_ detail: PlaylistDetail) -> some View {
         let fallbackAlbum = Album(
@@ -140,8 +123,6 @@ struct PlaylistDetailView: View {
             trackCount: detail.trackCount ?? detail.tracks.count
         )
         return ScrollView {
-            // One lazy stack as the scroll view's direct content: wrapping a LazyVStack
-            // in a VStack made every layout pass size the whole track list.
             LazyVStack(alignment: .leading, spacing: 0) {
                 self.headerView(detail)
                     .padding(.bottom, 24)
@@ -155,21 +136,14 @@ struct PlaylistDetailView: View {
                 )
             }
             .padding(.vertical, 24)
-            // Inset the resting content while the scroll view stays edge-to-edge so
-            // content extends under the floating glass sidebar; the accent backdrop
-            // (which ignores the safe area) refracts through it.
             .detailScrollContentInset()
         }
         .topFade(style: .contentMask)
-        // The window recomputes its minimum size on every layout pass, and without a
-        // flexible frame that query measured the scroll content — a cost that grew
-        // with every loaded page of tracks.
         .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
-            // Thumbnail
             CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
@@ -183,12 +157,9 @@ struct PlaylistDetailView: View {
                             .foregroundStyle(.secondary)
                     }
             }
-            // No `.fadeIn`: the header lives in the lazy stack, so it would replay on
-            // every scroll back to the top. CachedAsyncImage already fades in a fresh load.
             .frame(width: 180, height: 180)
             .clipShape(.rect(cornerRadius: 8))
 
-            // Info
             VStack(alignment: .leading, spacing: 8) {
                 Text(self.contentKindText(for: detail))
                     .font(.subheadline)
@@ -263,8 +234,6 @@ struct PlaylistDetailView: View {
         _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
     ) -> some View {
         ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
-            // Row and divider form one lazy-stack element: as siblings they doubled
-            // the subviews the stack places and re-realizes while scrolling.
             VStack(spacing: 0) {
                 self.trackRow(
                     track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
@@ -273,8 +242,6 @@ struct PlaylistDetailView: View {
 
                 if index < tracks.count - 1 {
                     Divider()
-                        // For albums: 28 (index) + 12 (spacing)
-                        // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)
                         .padding(.leading, isAlbum ? 40 : 96)
                 }
             }
@@ -283,7 +250,6 @@ struct PlaylistDetailView: View {
             }
         }
 
-        // Loading indicator for pagination
         if self.viewModel.loadingState == .loadingMore {
             HStack {
                 Spacer()
@@ -402,8 +368,6 @@ struct PlaylistDetailView: View {
         return cleanName.isEmpty ? nil : cleanName
     }
 
-    // MARK: - Actions
-
     @ViewBuilder
     private func trackContextMenu(_ track: Song, play: @escaping () -> Void) -> some View {
         if track.isPlayable {
@@ -430,9 +394,6 @@ struct PlaylistDetailView: View {
         }
     }
 
-    /// Whether `track` can be removed from the currently loaded playlist: the user must
-    /// own the playlist (not an album, not the uploaded-songs surface), and the track
-    /// must carry the playlist-item identifier a removal call requires.
     private func canRemoveTrack(_ track: Song) -> Bool {
         guard let detail = self.viewModel.playlistDetail else { return false }
         return !self.viewModel.isRemovingTrack
@@ -471,9 +432,6 @@ struct PlaylistDetailView: View {
         )
     }
 
-    /// Plays the currently-loaded tracks immediately, then — if the playlist is still loading —
-    /// grows the queue to the full set before Smart Shuffle generates suggestions, re-shuffling
-    /// the complete set when shuffling. Reuses the data the detail view is already paging.
     private func playAndLoadFullPlaylist(
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
@@ -487,14 +445,11 @@ struct PlaylistDetailView: View {
                 deferringSmartShuffleFill: willDeferLoad,
                 intent: intent
             )
-            // Not deferring (playlist already fully loaded): playQueue filled suggestions itself.
             guard let loadGeneration else { return }
 
             await self.viewModel.loadAllRemaining()
             await self.viewModel.waitForTrackRemovalToFinish()
 
-            // Stand down if a *different* playback superseded this load while it paged. (User edits
-            // such as removing a track keep the same load generation, so loading continues.)
             guard self.playerService.isCurrentQueueLoad(loadGeneration) else { return }
 
             let fullTracks = self.playableTracks(
@@ -533,7 +488,6 @@ struct PlaylistDetailView: View {
         )
         self.logger.debug("Using Foundation Models playlist prompt version \(promptVersion.logDescription)")
 
-        // Use analysis session for creative playlist curation
         guard let session = FoundationModelsService.shared.createAnalysisSession(
             instructions: instructions
         )
@@ -543,7 +497,6 @@ struct PlaylistDetailView: View {
             return
         }
 
-        // Build track list - start with 25 and trim further on 26.4+ if token budget requires it.
         let initialTrackLimit = min(tracks.count, 25)
         let trackLines = FoundationModelsPromptLibrary.playlistTrackLines(
             from: tracks,
@@ -588,18 +541,15 @@ struct PlaylistDetailView: View {
         )
 
         do {
-            // Use streaming for progressive UI updates
             let stream = session.streamResponse(
                 to: userPrompt,
                 generating: PlaylistChanges.self
             )
 
             for try await snapshot in stream {
-                // Update partial content for streaming UI
                 self.partialChanges = snapshot.content
             }
 
-            // Stream complete - convert final partial to complete changes
             if let final = self.partialChanges,
                let removals = final.removals,
                let reasoning = final.reasoning
@@ -619,7 +569,6 @@ struct PlaylistDetailView: View {
                 )
             }
         } catch {
-            // Use centralized error handler for consistent messaging
             if let message = AIErrorHandler.handleAndMessage(error, context: "playlist refinement") {
                 self.refineError = message
             }
@@ -629,8 +578,6 @@ struct PlaylistDetailView: View {
         self.isRefining = false
     }
 }
-
-// MARK: - HeaderArtistLinkLabel
 
 private struct HeaderArtistLinkLabel: View {
     let name: String

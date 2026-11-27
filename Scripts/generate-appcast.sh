@@ -1,29 +1,11 @@
 #!/bin/bash
-#
-# generate-appcast.sh - Generates/updates appcast.xml from signed releases
-#
-# Usage:
-#   ./Scripts/generate-appcast.sh [releases-directory]
-#
-# This script uses Sparkle's generate_appcast tool to automatically create
-# or update the appcast.xml file based on signed release archives.
-#
-# Prerequisites:
-#   1. Sparkle must be added as a Swift Package dependency
-#   2. Build the project at least once to download Sparkle artifacts
-#   3. Have signed DMG/ZIP files in the releases directory
-#
-# The releases directory should contain:
-#   - Signed .dmg or .zip files for each version
-#   - The private EdDSA key (or set SPARKLE_PRIVATE_KEY env var)
 
 set -euo pipefail
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 print_error() {
     echo -e "${RED}Error:${NC} $1" >&2
@@ -37,7 +19,6 @@ print_warning() {
     echo -e "${YELLOW}Warning:${NC} $1"
 }
 
-# Find Sparkle's generate_appcast binary
 find_sparkle_bin() {
     local derived_data_paths=(
         "$HOME/Library/Developer/Xcode/DerivedData"
@@ -56,7 +37,6 @@ find_sparkle_bin() {
         fi
     done
     
-    # Check if installed via Homebrew
     if command -v generate_appcast &>/dev/null; then
         echo "generate_appcast"
         return 0
@@ -65,11 +45,9 @@ find_sparkle_bin() {
     return 1
 }
 
-# Main
 main() {
     local releases_dir="${1:-./releases}"
     
-    # Validate releases directory exists
     if [[ ! -d "$releases_dir" ]]; then
         print_warning "Releases directory not found: $releases_dir"
         echo "Creating directory..."
@@ -80,7 +58,6 @@ main() {
         exit 0
     fi
     
-    # Check for release files
     local release_count
     release_count=$(find "$releases_dir" -maxdepth 1 \( -name "*.dmg" -o -name "*.zip" \) 2>/dev/null | wc -l | tr -d ' ')
     
@@ -93,7 +70,6 @@ main() {
     
     print_success "Found $release_count release archive(s)"
     
-    # Find generate_appcast binary
     local generate_appcast_bin
     if ! generate_appcast_bin=$(find_sparkle_bin); then
         print_error "Could not find Sparkle's generate_appcast binary."
@@ -113,11 +89,8 @@ main() {
     echo "Generating appcast.xml..."
     echo ""
     
-    # Run generate_appcast
-    # Output goes to the releases directory, then we copy to repo root
     "$generate_appcast_bin" "$releases_dir"
     
-    # Copy generated appcast to repo root if it was created in releases dir
     if [[ -f "$releases_dir/appcast.xml" ]]; then
         cp "$releases_dir/appcast.xml" ./appcast.xml
         print_success "Copied appcast.xml to repository root"

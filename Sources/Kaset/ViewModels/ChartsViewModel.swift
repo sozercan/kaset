@@ -2,36 +2,27 @@ import Foundation
 import Observation
 import os
 
-/// View model for the Charts view.
 @MainActor
 @Observable
 final class ChartsViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Chart sections to display.
     private(set) var sections: [HomeSection] = []
 
-    /// Whether more sections are available to load.
     private(set) var hasMoreSections: Bool = true
 
-    /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
-    /// Whether a user-visible continuation load is currently in flight.
     private var isLoadingMoreSections = false
 
-    /// Waiters that should resume once the current continuation request finishes.
     @ObservationIgnored private var continuationWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Monotonic token used to discard stale continuation results after refreshes.
     private var loadGeneration = 0
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
 
-    /// Loads charts content with fast initial load.
     func load() async {
         guard self.loadingState != .loading else { return }
 
@@ -50,7 +41,6 @@ final class ChartsViewModel {
             self.logger.info("Charts content loaded: \(sectionCount) sections")
         } catch is CancellationError {
             guard generation == self.loadGeneration else { return }
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Charts load cancelled")
             self.loadingState = .idle
         } catch {
@@ -60,7 +50,6 @@ final class ChartsViewModel {
         }
     }
 
-    /// Loads one additional continuation page on explicit user demand.
     func loadMore() async {
         guard self.hasMoreSections,
               !self.isLoadingMoreSections,
@@ -96,7 +85,6 @@ final class ChartsViewModel {
         }
     }
 
-    /// Refreshes charts content.
     func refresh() async {
         await self.waitForInFlightContinuation()
         self.sections = []
@@ -119,8 +107,6 @@ final class ChartsViewModel {
             waiter.resume()
         }
     }
-
-    // MARK: - Private Helpers
 
     private var hasMoreSectionsForCurrentSource: Bool {
         self.client.hasMoreChartsSections

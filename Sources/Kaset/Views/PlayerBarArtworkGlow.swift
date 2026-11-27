@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - PlayerBarArtworkGlow
-
 struct PlayerBarArtworkGlow: View {
     let sources: [URL]
     let identity: String?

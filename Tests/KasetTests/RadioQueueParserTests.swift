@@ -2,13 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - RadioQueueParserTests
-
-/// Tests for RadioQueueParser.
 @Suite(.tags(.parser))
 struct RadioQueueParserTests {
-    // MARK: - Parse Initial Response Tests
-
     @Test("Parse empty data returns empty result")
     func parseEmptyData() {
         let data: [String: Any] = [:]
@@ -72,7 +67,7 @@ struct RadioQueueParserTests {
         let result = RadioQueueParser.parse(from: data)
 
         #expect(result.songs.count == 1)
-        #expect(result.songs[0].duration == 180) // 3:00
+        #expect(result.songs[0].duration == 180)
     }
 
     @Test("Parse radio queue handles missing optional fields")
@@ -94,8 +89,6 @@ struct RadioQueueParserTests {
         #expect(result.songs[0].videoId == "wrapped-video")
         #expect(result.songs[0].title == "Wrapped Song")
     }
-
-    // MARK: - Parse Continuation Response Tests
 
     @Test("Parse continuation empty data returns empty result")
     func parseContinuationEmptyData() {
@@ -133,9 +126,6 @@ struct RadioQueueParserTests {
         #expect(result.continuationToken == nil)
     }
 
-    // MARK: - Test Helpers
-
-    /// Creates a mock radio queue response with the specified number of songs.
     @Test("Parse radio queue propagates explicit badge")
     func parseRadioQueuePropagatesExplicitBadge() {
         let explicitRenderer: [String: Any] = [
@@ -189,13 +179,8 @@ struct RadioQueueParserTests {
     }
 }
 
-// MARK: - RadioQueueLikeStatusParserTests
-
-/// Tests for row-local rating state carried in radio queue menus.
 @Suite(.tags(.parser))
 struct RadioQueueLikeStatusParserTests {
-    // MARK: - Like Status Tests
-
     @Test("Parse radio queue inverts a remove-like action into a liked state")
     func parseRadioQueueInvertsRemoveLikeAction() {
         let liked = Self.makePanelVideoRendererWithRatingToggle(
@@ -458,7 +443,6 @@ extension RadioQueueParserTests {
         ]
     }
 
-    /// Creates a minimal radio queue response with just videoId.
     private static func makeMinimalRadioQueueResponse() -> [String: Any] {
         let minimalRenderer: [String: Any] = [
             "playlistPanelVideoRenderer": [
@@ -493,7 +477,6 @@ extension RadioQueueParserTests {
         ]
     }
 
-    /// Creates a radio queue response with wrapped renderer structure.
     private static func makeRadioQueueResponseWithWrapper() -> [String: Any] {
         let wrappedRenderer: [String: Any] = [
             "playlistPanelVideoWrapperRenderer": [
@@ -537,7 +520,6 @@ extension RadioQueueParserTests {
         ]
     }
 
-    /// Creates a mock continuation response.
     private static func makeContinuationResponse(
         songCount: Int,
         nextToken: String?
@@ -577,7 +559,6 @@ extension RadioQueueParserTests {
         ]
     }
 
-    /// Creates a single panel video renderer for testing.
     private static func makePanelVideoRenderer(index: Int) -> [String: Any] {
         [
             "playlistPanelVideoRenderer": [
@@ -619,7 +600,6 @@ extension RadioQueueParserTests {
 }
 
 extension RadioQueueLikeStatusParserTests {
-    /// Wraps panel renderer contents in the full radio "next" response envelope.
     static func makeRadioResponse(contents: [[String: Any]]) -> [String: Any] {
         [
             "contents": [
@@ -648,8 +628,6 @@ extension RadioQueueLikeStatusParserTests {
         ]
     }
 
-    /// Creates a panel video renderer carrying a like button in its menu, mirroring the
-    /// real "next"/radio response shape SongMetadataParser reads for the seed track.
     static func makePanelVideoRendererWithLikeStatus(
         videoId: String,
         title: String,
@@ -662,14 +640,10 @@ extension RadioQueueLikeStatusParserTests {
         )
     }
 
-    /// Creates a `menu` carrying a like button with the given status, matching the shape
-    /// SongMetadataParser.parseLikeStatus reads (menuRenderer.topLevelButtons.likeButtonRenderer).
     static func makeLikeMenu(_ likeStatus: String) -> [String: Any] {
         self.makeMenu(directStatuses: [likeStatus])
     }
 
-    /// Creates a panel row whose menu carries a single rating toggle.
-    /// `targetVideoId` defaults to the row; pass `.some(nil)` to omit the targets.
     private static func makePanelVideoRendererWithRatingToggle(
         videoId: String,
         defaultStatus: String,

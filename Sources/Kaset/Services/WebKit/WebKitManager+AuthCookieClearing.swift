@@ -1,8 +1,6 @@
 import Foundation
 import WebKit
 
-// MARK: - AuthCookieOperationFence
-
 struct AuthCookieOperationFence {
     private(set) var generation: UInt64 = 0
 
@@ -15,14 +13,10 @@ struct AuthCookieOperationFence {
     }
 }
 
-// MARK: - LiveAuthCookieClearResult
-
 struct LiveAuthCookieClearResult: Equatable {
     let didClear: Bool
     let usedCookieStoreFallback: Bool
 }
-
-// MARK: - LiveAuthCookieStoreClearer
 
 @MainActor
 enum LiveAuthCookieStoreClearer {
@@ -32,9 +26,6 @@ enum LiveAuthCookieStoreClearer {
         let removeAllCookies: @MainActor () async -> Void
     }
 
-    /// Deletes login-session cookies, escalating to a store-wide cookie removal
-    /// only when `allowsCookieStoreFallback` is set. Rollback-safe callers must
-    /// disable it, because rollback restores only login-domain cookies.
     static func clear(
         maximumDeletePasses: Int = 3,
         allowsCookieStoreFallback: Bool = true,

@@ -1,23 +1,12 @@
-// AccountSwitcherPopover.swift
-// Kaset
-//
-// Liquid Glass styled popover for switching between user accounts.
-
 import SwiftUI
-
-// MARK: - AccountSwitcherSignOutDisposition
 
 enum AccountSwitcherSignOutDisposition: Equatable {
     case dismiss
     case presentFailure
 }
 
-// MARK: - AccountSwitcherSignOutFlow
-
 @MainActor
 enum AccountSwitcherSignOutFlow {
-    /// AuthService owns durable preflight and its registered account preparation.
-    /// Callers must not prepare AccountService independently before this operation.
     static func perform(
         signOut: () async -> Bool
     ) async -> AccountSwitcherSignOutDisposition {
@@ -25,12 +14,6 @@ enum AccountSwitcherSignOutFlow {
     }
 }
 
-// MARK: - AccountSwitcherPopover
-
-/// A Liquid Glass styled popover for switching between accounts.
-///
-/// Displays all available accounts (primary and brand accounts) and allows
-/// the user to switch between them.
 struct AccountSwitcherPopover: View {
     @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
@@ -41,7 +24,6 @@ struct AccountSwitcherPopover: View {
     @State private var isSigningOut = false
     @State private var signOutFailurePresented = false
 
-    /// Namespace for glass effect morphing.
     @Namespace private var popoverNamespace
 
     var body: some View {
@@ -79,8 +61,6 @@ struct AccountSwitcherPopover: View {
             )
         }
     }
-
-    // MARK: - Header
 
     private var headerView: some View {
         HStack {
@@ -170,8 +150,6 @@ struct AccountSwitcherPopover: View {
         }
     }
 
-    // MARK: - Accounts List
-
     private var accountsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -186,16 +164,13 @@ struct AccountSwitcherPopover: View {
                                     do {
                                         try await self.accountService.switchAccount(to: account)
                                         self.dismiss()
-                                    } catch {
-                                        // Keep the popover open so the user can retry.
-                                    }
+                                    } catch {}
                                 }
                             }
                         )
                         .disabled(self.accountService.isLoading)
                         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountRow(index: index))
 
-                        // Divider between accounts (not after last one)
                         if index < self.accountService.accounts.count - 1 {
                             Divider()
                                 .padding(.leading, 56)
@@ -267,8 +242,6 @@ struct AccountSwitcherPopover: View {
     }
 }
 
-// MARK: - AccessibilityID.AccountSwitcher
-
 extension AccessibilityID {
     enum AccountSwitcher {
         static let container = "accountSwitcher"
@@ -282,8 +255,6 @@ extension AccessibilityID {
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview("Account Switcher") {
     let authService = AuthService()

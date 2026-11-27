@@ -2,16 +2,9 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-/// YouTube Music rolled out a redesigned player UI server-side: `ytmusic-player-bar` is
-/// replaced by `ytmusic-miniplayer[slot="player-bar"]`, `ytmusic-player.playerApi` is gone
-/// (`#movie_player` still exposes the player API), and the like button is now a
-/// `like-button-view-model` toggle. The observer must keep reporting playback state.
 @Suite(.tags(.service))
 @MainActor
 struct RedesignedPlayerBarObserverTests {
-    /// Fake DOM for the redesigned layout. `overrides` is appended to tweak individual elements.
-    /// It also mounts the player page's unslotted top miniplayer and a like renderer outside
-    /// the player bar, neither of which the observer may read.
     private static func redesignedLayoutSetup(overrides: String = "") -> String {
         """
         var barTitle = { textContent: 'Redesigned Song' };

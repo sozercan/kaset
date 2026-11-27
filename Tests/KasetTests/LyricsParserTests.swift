@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for LyricsParser.
 @Suite(.tags(.parser))
 struct LyricsParserTests {
-    // MARK: - Extract Lyrics Browse ID Tests
-
     @Test("extractLyricsBrowseId returns nil for empty data")
     func extractBrowseIdEmptyData() {
         let data: [String: Any] = [:]
@@ -70,8 +67,6 @@ struct LyricsParserTests {
         #expect(result.lines[0].timeInMs == 1234)
         #expect(result.lines[0].duration == 567)
     }
-
-    // MARK: - Parse Lyrics Tests
 
     @Test("parse returns unavailable for empty data")
     func parseEmptyData() {
@@ -157,9 +152,6 @@ struct LyricsParserTests {
         #expect(result == .unavailable)
     }
 
-    // MARK: - Test Helpers
-
-    /// Creates a mock "next" endpoint response with tabs.
     private static func makeNextResponse(tabs: [[String: Any]]) -> [String: Any] {
         [
             "contents": [
@@ -174,7 +166,6 @@ struct LyricsParserTests {
         ]
     }
 
-    /// Creates a tab with the given browse ID.
     private static func makeTab(browseId: String, title: String) -> [String: Any] {
         [
             "tabRenderer": [
@@ -188,7 +179,6 @@ struct LyricsParserTests {
         ]
     }
 
-    /// Creates a mock lyrics browse response.
     private static func makeLyricsResponse(lyrics: String, source: String?) -> [String: Any] {
         var shelfRenderer: [String: Any] = [
             "description": [
@@ -219,7 +209,6 @@ struct LyricsParserTests {
         ]
     }
 
-    /// Creates a mock next response with timed lyrics nested below the top level.
     private static func makeNestedTimedLyricsResponse(lines: [[String: Any]]) -> [String: Any] {
         [
             "contents": [

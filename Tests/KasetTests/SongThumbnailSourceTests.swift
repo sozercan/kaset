@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - SongThumbnailSourceTests
-
 @Suite(.tags(.model))
 struct SongThumbnailSourceTests {
     @Test("uses primary URL until that exact primary source fails")

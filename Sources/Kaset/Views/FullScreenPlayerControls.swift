@@ -1,9 +1,5 @@
 import SwiftUI
 
-// MARK: - NowPlayingCapsuleSlider
-
-/// Thin, knobless horizontal slider used by the Now Playing view for seeking and volume.
-/// It thickens while hovered or dragged.
 struct NowPlayingCapsuleSlider: View {
     @Binding var value: Double
     let accessibilityLabel: String
@@ -14,7 +10,6 @@ struct NowPlayingCapsuleSlider: View {
     @Environment(\.layoutDirection) private var layoutDirection
     @State private var isHovering = false
     @State private var isDragging = false
-    /// Resets when the drag ends *or* is cancelled; `onEnded` only covers the former.
     @GestureState private var isGestureActive = false
 
     private static let keyboardStep = 0.05
@@ -39,7 +34,6 @@ struct NowPlayingCapsuleSlider: View {
             .frame(maxHeight: .infinity)
             .contentShape(.rect)
             .gesture(
-                // Global coordinates are never mirrored, so the leading edge is explicit.
                 DragGesture(minimumDistance: 0, coordinateSpace: .global)
                     .updating(self.$isGestureActive) { _, isActive, _ in
                         isActive = true
@@ -61,10 +55,8 @@ struct NowPlayingCapsuleSlider: View {
             }
         }
         .animation(.easeOut(duration: 0.15), value: self.isActive)
-        // Keyboard navigation focus only, so a mouse click doesn't leave a focus ring behind.
         .focusable(interactions: .activate)
         .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
-            // The fill grows from the leading edge, which is on the right in RTL layouts.
             let towardTrailing = (press.key == .rightArrow) == (self.layoutDirection == .leftToRight)
             self.adjust(by: towardTrailing ? Self.keyboardStep : -Self.keyboardStep)
             return .handled
@@ -77,7 +69,6 @@ struct NowPlayingCapsuleSlider: View {
         }
     }
 
-    /// Distance from the leading edge as a fraction; the fill grows from the right in RTL.
     private func fraction(atGlobalX x: CGFloat, in frame: CGRect, width: CGFloat) -> Double {
         let fromLeading = self.layoutDirection == .leftToRight ? x - frame.minX : frame.maxX - x
         return min(max(fromLeading / width, 0), 1)
@@ -95,7 +86,6 @@ struct NowPlayingCapsuleSlider: View {
         self.onEditingChanged(false)
     }
 
-    /// One discrete step, reported as a complete edit so seeks and volume changes commit.
     private func adjust(by delta: Double) {
         guard self.isEnabled, !self.isDragging else { return }
         let newValue = min(max(self.value + delta, 0), 1)
@@ -106,10 +96,6 @@ struct NowPlayingCapsuleSlider: View {
     }
 }
 
-// MARK: - NowPlayingGlassIconButton
-
-/// Icon button that sits inside one of the Now Playing view's glass capsules.
-/// When selected it shows a filled white circle behind a dark glyph.
 struct NowPlayingGlassIconButton: View {
     let systemName: String
     let label: String
@@ -146,10 +132,6 @@ struct NowPlayingGlassIconButton: View {
     }
 }
 
-// MARK: - NowPlayingVolumeControl
-
-/// AirPlay button, volume slider and mute toggle shown in the Now Playing view's top-right
-/// glass capsule.
 struct NowPlayingVolumeControl: View {
     @Environment(PlayerService.self) private var playerService
     @State private var airPlayAnchor = AirPlayPickerAnchor()

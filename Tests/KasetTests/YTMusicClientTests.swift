@@ -3,9 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YTMusicClientTests
-
-/// Tests for YTMusicClient.
 @Suite(.tags(.api))
 struct YTMusicClientTests {
     @Test("SAPISIDHASH format is correct")
@@ -117,15 +114,11 @@ struct YTMusicClientTests {
         #expect(artist.name == "Test Artist")
     }
 
-    // MARK: - Podcast Show ID Validation Tests
-
     @Test("Podcast show ID conversion handles L-prefixed suffix correctly")
     func podcastShowIdConversionWithLPrefix() {
-        // Real podcast IDs are "MPSPP" + "L" + {base64id}
-        // Example: "MPSPPLXz2p9abc123"
         let showId = "MPSPPLXz2p9abc123"
-        let suffix = String(showId.dropFirst(5)) // "LXz2p9abc123"
-        let playlistId = "P" + suffix // "PLXz2p9abc123"
+        let suffix = String(showId.dropFirst(5))
+        let playlistId = "P" + suffix
 
         #expect(suffix == "LXz2p9abc123")
         #expect(suffix.hasPrefix("L"), "Suffix should start with 'L'")
@@ -135,24 +128,19 @@ struct YTMusicClientTests {
 
     @Test("Podcast show ID conversion avoids double-L bug")
     func podcastShowIdAvoidDoubleLBug() {
-        // The bug was: "PL" + suffix = "PLLXz2p9..." (double L = 404)
-        // Fix: "P" + suffix = "PLXz2p9..." (correct)
         let showId = "MPSPPLXz2p9abc123"
-        let suffix = String(showId.dropFirst(5)) // "LXz2p9abc123"
+        let suffix = String(showId.dropFirst(5))
 
-        // Wrong: This was the bug
-        let wrongPlaylistId = "PL" + suffix // "PLLXz2p9abc123" - DOUBLE L!
+        let wrongPlaylistId = "PL" + suffix
         #expect(wrongPlaylistId.hasPrefix("PLL"), "Bug would produce double-L")
 
-        // Correct: This is the fix
-        let correctPlaylistId = "P" + suffix // "PLXz2p9abc123"
+        let correctPlaylistId = "P" + suffix
         #expect(!correctPlaylistId.hasPrefix("PLL"), "Fix should not have double-L")
         #expect(correctPlaylistId == "PLXz2p9abc123")
     }
 
     @Test("Podcast show ID with only MPSPP prefix is invalid")
     func podcastShowIdWithOnlyPrefix() {
-        // This tests the validation logic we added
         let showId = "MPSPP"
         let suffix = String(showId.dropFirst(5))
 
@@ -171,15 +159,12 @@ struct YTMusicClientTests {
 
     @Test("Podcast show ID without L-prefix should be rejected")
     func podcastShowIdWithoutLPrefix() {
-        // IDs like "MPSPPX123" would be invalid
         let invalidShowId = "MPSPPX123"
         let suffix = String(invalidShowId.dropFirst(5))
 
         #expect(!suffix.isEmpty)
         #expect(!suffix.hasPrefix("L"), "This ID doesn't have required L-prefix")
     }
-
-    // MARK: - Podcast Subscription Integration Tests
 
     @Test("subscribeToPodcast throws for empty suffix")
     @MainActor
@@ -206,7 +191,6 @@ struct YTMusicClientTests {
     func subscribeToPodcastSucceedsForValidId() async throws {
         let mockClient = MockYTMusicClient()
 
-        // Should not throw for valid ID
         try await mockClient.subscribeToPodcast(showId: "MPSPPLXz2p9abc123")
     }
 
@@ -235,12 +219,9 @@ struct YTMusicClientTests {
     func unsubscribeFromPodcastSucceedsForValidId() async throws {
         let mockClient = MockYTMusicClient()
 
-        // Should not throw for valid ID
         try await mockClient.unsubscribeFromPodcast(showId: "MPSPPLXz2p9abc123")
     }
 }
-
-// MARK: - YTMusicClientSearchRequestTests
 
 @Suite(.serialized, .tags(.api))
 @MainActor
@@ -412,7 +393,6 @@ struct YTMusicClientSearchRequestTests {
         ]
     }
 
-    // URLSession may bridge `httpBody` to a stream before URLProtocol observes the request.
     // swiftlint:disable:next modifier_order
     private nonisolated static func requestBodyData(_ request: URLRequest) throws -> Data {
         if let body = request.httpBody {
@@ -455,8 +435,6 @@ struct YTMusicClientSearchRequestTests {
     }
 }
 
-// MARK: - SearchRequestRecord
-
 private struct SearchRequestRecord: Equatable, Sendable {
     let path: String
     let query: String?
@@ -464,8 +442,6 @@ private struct SearchRequestRecord: Equatable, Sendable {
     let continuation: String?
     let hasBrowseId: Bool
 }
-
-// MARK: - SearchRequestRecorder
 
 private final class SearchRequestRecorder: @unchecked Sendable {
     private let lock = NSLock()
@@ -482,9 +458,6 @@ private final class SearchRequestRecorder: @unchecked Sendable {
     }
 }
 
-// MARK: - YTMusicAPIKeyResolverTests
-
-/// Tests for runtime resolution of the YouTube Music web client API key.
 @Suite(.serialized, .tags(.api))
 struct YTMusicAPIKeyResolverTests {
     @Test("Extracts Innertube API key from web client HTML")
@@ -713,8 +686,6 @@ struct YTMusicAPIKeyResolverTests {
     }
 }
 
-// MARK: - YTMusicClientContinuationResetTests
-
 @Suite(.serialized, .tags(.api))
 @MainActor
 struct YTMusicClientContinuationResetTests {
@@ -826,7 +797,6 @@ struct YTMusicClientContinuationResetTests {
             _ = try await staleContinuation
             Issue.record("Expected stale search continuation to be cancelled")
         } catch is CancellationError {
-            // Expected: reset invalidates any continuation already in flight.
         } catch {
             Issue.record("Expected CancellationError, got \(error)")
         }

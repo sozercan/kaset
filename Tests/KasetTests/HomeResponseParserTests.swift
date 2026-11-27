@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the HomeResponseParser.
 @Suite(.tags(.parser))
 struct HomeResponseParserTests {
     @Test("Parse empty response returns empty sections")
@@ -392,8 +391,6 @@ struct HomeResponseParserTests {
             Issue.record("Expected artist item")
         }
     }
-
-    // MARK: - Helpers
 
     private func makeHomeResponseData(sectionCount: Int) -> [String: Any] {
         var sections: [[String: Any]] = []

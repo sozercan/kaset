@@ -1,9 +1,6 @@
 import Foundation
 import YouTubeAskCore
 
-/// A parity profile is eligible for selection only when YouTube explicitly
-/// confirms the request was handled as signed in. A missing marker is not
-/// equivalent to `loggedOut: false` and must fail closed.
 func askParityHasConfirmedSignedInState(_ loggedOut: Bool?) -> Bool {
     loggedOut == false
 }
@@ -23,8 +20,6 @@ func youtubeAIFrontendCapabilitySummary(html: String, mainJavaScript: String?) -
 func youtubeAIFrontendFlowDebugSummary(mainJavaScript: String) -> String {
     YouTubeAIFrontendFlowDebugAuditor.summary(mainJavaScript: mainJavaScript)
 }
-
-// MARK: - Ask workflow
 
 private func fetchYouTubeWebResource(
     _ url: URL,
@@ -115,8 +110,6 @@ private func serverLoggedOutState(in response: [String: Any]) -> Bool? {
     return nil
 }
 
-// MARK: - AskRuntimeWEBConfiguration
-
 private struct AskRuntimeWEBConfiguration {
     let runtimeAPIIdentifier: String
     let clientVersion: String
@@ -125,8 +118,6 @@ private struct AskRuntimeWEBConfiguration {
 
 private let maximumAskWebResourceBytes = 24 * 1024 * 1024
 private let maximumAskConfigurationResponseBytes = 8 * 1024 * 1024
-
-// MARK: - AskParityFailureCategory
 
 private enum AskParityFailureCategory: String {
     case none
@@ -155,8 +146,6 @@ private enum AskParityFailureCategory: String {
     case summarySuggestionUnavailable = "summary-suggestion-unavailable"
 }
 
-// MARK: - AskParityStageMetrics
-
 private struct AskParityStageMetrics {
     var statusCode: Int?
     var byteCount: Int?
@@ -175,15 +164,11 @@ private struct AskParityStageMetrics {
     }
 }
 
-// MARK: - AskParityCapabilityState
-
 private enum AskParityCapabilityState: String {
     case notRun = "not-run"
     case absent
     case present
 }
-
-// MARK: - AskParityReport
 
 private struct AskParityReport {
     let profileName: String
@@ -211,14 +196,10 @@ private struct AskParityReport {
     }
 }
 
-// MARK: - AskParityEvaluation
-
 private struct AskParityEvaluation {
     let report: AskParityReport
     let passed: Bool
 }
-
-// MARK: - AskParitySelection
 
 private struct AskParitySelection {
     let profile: YouTubeAskRequestProfile
@@ -229,8 +210,6 @@ private struct AskParitySelection {
         askParityProfileName(self.profile)
     }
 }
-
-// MARK: - AskParityRequestError
 
 private enum AskParityRequestError: Error {
     case configurationUnavailable
@@ -328,10 +307,6 @@ private func askParityServerLoggedOutState(
         collectLoggedOutValues(in: root, depth: 0)
     }
 
-    // Any explicit logged-out marker rejects the response, including a
-    // conflicting stream that also contains `loggedOut: false`. If traversal
-    // was truncated, a lone signed-in marker cannot prove the unseen remainder
-    // is safe, so the result remains unknown and fails closed.
     if foundLoggedOut {
         return true
     }
@@ -394,10 +369,6 @@ private func askParityContext(
         "osVersion": "10_15_7",
         "platform": "DESKTOP",
         "userAgent": askParityUserAgent,
-        // Minutes from UTC, UTC-behind negative — the same value YouTube's web client
-        // sends (its JS `-Date.getTimezoneOffset()`). Mirrors
-        // `InnerTubeSupport.utcOffsetMinutes(for:)`, inlined because APIExplorer cannot
-        // import the Kaset executable target.
         "utcOffsetMinutes": TimeZone.current.secondsFromGMT() / 60,
     ]
     if profile.usesVisitorData {
@@ -484,8 +455,6 @@ private func makeAskParityWireRequest(
         contentType: httpResponse.value(forHTTPHeaderField: "Content-Type")
     )
 }
-
-// MARK: - AskParityNextEvaluation
 
 private struct AskParityNextEvaluation {
     let report: AskParityReport
@@ -578,9 +547,6 @@ private func evaluateAskParityPanel(
         isAskSummaryLabel(suggestion.label)
     }
 
-    // Even when `next` already exposes the summary chip, parity still requires
-    // a read-only panel continuation so the exact `get_panel` transport used by
-    // live suggestions is validated without submitting that chip.
     guard let panelCommand = bootstrap.panelCommand else {
         report.failureCategory = .panelCommandUnavailable
         return AskParityEvaluation(report: report, passed: false)
@@ -780,8 +746,6 @@ func auditAskVideoRequestParity(
         evaluateAllProfiles: true
     )
 }
-
-// MARK: - AskPanelSuggestion
 
 private struct AskPanelSuggestion {
     let label: String
@@ -1161,8 +1125,6 @@ private func makeAskSuggestionRequest(
     return response
 }
 
-// MARK: - AskFreeTextValidationError
-
 private enum AskFreeTextValidationError: LocalizedError {
     case commandUnavailable
     case malformedCommand
@@ -1225,14 +1187,10 @@ private enum AskFreeTextValidationError: LocalizedError {
     }
 }
 
-// MARK: - AskFreeTextCommandSource
-
 private enum AskFreeTextCommandSource: String {
     case watchNext = "next"
     case initialPanel = "initial-get-panel"
 }
-
-// MARK: - AskLoadedFreeTextCommand
 
 private struct AskLoadedFreeTextCommand: CustomStringConvertible, CustomDebugStringConvertible {
     let command: YouTubeAskOpaqueCommand
@@ -1246,8 +1204,6 @@ private struct AskLoadedFreeTextCommand: CustomStringConvertible, CustomDebugStr
         self.description
     }
 }
-
-// MARK: - AskFreeTextCookieState
 
 private struct AskFreeTextCookieState: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
     let name: String
@@ -1281,8 +1237,6 @@ private struct AskFreeTextCookieState: Equatable, CustomStringConvertible, Custo
     }
 }
 
-// MARK: - AskFreeTextAccountState
-
 private struct AskFreeTextAccountState: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
     let youtubeMode: Bool
     let apiHost: String
@@ -1305,8 +1259,6 @@ private struct AskFreeTextAccountState: Equatable, CustomStringConvertible, Cust
     }
 }
 
-// MARK: - AskFreeTextBackingState
-
 private struct AskFreeTextBackingState: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
     let account: AskFreeTextAccountState
     let cookies: [AskFreeTextCookieState]
@@ -1319,8 +1271,6 @@ private struct AskFreeTextBackingState: Equatable, CustomStringConvertible, Cust
         self.description
     }
 }
-
-// MARK: - AskFreeTextRequestSnapshot
 
 private struct AskFreeTextRequestSnapshot: CustomStringConvertible, CustomDebugStringConvertible {
     let baseURL: String
@@ -1470,9 +1420,6 @@ private func captureAskFreeTextRequestSnapshot() async throws -> AskFreeTextRequ
         throw AskFreeTextValidationError.requestSnapshotUnavailable
     }
 
-    // Configuration discovery can await network I/O. Re-read the authoritative
-    // cookie export and account selectors before sealing the snapshot so a
-    // concurrent logout or account change cannot produce a mixed request.
     let finalBackingState: AskFreeTextBackingState
     do {
         finalBackingState = try currentAskFreeTextBackingState()
@@ -1926,8 +1873,6 @@ private func printAskLiveWireSummary(
     }
 }
 
-// MARK: - AskLiveAnswer
-
 private struct AskLiveAnswer {
     let text: String
     let wasTruncated: Bool
@@ -2298,8 +2243,6 @@ func auditAskVideo(_ videoId: String, verbose: Bool) async {
     }
 }
 
-// MARK: - AskVideoAuditSafety
-
 private enum AskVideoAuditSafety {
     static func canonicalFieldName(_ value: String) -> String {
         value.lowercased().unicodeScalars.reduce(into: "") { result, scalar in
@@ -2470,8 +2413,6 @@ private enum AskVideoAuditSafety {
         }
     }
 }
-
-// MARK: - AskVideoResponseAuditor
 
 private struct AskVideoResponseAuditor {
     struct Observation {
@@ -2706,8 +2647,6 @@ private struct AskVideoResponseAuditor {
         return fields.contains(AskVideoAuditSafety.canonicalFieldName(key))
     }
 }
-
-// MARK: - WireResponseAuditor
 
 private enum WireResponseAuditor {
     private struct ParsedChunks {
@@ -3097,8 +3036,6 @@ private enum WireResponseAuditor {
     }
 }
 
-// MARK: - YouTubeMainAppScriptExtractor
-
 private enum YouTubeMainAppScriptExtractor {
     private struct Candidate {
         let url: URL
@@ -3208,8 +3145,6 @@ private enum YouTubeMainAppScriptExtractor {
     }
 }
 
-// MARK: - YouTubeAIFrontendCapabilityAuditor
-
 private enum YouTubeAIFrontendCapabilityAuditor {
     private struct Capability {
         let label: String
@@ -3270,8 +3205,6 @@ private enum YouTubeAIFrontendCapabilityAuditor {
         return count
     }
 }
-
-// MARK: - YouTubeAIFrontendFlowDebugAuditor
 
 private enum YouTubeAIFrontendFlowDebugAuditor {
     private static let markers = [

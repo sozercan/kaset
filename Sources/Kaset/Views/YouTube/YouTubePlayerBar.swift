@@ -1,23 +1,14 @@
 import SwiftUI
 
-// MARK: - YouTubePlayerBar
-
-/// The Liquid Glass player bar for inline and detached YouTube playback.
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
-    /// Full view, Watch Later, AirPlay, captions, quality, PiP, and padding.
     private static let baseYouTubeOptionsWidth: CGFloat = 210
-    /// One 28pt option button plus its 6pt spacing.
     private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
-    /// Below this the details block would collide with the transport controls.
-    /// Only the resizable detached window reaches this narrow layout.
     private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
 
-    /// Keeps the progress lane off the capsule's rounded left end once the
-    /// details block is gone, matching the options' visual inset on the right.
     private static let hiddenDetailsLeadingInset: CGFloat = 16
 
     private struct ChapterProgressSpan {
@@ -35,7 +26,6 @@ struct YouTubePlayerBar: View {
     private let isDetachedWindow: Bool
     private let onVolumeOverlayChange: (Bool) -> Void
 
-    /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
 
     @State private var settings = SettingsManager.shared
@@ -118,8 +108,6 @@ struct YouTubePlayerBar: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
-
-    // MARK: - Updated Player Layout
 
     private func videoDetailsSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
@@ -282,8 +270,6 @@ struct YouTubePlayerBar: View {
                 }
             }
             .padding(.top, 18)
-            // Match the music player's segmented lane layering so chapter tooltips stay above
-            // transport controls without intercepting their clicks.
             .zIndex(1)
 
             self.youtubeTransportControls
@@ -449,27 +435,16 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.captionsButton,
             accessibilityLabel: String(localized: "Closed captions")
         ) {
-            Button {
-                self.youtubePlayer.selectCaptionTrack(languageCode: nil)
-            } label: {
-                if self.youtubePlayer.activeCaptionLanguageCode == nil {
-                    Label(String(localized: "Off"), systemImage: "checkmark")
-                } else {
-                    Text("Off", comment: "Captions off menu item")
+            Picker(String(localized: "Closed captions"), selection: self.captionSelection) {
+                Text("Off", comment: "Captions off menu item")
+                    .tag(String?.none)
+                ForEach(self.youtubePlayer.captionTracks) { track in
+                    Text(track.displayName)
+                        .tag(String?.some(track.languageCode))
                 }
             }
-
-            ForEach(self.youtubePlayer.captionTracks) { track in
-                Button {
-                    self.youtubePlayer.selectCaptionTrack(languageCode: track.languageCode)
-                } label: {
-                    if self.youtubePlayer.activeCaptionLanguageCode == track.languageCode {
-                        Label(track.displayName, systemImage: "checkmark")
-                    } else {
-                        Text(track.displayName)
-                    }
-                }
-            }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: self.youtubePlayer.activeCaptionLanguageCode == nil ? "captions.bubble" : "captions.bubble.fill")
                 .font(.system(size: 16, weight: .regular))
@@ -484,17 +459,14 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.qualityButton,
             accessibilityLabel: String(localized: "Video quality")
         ) {
-            ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
-                Button {
-                    self.youtubePlayer.selectQuality(level)
-                } label: {
-                    if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
-                        Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
-                    } else {
-                        Text(YouTubeQuality.displayName(for: level))
-                    }
+            Picker(String(localized: "Video quality"), selection: self.qualitySelection) {
+                ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
+                    Text(YouTubeQuality.displayName(for: level))
+                        .tag(level)
                 }
             }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: "gearshape")
                 .font(.system(size: 16, weight: .regular))
@@ -502,6 +474,20 @@ struct YouTubePlayerBar: View {
                 .foregroundStyle(.primary)
         }
         .disabled(self.youtubePlayer.qualityLevels.isEmpty)
+    }
+
+    private var captionSelection: Binding<String?> {
+        Binding(
+            get: { self.youtubePlayer.activeCaptionLanguageCode },
+            set: { self.youtubePlayer.selectCaptionTrack(languageCode: $0) }
+        )
+    }
+
+    private var qualitySelection: Binding<String> {
+        Binding(
+            get: { self.youtubePlayer.userPinnedQuality ?? "auto" },
+            set: { self.youtubePlayer.selectQuality($0) }
+        )
     }
 
     private var youtubeVolumeOverlay: some View {
@@ -582,9 +568,6 @@ struct YouTubePlayerBar: View {
         )
     }
 
-    /// Converts YouTube's chapter starts and optional bounds into the same normalized spans used by
-    /// the music player's segmented mix seek bar. Marker data remains separate so chapter snapping
-    /// and the existing metadata preview continue to work while segment visuals are active.
     static func chapterProgressSegments(
         chapters: [YouTubeChapter],
         duration: TimeInterval
@@ -642,7 +625,6 @@ struct YouTubePlayerBar: View {
         self.youtubePlayer.currentVideo?.isLive == true
     }
 
-    /// A live stream can report a finite DVR duration, so duration alone does not enable seeking.
     private var canSeek: Bool {
         self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd && !self.isLive
     }
@@ -718,7 +700,6 @@ extension YouTubePlayerBar {
             + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
     }
 
-    /// Sized to the buttons shown, so no Watch Later leaves no dead gap.
     static func optionsWidth(showsFloatOnTopControl: Bool, showsWatchLaterControl: Bool) -> CGFloat {
         self.baseYouTubeOptionsWidth
             + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
@@ -797,8 +778,6 @@ private extension YouTubePlayerBar {
         self.settings.keepYouTubeVideoOnTop.toggle()
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let watchPlayPause = "youtubeContent.watchPlayPause"
