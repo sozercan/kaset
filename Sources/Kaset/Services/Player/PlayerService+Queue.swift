@@ -149,6 +149,10 @@ extension PlayerService {
         guard outcome == .applied else { return }
         self.currentEpisode = nil
         guard self.playbackNavigationContext == navigationContext else { return }
+        if self.state == .ended {
+            await self.next()
+            return
+        }
         await self.fillSmartShuffleWindow()
     }
 
