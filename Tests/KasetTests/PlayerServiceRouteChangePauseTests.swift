@@ -274,6 +274,38 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.state == .paused)
     }
 
+    @Test("A remote pause captured while recovery waits on queued commands still reaches the player")
+    func pauseCapturedDuringRecoveryWaitWins() async {
+        let playerService = self.makeRouteLossPausedService(routeReturned: true)
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        playerService.claimsRouteLossPause = { _ in false }
+        playerService.enqueueRemoteMusicTransportCommand(.absoluteSeek(position: 30), issuedAtMilliseconds: 1001)
+
+        var drainCount = 0
+        await playerService.resumeAfterRouteRestored {
+            drainCount += 1
+            guard drainCount == 2 else { return }
+            playerService.enqueueRemoteMusicTransportCommand(.pause(admittedAt: .now), issuedAtMilliseconds: 1002)
+        }
+
+        #expect(drainCount >= 2)
+        #expect(playerService.isExplicitPauseIntentActive)
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+    }
+
+    @Test("Starting other playback retires recovery for what the route loss interrupted")
+    func newPlaybackRetiresRouteRecovery() async {
+        SingletonPlayerWebView.shared.currentVideoId = nil
+        let playerService = self.makeRouteLossPausedService(routeReturned: true)
+        playerService.setYTMusicClient(MockYTMusicClient())
+
+        await playerService.play(song: Song(id: "next", title: "next", artists: [], duration: 200, videoId: "next"))
+
+        #expect(playerService.routeLossPauseAt == nil)
+        #expect(playerService.currentTrack?.videoId == "next")
+    }
+
     private func makeRouteLossPausedService(routeReturned: Bool) -> PlayerService {
         let playerService = self.makePlayingService()
         playerService.hasAudioRouteReturned = { _ in routeReturned }

@@ -325,8 +325,9 @@ final class NowPlayingManager {
                       let self,
                       self.routeRestoreGeneration == generation
                 else { return }
-                self.drainRemoteMusicCommandIngress()
-                await self.playerService?.resumeAfterRouteRestored()
+                await self.playerService?.resumeAfterRouteRestored { [weak self] in
+                    self?.drainRemoteMusicCommandIngress()
+                }
             }
         }
     }

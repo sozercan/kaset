@@ -187,6 +187,8 @@ extension PlayerService {
         intent: MusicPlaybackIntent
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        self.routeLossPauseAt = nil
+        self.unattributedRemotePauseAt = nil
         self.beginPlaybackNavigation()
         if !isQueueNavigationRecovery {
             self.clearQueueNavigationRecovery()
@@ -546,9 +548,12 @@ extension PlayerService {
         self.logger.info("Re-attributed a remote pause to the audio route loss that caused it")
     }
 
-    func resumeAfterRouteRestored() async {
-        if let pendingRemoteCommands = self.remoteMusicTransportTask {
+    func resumeAfterRouteRestored(drainRemoteCommands: @MainActor () -> Void = {}) async {
+        drainRemoteCommands()
+        while let pendingRemoteCommands = self.remoteMusicTransportTask {
             await pendingRemoteCommands.value
+            drainRemoteCommands()
+            guard self.remoteMusicTransportTask != pendingRemoteCommands else { break }
         }
         guard self.routeLossPauseAt.map({ self.hasAudioRouteReturned($0) }) == true,
               !self.isPlaying,

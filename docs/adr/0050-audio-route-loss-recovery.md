@@ -67,8 +67,8 @@ Supporting decisions:
   asynchronously, so both the classification window and the recovery marker use the ingress
   admission instant. Dating either to handling time lets a busy main actor misclassify a real
   route pause, or sort the marker after a reconnect that already happened.
-- **Bound recovery by intent, not by a timer.** The marker is retired by a user pause or by
-  playback actually starting — never by elapsed time. A resume can therefore only ever continue
+- **Bound recovery by intent, not by a timer.** The marker is retired by a user pause, by a
+  request to play something, or by playback actually starting — never by elapsed time. A resume can therefore only ever continue
   exactly what the route loss interrupted, so reconnecting an hour later is still the same
   interrupted song. It deliberately survives *issuing* a resume so the second attempt can retry
   while the route is still settling.
@@ -112,7 +112,8 @@ Supporting decisions:
 - **Retry the resume.** A returning device is not usable the instant Core Audio reports it, and
   WebKit settles route changes in stages, so the resume is attempted at 500 ms and 2 s after the
   latest route event. Bursts of notifications collapse into the latest request. Each attempt first
-  drains captured remote commands and waits for the queued transport batch, because the resume
+  drains captured remote commands and waits for the queued transport batch, repeating until none
+  is left, because the resume
   starts a new playback intent that would discard a pause the user pressed just before it.
 - **Treat a route-loss pause as explicit for Start Radio.** A refresh that lands after the queue
   ended advances to the first recommendation only if no explicit pause happened meanwhile. A
