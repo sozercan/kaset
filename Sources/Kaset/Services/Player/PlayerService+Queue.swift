@@ -425,11 +425,11 @@ extension PlayerService {
         let sourceNavigationContext = self.playbackNavigationContext
         let sourceQueueMutationGeneration = self.queueMutationGeneration
         let sourceUserQueueMutationGeneration = self.userQueueMutationGeneration
-        let entryIDsAfterSeed: Set<UUID> = if replacesUpcoming,
-                                              let seedEntryID,
-                                              let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID })
+        let entryIDsBeforeSeed: Set<UUID> = if replacesUpcoming,
+                                               let seedEntryID,
+                                               let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID })
         {
-            Set(self.queueEntries[(seedIndex + 1)...].map(\.id))
+            Set(self.queueEntries[..<seedIndex].map(\.id))
         } else {
             []
         }
@@ -479,7 +479,7 @@ extension PlayerService {
                       let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID }),
                       self.queueEntries[seedIndex].song.videoId == videoId,
                       let anchorID = self.queueEntryIDOwningCurrentPlayback,
-                      anchorID == seedEntryID || entryIDsAfterSeed.contains(anchorID),
+                      !entryIDsBeforeSeed.contains(anchorID),
                       let anchorIndex = self.queueEntries.firstIndex(where: { $0.id == anchorID })
                 else {
                     self.logger.info("Playback left the radio seed, discarding radio queue")
