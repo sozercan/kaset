@@ -83,6 +83,7 @@ struct LyricsView: View {
             LyricsPollLease.acquire()
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
+        .accessibilityIdentifier(AccessibilityID.Lyrics.panel)
     }
 
     private func updateLyricsPolling(for result: LyricResult) {

@@ -25,18 +25,15 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
     func testProfileSectionShowsLoggedOutStateWhenNotAuthenticated() {
         app.launchArguments.removeAll { $0 == "-SkipAuth" }
+        app.launchEnvironment["SKIP_AUTH"] = "0"
         app.launchEnvironment["MOCK_LOGGED_OUT"] = "true"
         app.launch()
 
-        let loggedOutState = app.otherElements[TestAccessibilityID.SidebarProfile.loggedOutState]
-        if loggedOutState.waitForExistence(timeout: 10) {
-            XCTAssertTrue(loggedOutState.exists, "Logged out state should be visible when not authenticated")
-        } else {
-            let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
-            if profileButton.exists {
-                XCTAssertTrue(true, "Profile section state is acceptable")
-            }
-        }
+        let loggedOutState = app.buttons[TestAccessibilityID.SidebarProfile.loggedOutState]
+        XCTAssertTrue(
+            loggedOutState.waitForExistence(timeout: 15),
+            "Logged out state should be visible when not authenticated"
+        )
     }
 
     func testTappingProfileOpensPopoverWhenMultipleAccounts() {
@@ -204,8 +201,15 @@ final class AccountSwitcherUITests: KasetUITestCase {
             "Profile button should still exist after account switch"
         )
 
-        let newLabel = profileButton.label
-        XCTAssertNotNil(newLabel, "Profile should have a label after switching")
+        let labelUpdated = NSPredicate { _, _ in
+            profileButton.label != initialLabel && profileButton.label.contains("Brand Account 1")
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: labelUpdated, object: profileButton)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [expectation], timeout: 10),
+            .completed,
+            "Profile button label should update from '\(initialLabel)' to the selected Brand Account 1"
+        )
     }
 
     func testSwitchingAccountRefreshesContent() {
@@ -213,8 +217,13 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         navigateToLibrary()
 
-        let libraryContent = app.otherElements["libraryView"]
-        _ = libraryContent.waitForExistence(timeout: 5)
+        let libraryMarker = app.buttons["Uploads"]
+        XCTAssertTrue(libraryMarker.waitForExistence(timeout: 10), "Library view should be visible before switching")
+        let libraryScroll = app.scrollViews.containing(.button, identifier: "Uploads").firstMatch
+        XCTAssertTrue(
+            libraryScroll.staticTexts["My Playlist 1"].waitForExistence(timeout: 10),
+            "Primary account library playlist should be visible before switching"
+        )
 
         let profileButton = app.buttons[TestAccessibilityID.SidebarProfile.profileButton]
         guard profileButton.waitForExistence(timeout: 30) else {
@@ -222,6 +231,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
             return
         }
 
+        let initialLabel = profileButton.label
         profileButton.click()
 
         let popover = app.popovers.firstMatch
@@ -238,14 +248,28 @@ final class AccountSwitcherUITests: KasetUITestCase {
 
         secondAccountRow.click()
 
-        _ = popover.waitForNonExistence(timeout: 5)
+        XCTAssertTrue(
+            popover.waitForNonExistence(timeout: 5),
+            "Popover should dismiss after selecting another account"
+        )
 
-        let loadingIndicator = app.progressIndicators.firstMatch
-        let contentLoaded = app.scrollViews.firstMatch.waitForExistence(timeout: 10)
+        let switchedPredicate = NSPredicate { _, _ in
+            profileButton.label != initialLabel
+        }
+        let switchExpectation = XCTNSPredicateExpectation(predicate: switchedPredicate, object: profileButton)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [switchExpectation], timeout: 10),
+            .completed,
+            "Active account should change after selecting another account"
+        )
 
         XCTAssertTrue(
-            contentLoaded || loadingIndicator.exists,
-            "Library content should show loading or refreshed state after account switch"
+            libraryScroll.staticTexts["Brand Playlist brand-1"].waitForExistence(timeout: 10),
+            "Selected brand account library playlist should appear after switching"
+        )
+        XCTAssertTrue(
+            libraryScroll.staticTexts["My Playlist 1"].waitForNonExistence(timeout: 10),
+            "Previous primary account library playlist should disappear after switching"
         )
     }
 
@@ -432,6 +456,7 @@ final class AccountSwitcherUITests: KasetUITestCase {
             app.launchEnvironment["MOCK_ACCOUNTS"] = jsonString
         }
 
+        app.launchArguments.append(contentsOf: ["-selectedBrandId", "primary"])
         app.launch()
     }
 }

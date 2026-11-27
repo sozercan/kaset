@@ -88,11 +88,8 @@ struct KasetApp: App {
         let player = PlayerService()
 
         let realClient = YTMusicClient(authService: auth, webKitManager: webkit)
-        let client: YTMusicClientProtocol = if UITestConfig.isUITestMode {
-            MockUITestYTMusicClient()
-        } else {
-            realClient
-        }
+        let mockClient = UITestConfig.isUITestMode ? MockUITestYTMusicClient() : nil
+        let client: YTMusicClientProtocol = mockClient ?? realClient
 
         player.setYTMusicClient(client)
         player.setAuthService(auth)
@@ -128,6 +125,9 @@ struct KasetApp: App {
         }
         realClient.accountScopeProvider = { [weak account] in
             account?.currentAccountScopeID
+        }
+        mockClient?.activeAccountIdProvider = { [weak account] in
+            account?.currentAccount?.id
         }
 
         let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit, askFeatureEnabled: true)

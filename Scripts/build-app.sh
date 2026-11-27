@@ -9,7 +9,7 @@ source "$ROOT/version.env"
 
 CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
-SKIP_MAIN_ASSETS=${KASET_SKIP_MAIN_ASSETS:-0}
+PREBUILT_ASSETS_DIR=${KASET_PREBUILT_ASSETS_DIR:-}
 APP_NAME="Kaset"
 RELEASE_BUNDLE_ID="com.sertacozercan.Kaset"
 if [[ "$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')" == "debug" ]]; then
@@ -357,17 +357,15 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
-fix_linked_sdk_version() {
+verify_linked_sdk_version() {
   local binary="$1"
-  local sdk_version recorded
-  sdk_version=$(xcrun --sdk macosx --show-sdk-version)
+  local sdk_version="$2"
+  local recorded
   recorded=$(xcrun vtool -show-build "$binary" | awk '$1 == "sdk" { print $2 }' | sort -u | paste -sd ' ' -)
-  if [[ "$recorded" == "$sdk_version" ]]; then
-    return
+  if [[ "$recorded" != "$sdk_version" ]]; then
+    echo "ERROR: $binary recorded SDK '${recorded:-none}', expected '${sdk_version}'" >&2
+    exit 1
   fi
-  echo "  → Recording linked SDK $sdk_version (linker wrote ${recorded:-none})"
-  xcrun vtool -set-build-version macos "$MIN_MACOS_VERSION" "$sdk_version" -replace \
-    -output "$binary" "$binary"
 }
 
 resign_executable_ad_hoc() {
@@ -383,9 +381,17 @@ echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
+SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
+SDK_LINKER_FLAGS=(
+  -Xlinker -platform_version
+  -Xlinker macos
+  -Xlinker "$MIN_MACOS_VERSION"
+  -Xlinker "$SDK_VERSION"
+)
+
 for ARCH in "${ARCH_LIST[@]}"; do
-  echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME" "${APP_INTENTS_SWIFT_FLAGS[@]}"
+  echo "  → Building for $ARCH (SDK $SDK_VERSION, minos $MIN_MACOS_VERSION)..."
+  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME" "${APP_INTENTS_SWIFT_FLAGS[@]}" "${SDK_LINKER_FLAGS[@]}"
   stage_arch_product "$APP_NAME" "$ARCH"
   stage_app_intents_const_values "$ARCH"
 done
@@ -427,8 +433,16 @@ if [[ -d "$ICON_SOURCE" ]]; then
   cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
 fi
 
-if [[ "$SKIP_MAIN_ASSETS" == "1" ]]; then
-  echo "⚠️  Skipping main asset catalog compilation (KASET_SKIP_MAIN_ASSETS=1)."
+if [[ -n "$PREBUILT_ASSETS_DIR" ]]; then
+  if [[ ! -f "$PREBUILT_ASSETS_DIR/Assets.car" ]]; then
+    echo "ERROR: KASET_PREBUILT_ASSETS_DIR ($PREBUILT_ASSETS_DIR) is missing Assets.car" >&2
+    exit 1
+  fi
+  echo "🎨 Copying precompiled main asset catalog from $PREBUILT_ASSETS_DIR..."
+  cp "$PREBUILT_ASSETS_DIR/Assets.car" "$APP_BUNDLE/Contents/Resources/Assets.car"
+  if [[ -f "$PREBUILT_ASSETS_DIR/AppIcon.icns" ]]; then
+    cp "$PREBUILT_ASSETS_DIR/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+  fi
 elif [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun &>/dev/null; then
   echo "🎨 Compiling main asset catalog..."
   ICON_PARTIAL_PLIST="$BUILD_DIR/AppIconPartialInfo.plist"
@@ -448,7 +462,8 @@ elif [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcru
   fi
   echo "   ✓ App icon and accent color compiled to Contents/Resources/Assets.car"
 else
-  echo "⚠️  Warning: $ICON_SOURCE or $APP_ASSET_CATALOG not found. App will have incomplete assets."
+  echo "ERROR: $ICON_SOURCE or $APP_ASSET_CATALOG not found. Cannot package incomplete assets." >&2
+  exit 1
 fi
 
 
@@ -474,12 +489,12 @@ if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
   cp -R "$SPARKLE_FRAMEWORK" "$APP_BUNDLE/Contents/Frameworks/"
   chmod -R a+rX "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
   install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BUNDLE/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+  resign_executable_ad_hoc "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 else
   echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
 fi
 
-fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-resign_executable_ad_hoc "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+verify_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME" "$SDK_VERSION"
 
 
 FIRST_ARCH="${ARCH_LIST[0]}"

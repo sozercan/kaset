@@ -43,6 +43,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     private let searchResults: SearchResponse
     private let playlists: [Playlist]
     private let likedSongs: [Song]
+    var activeAccountIdProvider: (() -> String?)?
 
     init() {
         self.homeSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
@@ -229,15 +230,34 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func resetSessionStateForAccountSwitch() {}
 
+    private var activeAccountPlaylists: [Playlist] {
+        guard let activeAccountId = self.activeAccountIdProvider?(),
+              activeAccountId != "primary",
+              !activeAccountId.isEmpty
+        else {
+            return self.playlists
+        }
+        return [
+            Playlist(
+                id: "brand-playlist-\(activeAccountId)",
+                title: "Brand Playlist \(activeAccountId)",
+                description: "Account-specific mock playlist",
+                thumbnailURL: nil,
+                trackCount: 8,
+                author: Artist.inline(name: "Brand Account", namespace: "playlist-author")
+            ),
+        ]
+    }
+
     func getLibraryPlaylists() async throws -> [Playlist] {
         try? await Task.sleep(for: .milliseconds(100))
-        return self.playlists
+        return self.activeAccountPlaylists
     }
 
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         try? await Task.sleep(for: .milliseconds(100))
         return PlaylistParser.LibraryContent(
-            playlists: self.playlists,
+            playlists: self.activeAccountPlaylists,
             albums: Self.defaultLibraryAlbums(),
             artists: [],
             podcastShows: []
@@ -257,6 +277,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         try? await Task.sleep(for: .milliseconds(100))
         let libraryAlbum = Self.defaultLibraryAlbums().first { $0.id == id }
         let playlist = libraryAlbum.map(Self.playlist(from:))
+            ?? self.activeAccountPlaylists.first { $0.id == id }
             ?? self.playlists.first { $0.id == id }
             ?? Playlist(
                 id: id,

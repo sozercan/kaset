@@ -95,6 +95,9 @@ elif not json.loads(app_intents_metadata.read_text(encoding="utf-8")).get("actio
 app_shortcut_phrases = app_path / "Contents/Resources/en.lproj/AppShortcuts.strings"
 if not app_shortcut_phrases.exists():
     errors.append(f"App Shortcut phrases are missing at {app_shortcut_phrases}")
+assets_car = app_path / "Contents/Resources/Assets.car"
+if not assets_car.exists():
+    errors.append(f"Compiled main asset catalog is missing at {assets_car}")
 
 if entitlements.get("com.apple.security.app-sandbox") is True:
     expected_mach_services = {

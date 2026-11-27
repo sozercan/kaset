@@ -9,10 +9,17 @@ final class MacOS15FallbackUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(sidebar, timeout: 15), "Sidebar should appear after launch")
         XCTAssertGreaterThan(app.windows.count, 0, "Main window should exist")
 
+        let aiButton = app.buttons["mainWindow.aiButton"]
         if #available(macOS 26.0, *) {
-            XCTAssertTrue(true, "Running on macOS 26+: Liquid Glass live")
+            XCTAssertTrue(
+                app.windows.firstMatch.exists,
+                "Main window should stay active on macOS 26+"
+            )
         } else {
-            XCTAssertTrue(true, "Running on macOS 15: ultraThinMaterial fallback live")
+            XCTAssertFalse(
+                aiButton.exists,
+                "macOS 15 fallback should not render the macOS 26 Command Bar AI button"
+            )
         }
     }
 
@@ -59,6 +66,9 @@ final class MacOS15FallbackUITests: KasetUITestCase {
     }
 
     func testLyricsButtonOpensLyricsPanel() {
+        app.launchArguments += [
+            "-settings.debug.useLegacyMacOS15UI", "NO",
+        ]
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
@@ -75,7 +85,18 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             "Lyrics panel header should appear after toggling"
         )
 
-        if #unavailable(macOS 26.0) {
+        if #available(macOS 26.0, *) {
+            let nativePanel = app.descendants(matching: .any)[TestAccessibilityID.Lyrics.panel]
+            let fallbackPanel = app.descendants(matching: .any)[TestAccessibilityID.Lyrics.fallbackPanel]
+            XCTAssertTrue(
+                waitForElement(nativePanel, timeout: 8),
+                "macOS 26 native lyrics panel should be active"
+            )
+            XCTAssertFalse(
+                fallbackPanel.exists,
+                "macOS 15 fallback lyrics panel should not render on macOS 26"
+            )
+        } else {
             let fallbackContent = app.descendants(matching: .any)[TestAccessibilityID.Lyrics.fallbackPanel]
             XCTAssertTrue(
                 waitForElement(fallbackContent, timeout: 8),

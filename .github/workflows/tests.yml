@@ -78,10 +78,67 @@ jobs:
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        run: swift test -q --skip KasetUITests --disable-xctest --no-parallel
+        run: |
+          if [ "${{ matrix.os }}" = "macos-26" ]; then
+            swift test -q --skip KasetUITests --no-parallel
+          else
+            swift test -q --skip KasetUITests --disable-xctest --no-parallel
+          fi
+
+  compile_main_assets:
+    name: Compile Main Assets
+    timeout-minutes: 10
+    runs-on: macos-26
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select Xcode version
+        run: |
+          set -euo pipefail
+          for candidate in \
+            /Applications/Xcode_26.2.app \
+            /Applications/Xcode_26.1.app \
+            /Applications/Xcode_26.0.app \
+            /Applications/Xcode_26.app
+          do
+            if [ -d "$candidate" ]; then
+              sudo xcode-select -s "$candidate/Contents/Developer"
+              echo "Selected $candidate"
+              xcodebuild -version
+              exit 0
+            fi
+          done
+          echo "::error::No Xcode 26.x install found on $RUNNER_NAME" >&2
+          ls /Applications | grep -i xcode || true
+          exit 1
+
+      - name: Compile main asset catalog
+        run: |
+          set -euo pipefail
+          mkdir -p .build/prebuilt-assets
+          xcrun actool Sources/Kaset/Resources/AppIcon.icon Sources/Kaset/Resources/Assets.xcassets \
+            --compile .build/prebuilt-assets \
+            --notices --warnings --errors \
+            --output-partial-info-plist .build/AppIconPartialInfo.plist \
+            --app-icon AppIcon \
+            --enable-on-demand-resources NO \
+            --development-region en \
+            --target-device mac \
+            --minimum-deployment-target 15.4 \
+            --platform macosx
+          test -f .build/prebuilt-assets/Assets.car
+
+      - name: Upload compiled main assets
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: compiled-main-assets
+          path: .build/prebuilt-assets
+          retention-days: 1
 
   macos_ui_tests:
     name: macOS UI Tests (${{ matrix.os }})
+    needs: compile_main_assets
     timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     strategy:
@@ -127,10 +184,17 @@ jobs:
       - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
+      - name: Download compiled main assets on macOS 15
+        if: matrix.os == 'macos-15'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: compiled-main-assets
+          path: .build/prebuilt-assets
+
       - name: Build app bundle for UI tests
         env:
           KASET_SIGNING: adhoc
-          KASET_SKIP_MAIN_ASSETS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
+          KASET_PREBUILT_ASSETS_DIR: ${{ matrix.os == 'macos-15' && '.build/prebuilt-assets' || '' }}
         run: Scripts/build-app.sh debug
 
       - name: Verify packaged app
