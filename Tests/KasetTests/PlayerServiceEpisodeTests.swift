@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for standalone artist-page episode playback.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceEpisodeTests {

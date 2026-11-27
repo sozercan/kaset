@@ -1,37 +1,25 @@
 import Foundation
 import Observation
 
-/// View model for the YouTube subscriptions surface: the subscribed-channel
-/// rail plus the subscriptions feed.
 @MainActor
 @Observable
 final class YouTubeSubscriptionsViewModel {
-    /// Current loading state (covers the feed; the rail loads alongside).
     private(set) var loadingState: LoadingState = .idle
 
-    /// Subscribed channels for the horizontal rail.
     private(set) var channels: [YouTubeChannel] = []
 
-    /// Subscription feed videos.
     private(set) var videos: [YouTubeVideo] = []
 
-    /// Continuation token for the next feed page.
     private var continuation: String?
 
-    /// Changes whenever pagination advances, even if the page adds no visible videos.
     private(set) var paginationTrigger = 0
 
     var hasMoreVideos: Bool {
         self.continuation != nil
     }
 
-    /// Invalidates stale in-flight loads when a newer one starts
-    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
 
-    /// The single in-flight load, shared by concurrent `load()` callers so
-    /// SwiftUI `.task` restarts coalesce onto one run instead of duplicating the
-    /// subscriptions feed and guide requests.
     private var loadTask: Task<Void, Never>?
 
     let client: any YouTubeClientProtocol
@@ -74,15 +62,12 @@ final class YouTubeSubscriptionsViewModel {
             self.continuation = feed.continuation
             self.paginationTrigger += 1
 
-            // Channel rail is best-effort; the feed alone is still useful.
             let channels = await (try? channelsTask) ?? []
             guard runID == self.loadGeneration else { return }
             self.channels = channels
             self.loadingState = .loaded
         } catch {
             guard runID == self.loadGeneration else { return }
-            // A cancelled load (view went away mid-flight) is not an
-            // error; reset so the next task run reloads.
             if error is CancellationError {
                 self.loadingState = .idle
                 return
@@ -120,7 +105,6 @@ final class YouTubeSubscriptionsViewModel {
             self.paginationTrigger += 1
             self.loadingState = .loaded
         } catch {
-            // A cancelled page load is not an error; allow retrying.
             if error is CancellationError {
                 self.loadingState = .loaded
                 return

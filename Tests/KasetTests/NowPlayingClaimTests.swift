@@ -3,8 +3,6 @@ import MediaPlayer
 import Testing
 @testable import Kaset
 
-// MARK: - NowPlayingClaimTests
-
 @Suite("Now playing claim", .serialized, .tags(.service))
 struct NowPlayingClaimTests {
     @Test("Confirmed playback publishes state only (WebKit owns the card)")
@@ -27,9 +25,6 @@ struct NowPlayingClaimTests {
         }
     }
 
-    /// WebKit's card for the music page is in Control Center as soon as the page loads a track,
-    /// including on a cold launch before anything has played, so a titled claim next to it shows
-    /// up as a second Kaset entry (#457).
     @Test("Not playing with a track publishes state only, even before the page has played")
     func pausedWithTrackIsStateOnly() {
         for state in [PlayerService.PlaybackState.paused, .ended, .idle, .error("boom")] {
@@ -160,8 +155,6 @@ struct NowPlayingClaimTests {
         #expect(center.playbackState == .playing)
     }
 
-    /// A track change mid-playback passes through `.loading` while WebKit's card is up, so
-    /// hands-off must not publish an entry of its own.
     @Test("Hands-off never publishes a new claim")
     @MainActor
     func handsOffDoesNotPublish() {
@@ -219,7 +212,6 @@ struct NowPlayingClaimTests {
     @MainActor
     func videoClaimHandsOverToMusic() {
         let center = FakeNowPlayingCenter()
-        // A paused video publishes its claim; confirmed video playback keeps it.
         var ownership = NowPlayingManager.apply(
             .claim(title: "Video", artist: "Channel", playbackState: .paused),
             to: center,
@@ -228,12 +220,10 @@ struct NowPlayingClaimTests {
         ownership = NowPlayingManager.apply(.handsOff, to: center, ownership: ownership)
         #expect(NowPlayingManager.isNativeClaim(center.nowPlayingInfo))
 
-        // Back to paused music: the video's metadata goes, Kaset's playback state stays.
         ownership = NowPlayingManager.apply(.stateOnly(.paused), to: center, ownership: ownership)
         #expect(ownership == .stateOnly)
         #expect(center.nowPlayingInfo == nil)
 
-        // Loading, playing and pausing music never brings metadata back.
         for claim in [NowPlayingManager.NowPlayingClaim.handsOff, .stateOnly(.playing), .stateOnly(.paused)] {
             ownership = NowPlayingManager.apply(claim, to: center, ownership: ownership)
             #expect(ownership == .stateOnly)
@@ -258,8 +248,6 @@ struct NowPlayingClaimTests {
         #expect(NowPlayingManager.isNativeClaim(nil) == false)
     }
 }
-
-// MARK: - FakeNowPlayingCenter
 
 @MainActor
 private final class FakeNowPlayingCenter: NowPlayingInfoPublishing {

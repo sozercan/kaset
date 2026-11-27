@@ -1,13 +1,9 @@
 import Foundation
 
-// MARK: - YouTubeAskSanitizedText
-
 package struct YouTubeAskSanitizedText: Equatable, Sendable {
     package let text: String
     package let wasTruncated: Bool
 }
-
-// MARK: - YouTubeAskVisibleTextSanitizer
 
 package enum YouTubeAskVisibleTextSanitizer {
     package static func sanitizeChipLabel(_ value: String) -> YouTubeAskSanitizedText? {

@@ -1,67 +1,9 @@
 #!/usr/bin/env swift
-//
-//  main.swift
-//  Standalone API Explorer for YouTube Music and YouTube
-//
-//  A unified tool for exploring public and authenticated YouTube Music and regular YouTube API endpoints.
-//  Reads cookies from the Kaset app's debug cookie export for authenticated requests.
-//
-//  Usage:
-//    swift run api-explorer [command] [options]
-//
-//  Commands:
-//    browse <browseId> [params]    - Explore a browse endpoint
-//    action <endpoint> <body>      - Explore a JSON action endpoint (body as JSON)
-//    wire-action <endpoint> <body> - Safely inspect JSON, streaming, or opaque responses
-//    discover <endpoint> <body>    - Inspect and follow read-only navigation, with values redacted
-//    ask-video-audit <videoId>     - Audit YouTube Ask Gemini / YouChat API surfaces
-//    ask-video-parity <videoId>    - Compare read-only Ask request profiles
-//    ask-video-live-test <videoId> - Replay server-issued summary/follow-up suggestions
-//    ask-video-free-text-test <videoId>
-//                                  - Guarded one-shot free-text validation
-//    search-audit <query>          - Audit live YouTube Music search shapes and filters
-//    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
-//    analyze-file <path>           - Safely summarize a saved JSON response
-//    list                          - List all known endpoints
-//    auth                          - Check authentication status
-//    help                          - Show this help message
-//
-//  Options:
-//    -v, --verbose                 - Show raw JSON or expand audits; discover/queue-probe stay redacted
-//    -o, --output <file>           - Save mode-0600 output; discover/queue-probe stay redacted
-//    --client-version <version>    - Override the resolved InnerTube client version
-//    --confirm-live-ai             - Required acknowledgement for live AI requests
-//    --prompt-file <path|->         - Read a private free-text prompt from a mode-0600 file or stdin
-//    --fresh-chats N               - Run 1-3 independent summary chats
-//    --follow-up                   - Replay one server-issued follow-up suggestion
-//    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
-//                                    instead of YouTube Music
-//    --ios-music, --android-music  - Use a mobile Music request profile with discover
-//    --mobile-web-key             - Add the resolved web API key to mobile discovery
-//    --mobile-cookie-only         - Omit the authorization header for mobile comparison
-//    --mobile-token-file <path>   - Read a mobile OAuth access token from a private file
-//    --no-auth, --guest            - Force unauthenticated requests even if Kaset cookies exist
-//    --follow <index>              - Follow a discover navigation entry; repeat for deeper pages
-//
-//  Examples:
-//    swift run api-explorer browse FEmusic_home
-//    swift run api-explorer browse FEmusic_charts
-//    swift run api-explorer browse FEmusic_liked_playlists   # Requires auth
-//    swift run api-explorer action search '{"query":"never gonna give you up"}'
-//    swift run api-explorer ask-video-parity <VIDEO_ID>
-//    swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --follow-up
-//    swift run api-explorer ask-video-free-text-test <VIDEO_ID> --confirm-live-ai --prompt-file -
-//    swift run api-explorer continuation <token> next        # Mix queue continuation
-//    swift run api-explorer auth
-//    swift run api-explorer list
-//
 
 import CommonCrypto
 import Darwin
 import Dispatch
 import Foundation
-
-// MARK: - Configuration
 
 let apiKeyEnvironmentVariable = "KASET_YTMUSIC_API_KEY"
 let webClientURL = URL(string: "https://music.youtube.com")!
@@ -70,15 +12,11 @@ let clientVersion = "1.20231204.01.00"
 let baseURL = "https://music.youtube.com/youtubei/v1"
 let origin = "https://music.youtube.com"
 
-/// When true, the explorer targets regular YouTube (www.youtube.com, WEB client)
-/// instead of YouTube Music (music.youtube.com, WEB_REMIX client). Set via --youtube.
 nonisolated(unsafe) var youtubeMode = false
 nonisolated(unsafe) var cachedClientVersion: String?
 nonisolated(unsafe) var clientVersionWasForced = false
 nonisolated(unsafe) var forceUnauthenticatedRequests = false
 
-// Active request configuration. Defaults to YouTube Music (the constants
-// above); --youtube switches everything to regular YouTube.
 nonisolated(unsafe) var activeAPIHost = "music.youtube.com"
 nonisolated(unsafe) var activeWebClientURL = webClientURL
 nonisolated(unsafe) var activeClientName = "WEB_REMIX"
@@ -86,7 +24,6 @@ nonisolated(unsafe) var activeFallbackClientVersion = clientVersion
 nonisolated(unsafe) var activeBaseURL = baseURL
 nonisolated(unsafe) var activeOrigin = origin
 
-/// Switches all request configuration to regular YouTube (WEB client).
 func activateYouTubeMode() {
     youtubeMode = true
     activeAPIHost = "www.youtube.com"
@@ -97,19 +34,11 @@ func activateYouTubeMode() {
     activeOrigin = "https://www.youtube.com"
 }
 
-/// Global auth user index (0 = primary account, 1+ = brand accounts)
 nonisolated(unsafe) var globalAuthUserIndex = 0
 nonisolated(unsafe) var authUserOptionWasSpecified = false
 
-/// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
 nonisolated(unsafe) var globalBrandAccountId: String?
 
-/// Language code sent as the InnerTube `hl` client parameter.
-///
-/// Overridable with `--hl` so response localization can be probed directly —
-/// InnerTube accepts both Apple's script identifiers (`zh-Hans`/`zh-Hant`) and
-/// common region aliases (`zh-CN`/`zh-TW`), so either form can be compared
-/// against real responses.
 nonisolated(unsafe) var globalHl = "en"
 
 private func effectivePort(for url: URL) -> Int? {
@@ -122,8 +51,6 @@ private func effectivePort(for url: URL) -> Int? {
     default: return nil
     }
 }
-
-// MARK: - BoundedResponseDataDelegate
 
 private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let scheme: String?
@@ -317,9 +244,6 @@ private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegat
     }
 }
 
-// MARK: - Cookie Management
-
-/// Locates the authoritative cookie archive without reading its contents.
 func selectedCookieBackupFile(
     appSupport: URL? = FileManager.default.urls(
         for: .applicationSupportDirectory,
@@ -334,8 +258,6 @@ func selectedCookieBackupFile(
             .appendingPathComponent("Kaset", isDirectory: true)
             .appendingPathComponent("cookies.dat")
 
-    // Packaged debug builds export cookies.dat into their own container; older
-    // debug builds shared the release container.
     let containerCookieFiles = ["com.sertacozercan.Kaset.debug", "com.sertacozercan.Kaset"].map { bundleID in
         homeDirectory
             .appendingPathComponent("Library/Containers/\(bundleID)/Data", isDirectory: true)
@@ -343,9 +265,6 @@ func selectedCookieBackupFile(
             .appendingPathComponent("cookies.dat")
     }
 
-    // Once the sandboxed app has created its Application Support directory, its
-    // container export is authoritative. Never resurrect an older archive after
-    // logout, account switching, expiry, corruption, or a cleared export.
     for containerCookieFile in containerCookieFiles {
         if FileManager.default.fileExists(atPath: containerCookieFile.path) {
             return containerCookieFile
@@ -357,8 +276,6 @@ func selectedCookieBackupFile(
     return FileManager.default.fileExists(atPath: legacyCookieFile.path) ? legacyCookieFile : nil
 }
 
-/// Reads cookies from Kaset app's backup file in Application Support.
-/// This allows the standalone tool to make authenticated API requests.
 func loadCookiesFromAppBackup(from cookieFile: URL? = selectedCookieBackupFile()) -> [HTTPCookie]? {
     guard !forceUnauthenticatedRequests, let cookieFile else { return nil }
 
@@ -402,41 +319,29 @@ func loadCookiesFromAppBackup(from cookieFile: URL? = selectedCookieBackupFile()
     return decodeCookies(at: cookieFile)
 }
 
-/// Filters cookies to those that match the active API host
-/// (music.youtube.com or www.youtube.com depending on --youtube).
-/// Cookies with domain `.youtube.com` match either host via subdomain matching.
 func filterCookiesForAPIHost(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
     let host = activeAPIHost
     return cookies.filter { cookie in
         let domain = cookie.domain.lowercased()
-        // Cookies with leading dot match subdomains (e.g., ".youtube.com" matches "music.youtube.com")
         if domain.hasPrefix(".") {
             let withoutDot = String(domain.dropFirst())
             return host.hasSuffix(withoutDot) || withoutDot == host
         }
-        // Exact match or subdomain
         return domain == host || host.hasSuffix("." + domain)
     }
 }
 
-/// Gets the SAPISID value from cookies for authentication.
-/// Prefers .youtube.com domain cookies over .google.com for youtube.com requests.
 func getSAPISID(from cookies: [HTTPCookie]) -> String? {
-    // Filter to youtube.com domain cookies first (better match for the API host)
     let ytCookies = filterCookiesForAPIHost(cookies)
     let sapisid = ytCookies.first { $0.name == "SAPISID" }
     let fallbackCookie = ytCookies.first { $0.name == "__Secure-3PAPISID" }
     return (sapisid ?? fallbackCookie)?.value
 }
 
-/// Builds a cookie header string using HTTPCookie's built-in method.
-/// This ensures proper cookie formatting that matches what browsers send.
 func buildCookieHeader(from cookies: [HTTPCookie]) -> String? {
-    // Filter to only cookies that match the active API host
     let matchingCookies = filterCookiesForAPIHost(cookies)
     guard !matchingCookies.isEmpty else { return nil }
 
-    // Use HTTPCookie's built-in method for proper formatting
     let headerFields = HTTPCookie.requestHeaderFields(with: matchingCookies)
     return headerFields["Cookie"]
 }
@@ -472,8 +377,6 @@ func buildSIDAuthorizationHeader(
     }
     return values.isEmpty ? nil : values.joined(separator: " ")
 }
-
-// MARK: - API Key Resolution
 
 private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLRequest {
     var request = URLRequest(url: activeWebClientURL)
@@ -541,8 +444,6 @@ func resolveAPIKey(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = 
         )
     }
 
-    // Opportunistically capture the live client version so requests
-    // match what the web client currently sends.
     if cachedClientVersion == nil,
        let version = extractInnertubeClientVersion(from: html)
     {
@@ -552,9 +453,6 @@ func resolveAPIKey(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = 
     return key
 }
 
-/// Resolves only the live client version when the API key came from an explicit
-/// environment override. Failure is non-fatal: callers can still use the
-/// configured fallback, and search-audit labels that source explicitly.
 func resolveLiveClientVersionIfNeeded(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = nil) async {
     guard cachedClientVersion == nil else { return }
 
@@ -644,10 +542,6 @@ func isValidClientVersion(_ value: String) -> Bool {
         }
 }
 
-// MARK: - MusicMobileRequestProfile
-
-/// Mobile Home uses element models that the WEB_REMIX client does not request.
-/// This profile is scoped to read-only discovery, not production playback.
 struct MusicMobileRequestProfile {
     enum Client: String {
         case ios = "IOS_MUSIC"
@@ -705,7 +599,6 @@ struct MusicMobileRequestProfile {
         }
     }
 
-    /// Keeps the body, client headers, and user agent on the same identity.
     func applyHeaders(to request: inout URLRequest, cookieOnly: Bool, accessToken: String?, cookieHeader: String? = nil) {
         request.setValue(self.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(self.client.headerID, forHTTPHeaderField: "X-Youtube-Client-Name")
@@ -730,11 +623,6 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
         "lockedSafetyMode": false,
     ]
 
-    // Add brand account ID if specified.
-    // Diagnostic decoupling: set KASET_PROBE_NO_OBOU=1 to omit the body
-    // `onBehalfOfUser` field so brand identity can be probed via the
-    // `X-Goog-PageId` header ALONE (matching yt-dlp's header-only wire format),
-    // isolating whether body-identity is what playback endpoints reject.
     if let brandId = brandAccountId ?? globalBrandAccountId,
        ProcessInfo.processInfo.environment["KASET_PROBE_NO_OBOU"] != "1"
     {
@@ -776,11 +664,6 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil, cookie
             headers["Authorization"] = authorization
             headers["X-Goog-AuthUser"] = "\(authUserIndex ?? globalAuthUserIndex)"
             headers["X-Origin"] = activeOrigin
-            // Brand/delegated channel selection on the wire: real-world clients
-            // (yt-dlp, YouTube.js, playlet) send the brand pageId as an
-            // `X-Goog-PageId` header in addition to `context.user.onBehalfOfUser`.
-            // Some endpoints (notably `player`) reject body-only brand identity, so
-            // expose the header here to probe brand attribution accurately.
             if let brandId = globalBrandAccountId {
                 headers["X-Goog-PageId"] = brandId
             }
@@ -795,8 +678,6 @@ func hasUsableAuthMaterial() -> Bool {
     return getSAPISID(from: cookies) != nil && buildCookieHeader(from: cookies) != nil
 }
 
-// MARK: - APIWireResponse
-
 struct APIWireResponse {
     let data: Data
     let statusCode: Int
@@ -805,8 +686,6 @@ struct APIWireResponse {
 
 private let maximumWireResponseBytes = 32 * 1024 * 1024
 private let maximumConfigurationResponseBytes = 8 * 1024 * 1024
-
-// MARK: - ResponseSizeLimitError
 
 struct ResponseSizeLimitError: LocalizedError {
     let maximumBytes: Int
@@ -946,8 +825,6 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
     return (json, response.statusCode)
 }
 
-// MARK: - Response Analysis
-
 func joinedRunsText(_ data: [String: Any]?) -> String? {
     guard let data,
           let runs = data["runs"] as? [[String: Any]]
@@ -1052,7 +929,6 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
     return output
 }
 
-/// Lists playlist destinations without exposing tracking or continuation tokens.
 private func playlistNavigationSummary(_ data: [String: Any]) -> String {
     var destinations: [String] = []
     var seen = Set<String>()
@@ -1121,9 +997,6 @@ private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
     return output
 }
 
-/// Recursively counts renderer/viewModel dictionary keys in a response.
-/// Invaluable for mapping which renderers a YouTube surface currently serves
-/// (e.g. legacy `videoRenderer` vs. the newer `lockupViewModel`).
 private func countRenderers(in value: Any, counts: inout [String: Int]) {
     if let dictionary = value as? [String: Any] {
         for (key, nestedValue) in dictionary {
@@ -1154,8 +1027,6 @@ func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
     }
     return output
 }
-
-// MARK: - PlaylistSetVideoIdSourceCounts
 
 private struct PlaylistSetVideoIdSourceCounts {
     var playlistItemData = 0
@@ -1202,8 +1073,6 @@ private func playlistSetVideoIdSourceSummary(_ data: [String: Any]) -> String {
       • playlistEditEndpoint ACTION_REMOVE_VIDEO setVideoId: \(counts.playlistEditEndpoint)
     """
 }
-
-// MARK: - ChapterProbeItem
 
 private struct ChapterProbeItem: Hashable {
     let videoId: String?
@@ -1447,8 +1316,6 @@ private func chapterProbeSummary(_ data: [String: Any], limit: Int = 8) -> Strin
     return output
 }
 
-// MARK: - LibraryFeedbackProbeItem
-
 private struct LibraryFeedbackProbeItem: Hashable {
     enum Kind: String {
         case single
@@ -1592,16 +1459,12 @@ private func albumLibraryTargetSummary(_ data: [String: Any]) -> String {
     return "\n💾 Album library target:\n  • Found \(targets.count) unique OLAK playlist target(s) for album mutations\n"
 }
 
-// MARK: - QueueRatingAudit
-
 private struct QueueRatingAudit {
     var rowCount = 0
     var rowsWithDirectStatus = 0
     var ratingToggleCount = 0
     var toggleShapes: [String: Int] = [:]
 }
-
-// MARK: - QueueRatingEndpointAudit
 
 private struct QueueRatingEndpointAudit {
     let status: String
@@ -1721,11 +1584,9 @@ func analyzeResponse(
 ) -> String {
     var output = ""
 
-    // Top-level keys
     let keys = Array(data.keys).sorted()
     output += "📋 Top-level keys (\(keys.count)): \(keys.joined(separator: ", "))\n"
 
-    // Check for error
     if let error = data["error"] as? [String: Any] {
         let code = error["code"] ?? "unknown"
         let message = error["message"] ?? "Unknown error"
@@ -1733,7 +1594,6 @@ func analyzeResponse(
         return output
     }
 
-    // Navigate to contents if present
     if let contents = data["contents"] as? [String: Any] {
         output += "\n📦 Contents structure:\n"
         for (key, value) in contents.sorted(by: { $0.key < $1.key }) {
@@ -1746,7 +1606,6 @@ func analyzeResponse(
             }
         }
 
-        // Try to find sections
         if let singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
            let tabs = singleColumn["tabs"] as? [[String: Any]]
         {
@@ -1769,7 +1628,6 @@ func analyzeResponse(
                             output += "    [\(sIndex)] \(sectionType)\n"
 
                             if verbose, let renderer = section[sectionType] as? [String: Any] {
-                                // Try to get title
                                 if let header = renderer["header"] as? [String: Any] {
                                     for (_, hValue) in header {
                                         if let hDict = hValue as? [String: Any],
@@ -1793,7 +1651,6 @@ func analyzeResponse(
         }
     }
 
-    // Check for header
     if let header = data["header"] as? [String: Any] {
         output += "\n🏷️ Header keys: \(header.keys.sorted().joined(separator: ", "))\n"
     }
@@ -1825,8 +1682,6 @@ func analyzeResponse(
 
     return output
 }
-
-// MARK: - QueueProbeSong
 
 private struct QueueProbeSong {
     let videoId: String
@@ -1915,7 +1770,6 @@ private let queueProbeDiagnosticKeys: Set<String> = [
     "tabRenderer", "tabbedRenderer", "tabs", "text", "title", "videoId", "watchNextTabbedResultsRenderer",
 ]
 
-/// Preserve response structure without exporting personalized identifiers, text, or opaque values.
 private func sanitizedQueueProbeDiagnosticValue(_ value: Any) -> Any {
     if let dictionary = value as? [String: Any] {
         return sanitizedQueueProbeDiagnosticResponse(dictionary)
@@ -1935,8 +1789,6 @@ private func sanitizedQueueProbeDiagnosticValue(_ value: Any) -> Any {
 private func sanitizedQueueProbeDiagnosticResponse(_ data: [String: Any]) -> [String: Any] {
     var sanitized: [String: Any] = [:]
     for (index, key) in data.keys.sorted().enumerated() {
-        // Preserve known queue fields; dynamic keys may themselves contain private values.
-        // Numbered placeholders retain every member without collisions between unknown keys.
         let safeKey = queueProbeDiagnosticKeys.contains(key) ? key : "[REDACTED_KEY_\(index)]"
         sanitized[safeKey] = data[key].map(sanitizedQueueProbeDiagnosticValue)
     }
@@ -2012,9 +1864,6 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
     }
 }
 
-// MARK: - Commands
-
-/// Known endpoints that require authentication
 let authRequiredEndpoints = Set([
     "FEmusic_liked_playlists",
     "FEmusic_liked_albums",
@@ -2039,7 +1888,6 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_privately_owned_artists",
 ])
 
-/// Known YouTube (www.youtube.com, WEB client) browse endpoints that require authentication.
 let youtubeAuthRequiredEndpoints = Set([
     "FEsubscriptions",
     "FElibrary",
@@ -2047,8 +1895,6 @@ let youtubeAuthRequiredEndpoints = Set([
     "FEplaylist_aggregation",
 ])
 
-/// Checks if a browseId requires authentication.
-/// This includes known endpoints plus dynamic browseId prefixes that are sign-in backed.
 func needsAuthentication(_ browseId: String) -> Bool {
     if youtubeMode {
         if youtubeAuthRequiredEndpoints.contains(browseId) || browseId == "VLWL"
@@ -2056,28 +1902,20 @@ func needsAuthentication(_ browseId: String) -> Bool {
         {
             return true
         }
-        // Personalized surfaces (home feed, etc.) return richer data signed in,
-        // so use auth whenever cookies are available.
         return loadCookiesFromAppBackup() != nil
     }
     if authRequiredEndpoints.contains(browseId) {
         return true
     }
-    // Library artists (MPLAUC...) come from signed-in library responses
-    // and return 401 when browsed directly without auth.
     if browseId.hasPrefix("MPLAUC") {
         return true
     }
-    // Playlists (VL...) benefit from authentication for personalized content
     if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
-        return loadCookiesFromAppBackup() != nil // Use auth if available
+        return loadCookiesFromAppBackup() != nil
     }
-    // Podcast shows (MPSPP...) require authentication for episode data
     if browseId.hasPrefix("MPSPP") {
         return true
     }
-    // Album pages are public, but authenticated requests expose personalized
-    // Save/Remove library controls and their OLAK mutation targets.
     if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
         return loadCookiesFromAppBackup() != nil
     }
@@ -2144,9 +1982,6 @@ func exploreBrowse(
     }
 }
 
-/// Known action endpoints that require authentication
-/// Known action endpoints that require authentication.
-/// Note: music/get_queue works without auth but returns richer data with auth.
 let authRequiredActions = Set([
     "like/like",
     "like/dislike",
@@ -2167,8 +2002,6 @@ let authRequiredActions = Set([
 
 func actionNeedsAuthentication(_ endpoint: String) -> Bool {
     guard !forceUnauthenticatedRequests else { return false }
-    // In YouTube mode, personalized actions (guide, next, search) return richer
-    // data signed in, so use auth whenever cookies are available.
     return authRequiredActions.contains(endpoint)
         || (youtubeMode && hasUsableAuthMaterial())
 }
@@ -2235,8 +2068,6 @@ func exploreAction(
         print("❌ Error: \(error.localizedDescription)")
     }
 }
-
-// MARK: - PrivateInputLimits
 
 private enum PrivateInputLimits {
     static let bodyBytes = 2 * 1024 * 1024
@@ -2541,8 +2372,6 @@ func loadPrivatePrompt(from promptFile: String) throws -> String {
     return prompt
 }
 
-/// Reuses the owner, mode, ACL, symlink, and bounded-read checks for private input.
-/// Only a regular file is accepted so a token can never be echoed by a terminal.
 func loadMobileAccessToken(from path: String) throws -> String {
     guard path != "-", let token = try? loadPrivatePrompt(from: path),
           token.utf8.count <= 8192,
@@ -2554,8 +2383,6 @@ func loadMobileAccessToken(from path: String) throws -> String {
     return token
 }
 
-/// Prevents discovery reports from replacing an input file, including
-/// relative paths, symlinked directories, and existing hard-link aliases.
 func pathsReferToSameFile(_ firstPath: String, _ secondPath: String) -> Bool {
     let first = URL(fileURLWithPath: NSString(string: firstPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
     let second = URL(fileURLWithPath: NSString(string: secondPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
@@ -2569,7 +2396,6 @@ func pathsReferToSameFile(_ firstPath: String, _ secondPath: String) -> Bool {
         && firstStatus.st_dev == secondStatus.st_dev && firstStatus.st_ino == secondStatus.st_ino
 }
 
-/// Shell redirection can make stdin another alias of an output file.
 func fileDescriptorRefersToFile(_ fileDescriptor: Int32, path: String) -> Bool {
     var inputStatus = stat()
     var outputStatus = stat()
@@ -2781,8 +2607,6 @@ private func auditSearchFilter(
     }
 }
 
-/// Audits the live YouTube Music search response, every filter chip returned by the
-/// service, and the first continuation page for each filter that offers one.
 func auditSearch(_ query: String, verbose: Bool = false) async {
     guard !youtubeMode else {
         print("❌ search-audit currently supports YouTube Music mode only")
@@ -2850,10 +2674,6 @@ func auditSearch(_ query: String, verbose: Bool = false) async {
 
 // swiftlint:enable no_print
 
-/// Explores a continuation request to fetch more items.
-/// - Parameters:
-///   - token: The continuation token
-///   - endpoint: The endpoint to use ("browse" for home/library, "search" for search, "next" for mix queues)
 func exploreContinuation(
     _ token: String, endpoint: String = "browse", verbose: Bool = false, outputFile: String? = nil
 ) async {
@@ -2863,10 +2683,7 @@ func exploreContinuation(
     print()
 
     var body: [String: Any] = ["continuation": token]
-    // Preserve the caller's requested session mode: cookies are used when they
-    // are available, while --guest/--no-auth forces a signed-out continuation.
     let authenticated = !forceUnauthenticatedRequests && hasUsableAuthMaterial()
-    // For "next" endpoint continuations (mix queues), add required parameters
     if endpoint == "next" {
         body["enablePersistentPlaylistPanel"] = true
         body["isAudioOnly"] = true
@@ -2890,7 +2707,6 @@ func exploreContinuation(
             searchAuditContext: endpoint == "search" && !youtubeMode ? .continuation : .automatic
         ))
 
-        // Analyze continuation-specific structure
         print("\n📊 Continuation Analysis:")
         if let continuationContents = data["continuationContents"] as? [String: Any] {
             print("   Found continuationContents with keys: \(Array(continuationContents.keys))")
@@ -2899,7 +2715,6 @@ func exploreContinuation(
                     if let contents = renderer["contents"] as? [[String: Any]] {
                         print("   └─ \(key): \(contents.count) items")
 
-                        // For playlistPanelContinuation (mix queues), show song count
                         if key == "playlistPanelContinuation" {
                             var songCount = 0
                             for item in contents {
@@ -2916,7 +2731,6 @@ func exploreContinuation(
                         print(
                             "   └─ \(key) has 'continuations' array (\(continuations.count) tokens)"
                         )
-                        // Check for nextRadioContinuationData (mix queue specific)
                         if let firstCont = continuations.first,
                            firstCont["nextRadioContinuationData"] != nil
                         {
@@ -2982,7 +2796,6 @@ func checkAuthStatus() {
     print("✅ Found \(cookies.count) cookies in app backup")
     print("✅ \(matchingCookies.count) cookies match \(activeAPIHost) domain\n")
 
-    // Check for key auth cookies (in youtube.com domain)
     let authCookieNames = [
         "SAPISID", "__Secure-3PAPISID", "SID", "HSID", "SSID", "APISID", "__Secure-1PAPISID",
     ]
@@ -3014,7 +2827,6 @@ func checkAuthStatus() {
 
     print()
 
-    // Check if we can compute SAPISIDHASH
     if getSAPISID(from: cookies) != nil {
         print("✅ Can compute SAPISIDHASH for authenticated requests")
     } else {
@@ -3022,9 +2834,6 @@ func checkAuthStatus() {
     }
 }
 
-// MARK: - Account Discovery
-
-/// Discovers all available accounts (primary + brand accounts) by probing authuser indices
 func discoverAccounts(verbose: Bool) async {
     print("🔍 Discovering Accounts")
     print("=======================\n")
@@ -3035,7 +2844,7 @@ func discoverAccounts(verbose: Bool) async {
     }
 
     var accounts: [(index: Int, name: String, handle: String?)] = []
-    let maxAttempts = 10 // Probe up to 10 accounts
+    let maxAttempts = 10
 
     for index in 0 ..< maxAttempts {
         if verbose {
@@ -3048,12 +2857,9 @@ func discoverAccounts(verbose: Bool) async {
                 print("    ✅ Found: \(accountInfo.name)")
             }
         } else {
-            // No more accounts at this index
             if verbose {
                 print("    ❌ No account at index \(index)")
             }
-            // If we found at least one account, stop after first failure
-            // Brand accounts are typically consecutive starting from 0
             if !accounts.isEmpty {
                 break
             }
@@ -3076,7 +2882,6 @@ func discoverAccounts(verbose: Bool) async {
     }
 }
 
-/// Fetches account info for a specific authuser index
 private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
     name: String, handle: String?
 )? {
@@ -3120,7 +2925,6 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
             return nil
         }
 
-        // 401/403 means no account at this index
         if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
             return nil
         }
@@ -3136,13 +2940,10 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
             return nil
         }
 
-        // Check if we got an error response
         if json["error"] != nil {
             return nil
         }
 
-        // Extract account name from response
-        // Path: actions[0].openPopupAction.popup.multiPageMenuRenderer.header.activeAccountHeaderRenderer.accountName.runs[0].text
         guard let actions = json["actions"] as? [[String: Any]],
               let firstAction = actions.first,
               let openPopupAction = firstAction["openPopupAction"] as? [String: Any],
@@ -3155,7 +2956,6 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
             return nil
         }
 
-        // Extract account name
         var accountName: String?
         if let accountNameObj = activeAccountHeaderRenderer["accountName"] as? [String: Any],
            let runs = accountNameObj["runs"] as? [[String: Any]],
@@ -3169,7 +2969,6 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
             return nil
         }
 
-        // Extract channel handle (optional)
         var channelHandle: String?
         if let channelHandleObj = activeAccountHeaderRenderer["channelHandle"] as? [String: Any],
            let runs = channelHandleObj["runs"] as? [[String: Any]],
@@ -3189,15 +2988,6 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
     }
 }
 
-// MARK: - Brand Account Discovery
-
-/// Read-only mechanism pre-check for issue #277 (brand history recording).
-/// Follows the brand signin redirect on an EPHEMERAL `URLSession` seeded from
-/// the app cookies (the on-disk `cookies.dat` is never modified), then reads the
-/// landed page's `DATASYNC_ID`. A first-half that flips to `brandId` proves the
-/// signin navigation re-points the session identity at the HTTP/cookie level.
-/// Emits no `videostats` pings (no JS), so it cannot prove the history write —
-/// that requires the live WebView (Stage 2). Mutates nothing in the app.
 func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: String) async {
     print("🔀 signin session-switch pre-check (read-only, ephemeral session)")
     print("================================================================\n")
@@ -3215,7 +3005,6 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
         return
     }
 
-    // Build YouTube's own channel-switch endpoint: /signin?...&pageid=<brand>.
     var components = URLComponents(string: "\(activeOrigin)/signin")
     components?.queryItems = [
         URLQueryItem(name: "action_handle_signin", value: "true"),
@@ -3231,8 +3020,6 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
     print("Switch endpoint: \(activeOrigin)/signin?...&pageid=\(brandId)&authuser=\(authUserIndex)")
     print("next: \((nextURL.host.map { $0 + nextURL.path }) ?? nextURL.path)\(nextURL.query != nil ? " [query redacted]" : "")\n")
 
-    // Ephemeral session: cookies live only in memory for this probe and are
-    // discarded on exit; the app's Keychain/cookies.dat are never written.
     let config = URLSessionConfiguration.ephemeral
     let store = HTTPCookieStorage()
     for cookie in cookies {
@@ -3257,7 +3044,6 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
             print("❌ HTTP \(status) — could not decode landed page")
             return
         }
-        // Report only host+path of the landing URL (query may carry tokens).
         let landedHostPath = URL(string: landedURL).map { ($0.host ?? "") + $0.path } ?? landedURL
         print("✅ HTTP \(status), landed on \(landedHostPath), \(data.count) bytes\n")
 
@@ -3283,9 +3069,6 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
     }
 }
 
-/// Most-faithful read-only variant of `probeSigninSwitch`: follows the EXACT
-/// server-issued `accountSigninToken.signinUrl` (preserving every param), only
-/// rewriting `next`. Ephemeral session; mutates nothing.
 func probeSigninSwitchReal(nextURLString: String) async {
     print("🔀 signin session-switch pre-check — REAL server-issued URL (read-only)")
     print("======================================================================\n")
@@ -3303,7 +3086,6 @@ func probeSigninSwitchReal(nextURLString: String) async {
         return
     }
 
-    // Fetch accounts_list and extract the brand's real signinUrl + pageId.
     var signinURLString: String?
     var brandId: String?
     do {
@@ -3324,14 +3106,12 @@ func probeSigninSwitchReal(nextURLString: String) async {
         print("❌ No brand accountSigninToken.signinUrl found (single-account login?).")
         return
     }
-    // Normalize protocol-relative URLs.
     if signin.hasPrefix("//") {
         signin = "https:" + signin
     } else if signin.hasPrefix("/") {
         signin = "https://www.youtube.com" + signin
     }
 
-    // Rewrite only the `next` param.
     guard var comps = URLComponents(string: signin) else {
         print("❌ Could not parse signinUrl")
         return
@@ -3389,8 +3169,6 @@ func probeSigninSwitchReal(nextURLString: String) async {
     }
 }
 
-/// Walks an accounts_list response for the first brand account's
-/// `accountSigninToken.signinUrl` and `pageIdToken.pageId`. Read-only.
 func extractBrandSigninURL(from data: [String: Any]) -> (String?, String?) {
     var foundSignin: String?
     var foundPageId: String?
@@ -3411,7 +3189,6 @@ func extractBrandSigninURL(from data: [String: Any]) -> (String?, String?) {
                         pid = pageId
                     }
                 }
-                // Only the brand entry has a pageIdToken; prefer that one.
                 if let pid, let sgn, foundPageId == nil {
                     foundPageId = pid
                     foundSignin = sgn
@@ -3430,11 +3207,6 @@ func extractBrandSigninURL(from data: [String: Any]) -> (String?, String?) {
     return (foundSignin, foundPageId)
 }
 
-/// Read-only identity probe. Fetches an HTTPS YouTube page (with the app's
-/// cookies) and reports the session-identity markers embedded in its ytcfg:
-/// `DATASYNC_ID` ("<delegatedSessionId>||<userSessionId>"), the derived
-/// delegated session id, and `SESSION_INDEX`. Used to verify which account a
-/// WebView session would record history to, without mutating anything.
 func probeYtcfg(pageURLString: String?, verbose: Bool) async {
     let target = pageURLString ?? "\(activeOrigin)/"
     guard let url = URL(string: target) else {
@@ -3448,9 +3220,6 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
 
     print("🔬 ytcfg identity probe")
     print("=======================\n")
-    // Print only host+path, never the query string: a probed /signin (or other
-    // auth-bearing) URL can carry credential-bearing query items, and the repo's
-    // no-secrets rule forbids writing those to terminal logs.
     let safeTarget = (url.host.map { $0 + url.path }) ?? url.path
     print("GET \(safeTarget)\(url.query != nil ? " [query redacted]" : "")")
     if let brandId = globalBrandAccountId {
@@ -3495,7 +3264,6 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
 
         func redact(_ value: String?) -> String {
             guard let value, !value.isEmpty else { return "(absent/empty)" }
-            // Report shape, not the raw token, to avoid leaking identity secrets.
             if let pipe = value.range(of: "||") {
                 let first = String(value[value.startIndex ..< pipe.lowerBound])
                 let second = String(value[pipe.upperBound...])
@@ -3542,7 +3310,6 @@ func isAllowedYtcfgProbeURL(_ url: URL) -> Bool {
     return host == "music.youtube.com" || host == "www.youtube.com"
 }
 
-/// Discovers all brand accounts using the account/accounts_list endpoint
 func discoverBrandAccounts(verbose: Bool) async {
     print("🔍 Discovering Brand Accounts")
     print("=============================\n")
@@ -3564,9 +3331,6 @@ func discoverBrandAccounts(verbose: Bool) async {
             return
         }
 
-        // Parse accounts from response
-        // Path: actions[0].getMultiPageMenuAction.menu.multiPageMenuRenderer.sections[0]
-        //       .accountSectionListRenderer.contents[0].accountItemSectionRenderer.contents[]
         guard let actions = data["actions"] as? [[String: Any]],
               let firstAction = actions.first,
               let getMultiPageMenuAction = firstAction["getMultiPageMenuAction"] as? [String: Any],
@@ -3596,7 +3360,6 @@ func discoverBrandAccounts(verbose: Bool) async {
             return
         }
 
-        // Also get the Google account header for the email
         var googleEmail: String?
         if let header = accountSectionListRenderer["header"] as? [String: Any],
            let googleAccountHeaderRenderer = header["googleAccountHeaderRenderer"]
@@ -3613,7 +3376,6 @@ func discoverBrandAccounts(verbose: Bool) async {
             print("📧 Google Account: \(email)\n")
         }
 
-        // Extract account info from each item
         var accounts: [(name: String, handle: String?, brandId: String?, isSelected: Bool)] = []
 
         for accountItem in accountItems {
@@ -3621,7 +3383,6 @@ func discoverBrandAccounts(verbose: Bool) async {
                 continue
             }
 
-            // Extract account name
             var name: String?
             if let accountName = item["accountName"] as? [String: Any],
                let runs = accountName["runs"] as? [[String: Any]],
@@ -3631,7 +3392,6 @@ func discoverBrandAccounts(verbose: Bool) async {
                 name = text
             }
 
-            // Extract channel handle
             var handle: String?
             if let channelHandle = item["channelHandle"] as? [String: Any],
                let runs = channelHandle["runs"] as? [[String: Any]],
@@ -3641,7 +3401,6 @@ func discoverBrandAccounts(verbose: Bool) async {
                 handle = text
             }
 
-            // Extract brand account ID from pageIdToken
             var brandId: String?
             if let serviceEndpoint = item["serviceEndpoint"] as? [String: Any],
                let selectActiveIdentityEndpoint = serviceEndpoint["selectActiveIdentityEndpoint"]
@@ -3659,7 +3418,6 @@ func discoverBrandAccounts(verbose: Bool) async {
                 }
             }
 
-            // Check if selected
             let isSelected = item["isSelected"] as? Bool ?? false
 
             if let accountName = name {
@@ -4034,8 +3792,6 @@ func showHelp() {
     )
 }
 
-/// Analyzes a saved JSON response without printing raw values.
-/// Useful for parser/fixture validation when live authenticated cookies are unavailable.
 func analyzeSavedResponse(at path: String) {
     let url = URL(fileURLWithPath: path)
     do {
@@ -4052,8 +3808,6 @@ func analyzeSavedResponse(at path: String) {
         print("❌ Failed to analyze saved response: \(error.localizedDescription)")
     }
 }
-
-// MARK: - Main Entry Point
 
 private func commandLineOptionValue(
     after index: Int,
@@ -4497,25 +4251,10 @@ func runMain() async {
         await discoverBrandAccounts(verbose: verbose)
 
     case "ytcfg":
-        // Read-only identity probe: GET an authenticated page and report which
-        // account the resulting session is acting as. DATASYNC_ID has the
-        // canonical "<delegatedSessionId>||<userSessionId>" shape — a brand
-        // session shows the brand pageId in the first half; primary shows an
-        // empty second half. This is how we confirm whether a session-identity
-        // switch (e.g. navigating signin?pageid=<brandId>) actually re-points
-        // playback (and therefore history recording) to the brand.
         let pageArg: String? = filteredArgs.count >= 2 ? filteredArgs[1] : nil
         await probeYtcfg(pageURLString: pageArg, verbose: verbose)
 
     case "signin-probe":
-        // Read-only mechanism pre-check for issue #277. Follows the brand
-        // `/signin?...&pageid=<brandId>&authuser=<N>&next=<watchURL>` redirect
-        // chain on an EPHEMERAL URLSession seeded from (never writing back) the
-        // app cookies, then reads the landed page's ytcfg DATASYNC_ID. If the
-        // first half flips to the brand pageId, the signin navigation re-points
-        // the session identity at the HTTP/cookie level. This emits NO videostats
-        // pings (no JS), so it cannot prove the history WRITE — only the identity
-        // flip. It does NOT mutate the app's WebView session or cookies.dat.
         guard filteredArgs.count >= 2 else {
             print("❌ Usage: signin-probe <brandId> [authuserIndex] [nextWatchURL]")
             return
@@ -4526,11 +4265,6 @@ func runMain() async {
         await probeSigninSwitch(brandId: brandId, authUserIndex: authIndex, nextURLString: nextURL)
 
     case "signin-probe-real":
-        // Like `signin-probe`, but follows the EXACT server-issued
-        // `accountSigninToken.signinUrl` from accounts_list (with all its
-        // params: skip_identity_prompt, feature, action_handle_signin), rewriting
-        // only `next`. This is the most faithful read-only reproduction of the
-        // switch a browser would perform. Still ephemeral; mutates nothing.
         let realNext = filteredArgs.count >= 2 ? filteredArgs[1] : "\(activeOrigin)/"
         await probeSigninSwitchReal(nextURLString: realNext)
 
@@ -4543,7 +4277,6 @@ func runMain() async {
     }
 }
 
-/// Run the async main
 let semaphore = DispatchSemaphore(value: 0)
 Task.detached {
     await runMain()

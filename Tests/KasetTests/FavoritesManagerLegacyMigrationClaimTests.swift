@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Crash-recovery coverage for destination-bound legacy Favorites claims.
 @Suite(.serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor
 struct FavoritesManagerTestsLegacyMigrationClaims {
@@ -226,9 +225,6 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
             accountIDs: [accountID]
         ))
 
-        // Simulate a later retry after a prior finalization attempt reloaded the
-        // committed target but left cleanup pending. The new edit is still only
-        // debounced in memory when finalization resumes.
         let retryManager = FavoritesManager(storageDirectory: directory)
         retryManager.setActiveAccountScopeID(targetScopeID)
         retryManager.add(recentItem)
@@ -379,7 +375,6 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
 
         let claimURL = try #require(self.legacyClaimURLs(in: directory).first)
 
-        // Simulate the process terminating after the atomic target write but before claim cleanup.
         try JSONEncoder().encode([existingItem, legacyItem]).write(to: claimedTargetURL, options: .atomic)
 
         let unrelatedManager = FavoritesManager(storageDirectory: directory)
@@ -483,7 +478,6 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
         diskManager.setActiveAccountScopeID(scopeID, legacyAccountID: "primary")
         #expect(!diskManager.canMutate)
 
-        // Keep storage unavailable until the first retry schedules another attempt.
         let retryKey = FavoritesManager.scopeRecoveryRetryKey(scopeID: scopeID)
         let firstRetry = try #require(diskManager.recoveryRetryTasks[retryKey])
         await firstRetry.value
@@ -557,7 +551,6 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
         manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: originalScopeID)
         manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: competingScopeID)
 
-        // Let the first retry fail while the directory remains unavailable.
         let retryKey = FavoritesManager.accountRecoveryRetryKey(accountID: accountID, scopeID: originalScopeID)
         let firstRetry = try #require(manager.recoveryRetryTasks[retryKey])
         await firstRetry.value

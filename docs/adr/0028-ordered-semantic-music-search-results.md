@@ -69,7 +69,8 @@ the `search` endpoint, not the generic `browse` continuation path.
   footer changes to a progress indicator, preserving scroll context.
 - Parser and view-model tests must assert ordered semantic items rather than only
   bucket counts.
-- Compatibility initializers still group category arrays, so non-mixed callers do
-  not need immediate migration.
+- The fixture compatibility initializer still groups category arrays and cannot
+  represent mixed server ranking. [Issue #605](https://github.com/sozercan/kaset/issues/605)
+  tracks migrating its callers to explicit ordered items.
 - Adding a future search type requires a new semantic case and explicit parser/UI
   handling, making unsupported API changes visible at compile time.

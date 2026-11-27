@@ -1,9 +1,6 @@
 import Foundation
 import WebKit
 
-// MARK: - ExtensionPermissions
-
-/// The access Kaset grants when loading an extension. Optional permissions are excluded.
 struct ExtensionPermissions: Codable, Equatable {
     let permissions: [String]
     let websitePatterns: [String]
@@ -49,14 +46,10 @@ struct ExtensionPermissions: Codable, Equatable {
         }
     }
 
-    /// Permissions that get their own row in the review, in order. `cookies` is excluded
-    /// because the review always lists it first.
     static func describedPermissions(in permissions: [String]) -> [String] {
         permissions.filter { $0 != "cookies" && self.accessDescription(for: $0) != nil }
     }
 
-    /// Whether any permission lacks a plain-language description. All such permissions
-    /// share one "Other access requested" row that points to Technical details.
     static func containsUndescribedPermission(_ permissions: [String]) -> Bool {
         permissions.contains { self.accessDescription(for: $0) == nil }
     }
@@ -97,23 +90,17 @@ struct ExtensionPermissions: Codable, Equatable {
     }
 }
 
-// MARK: - ExtensionAccessDescription
-
 struct ExtensionAccessDescription: Equatable {
     let symbol: String
     let title: String
     let detail: String
 }
 
-// MARK: - ExtensionPermissionReview
-
 struct ExtensionPermissionReview: Identifiable {
     let id: String
     let name: String
     let permissions: ExtensionPermissions
 }
-
-// MARK: - ExtensionConsentError
 
 enum ExtensionConsentError: LocalizedError {
     case unavailable

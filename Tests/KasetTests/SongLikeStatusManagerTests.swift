@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for SongLikeStatusManager.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct SongLikeStatusManagerTests {
@@ -16,8 +15,6 @@ struct SongLikeStatusManagerTests {
         self.manager.setActiveAccountID(nil)
         self.manager.setClient(nil)
     }
-
-    // MARK: - Status Query Tests
 
     @Test("status for videoId returns nil when not cached")
     func statusForVideoIdReturnsNilWhenNotCached() {
@@ -49,7 +46,7 @@ struct SongLikeStatusManagerTests {
 
         let status = self.manager.status(for: song)
 
-        #expect(status == .like) // Cache takes precedence
+        #expect(status == .like)
     }
 
     @Test("status for song falls back to song property")
@@ -62,7 +59,6 @@ struct SongLikeStatusManagerTests {
             videoId: videoID,
             likeStatus: .dislike
         )
-        // No cache set
 
         let status = self.manager.status(for: song)
 
@@ -86,8 +82,6 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.isDisliked(song) == true)
         #expect(self.manager.isLiked(song) == false)
     }
-
-    // MARK: - Rating Action Tests
 
     @Test("like updates cache and calls API")
     func likeUpdatesCacheAndCallsAPI() async {
@@ -131,8 +125,6 @@ struct SongLikeStatusManagerTests {
 
         #expect(self.manager.status(for: "test-video") == .indifferent)
     }
-
-    // MARK: - Liked Music Reconciliation Tests
 
     @Test("Overlapping Liked Music requests keep a stale unlike filtered until each finishes")
     func overlappingLikedMusicRequestsKeepStaleUnlikeFiltered() async {
@@ -449,8 +441,6 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.status(for: song.videoId, accountID: accountID) == .dislike)
     }
 
-    // MARK: - Error Handling Tests
-
     @Test("like reverts cache on API failure")
     func likeRevertsCacheOnFailure() async {
         let song = TestFixtures.makeSong(id: "test-video")
@@ -459,19 +449,16 @@ struct SongLikeStatusManagerTests {
 
         await self.manager.like(song, client: self.mockClient)
 
-        // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .indifferent)
     }
 
     @Test("like removes cache entry on failure when no previous")
     func likeRemovesCacheOnFailureWhenNoPrevious() async {
         let song = TestFixtures.makeSong(id: "new-video")
-        // No previous status set
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
         await self.manager.like(song, client: self.mockClient)
 
-        // Should remove the entry entirely
         #expect(self.manager.status(for: "new-video") == nil)
     }
 
@@ -697,11 +684,8 @@ struct SongLikeStatusManagerTests {
 
         await self.manager.dislike(song, client: self.mockClient)
 
-        // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .like)
     }
-
-    // MARK: - Cache Management Tests
 
     @Test("setStatus updates cache")
     func setStatusUpdatesCache() {

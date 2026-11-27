@@ -2,9 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - MediaControlScriptTests
-
-/// Tests for singleton media-control script generation and scheduling.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct MediaControlScriptTests {
@@ -204,15 +201,12 @@ struct MediaControlScriptTests {
         #expect(calls.isEmpty)
     }
 
-    /// A play from WebKit's Now Playing card or a media key must reach the native player, which
-    /// clears Kaset's pause intent; left to the page, it is re-paused after an in-app pause.
     @Test("Override script routes play and pause to Kaset in both control styles", arguments: [false, true])
     func overrideScriptRoutesPlayPauseToKaset(useNextPrev: Bool) throws {
         let context = try #require(self.makeOverrideScriptContext(useNextPrev: useNextPrev))
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: useNextPrev), in: context)
         self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
-        // YouTube registering its own handlers afterwards must not take them back.
         self.evaluate(
             """
             navigator.mediaSession.setActionHandler('play', function() { postedMessages.push({ type: 'PAGE_PLAY' }); });

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Sidebar navigation for the main window, styled like Apple Music.
 struct Sidebar: View {
     private enum SidebarSelection: Hashable {
         case navigation(NavigationItem)
@@ -21,7 +20,6 @@ struct Sidebar: View {
 
     var body: some View {
         List {
-            // Main navigation
             Section {
                 self.navigationRow(.search)
                     .accessibilityIdentifier(AccessibilityID.Sidebar.searchItem)
@@ -30,7 +28,6 @@ struct Sidebar: View {
                     .accessibilityIdentifier(AccessibilityID.Sidebar.homeItem)
             }
 
-            // Discover section
             Section(String(localized: "Discover")) {
                 self.navigationRow(.explore)
                     .accessibilityIdentifier(AccessibilityID.Sidebar.exploreItem)
@@ -51,7 +48,6 @@ struct Sidebar: View {
             }
 
             if self.hasPersonalAccount {
-                // Collection section
                 Section(String(localized: "Collection")) {
                     self.navigationRow(.library)
                         .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
@@ -81,7 +77,6 @@ struct Sidebar: View {
         .compatTranslucentSidebar()
         .accessibilityIdentifier(AccessibilityID.Sidebar.container)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            // Source toggle + profile section at bottom (shared with YouTubeSidebar)
             SidebarFooterView()
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)

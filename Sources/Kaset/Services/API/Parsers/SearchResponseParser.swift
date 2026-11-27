@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SearchResponseParser
-
 enum SearchResponseParser {
     private static let logger = DiagnosticsLogger.api
 

@@ -3,8 +3,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-// MARK: - AirPlayNavigationScriptTests
-
 @Suite("AirPlay navigation recovery", .tags(.service))
 @MainActor
 struct AirPlayNavigationScriptTests {
@@ -535,8 +533,6 @@ struct AirPlayNavigationScriptTests {
         context.evaluateScript("requests")?.toArray() as? [String] ?? []
     }
 }
-
-// MARK: - AirPlayRetryTestWebView
 
 @MainActor
 private final class AirPlayRetryTestWebView: WKWebView {

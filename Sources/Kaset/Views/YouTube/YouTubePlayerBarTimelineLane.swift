@@ -1,11 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubePlayerBarTimelineLane
-
-/// The YouTube player bar's seek lane. This is the only YouTube player bar view that
-/// observes `YouTubePlayerService.progress`, so each playback tick re-evaluates just this
-/// lane instead of the whole bar. Nothing outside the lane reads its seek state, so the
-/// state lives here and is discarded when an ad replaces the lane.
 struct YouTubePlayerBarTimelineLane: View {
     let accent: Color
     let markers: [PlayerBarProgressMarker]
@@ -61,7 +55,6 @@ struct YouTubePlayerBarTimelineLane: View {
         }
     }
 
-    /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
     private var displayFraction: Double {
         if self.isSeeking {
             return min(max(0, self.seekValue), 1)
@@ -97,7 +90,6 @@ struct YouTubePlayerBarTimelineLane: View {
         }
     }
 
-    /// Writes the hold back only when reconciling changes it, so idle ticks don't invalidate the lane twice.
     private func reconcileHold(observedProgress: TimeInterval) {
         var hold = self.seekHold
         hold.reconcile(observedProgress: observedProgress)

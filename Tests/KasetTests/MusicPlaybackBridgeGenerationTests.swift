@@ -3,12 +3,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MusicPlaybackBridgeGenerationTests
-
-/// Media-session actions the page forwards to the native player.
 private let mediaKeyMessageTypes = ["REMOTE_NEXT", "REMOTE_PREVIOUS", "REMOTE_PLAY", "REMOTE_PAUSE"]
-
-// MARK: - MusicPlaybackBridgeGenerationTests
 
 @Suite("YouTube Music playback bridge generation", .tags(.service))
 @MainActor
@@ -848,8 +843,6 @@ extension MusicPlaybackBridgeGenerationTests {
     }
 }
 
-// MARK: - PlaybackBridgeEventQueueTests
-
 @Suite("Playback bridge event queue", .tags(.service))
 @MainActor
 struct PlaybackBridgeEventQueueTests {
@@ -908,8 +901,6 @@ struct PlaybackBridgeEventQueueTests {
         #expect(SingletonPlayerWebView.playbackBridgeInt(from: oversizedGeneration) == nil)
     }
 }
-
-// MARK: - WebPlaybackTransitionFallbackPolicyTests
 
 @Suite("Web playback transition fallback policy", .tags(.service))
 struct WebPlaybackTransitionFallbackPolicyTests {

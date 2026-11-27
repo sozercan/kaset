@@ -1,32 +1,17 @@
 import AppKit
 import SwiftUI
 
-// MARK: - EqualizerView
-
-/// An animated equalizer view that shows audio levels, commonly used as a "now playing" indicator.
-/// Displays animated bars that move up and down to simulate audio visualization.
-///
-/// The bars are layers driven by repeating Core Animation animations, so the render
-/// server draws every frame. A SwiftUI `repeatForever` animation here made the app
-/// re-render and hit-test its whole window on every display refresh for as long as
-/// the playing row was on screen (40–80% CPU on a playlist page).
 struct EqualizerView: NSViewRepresentable {
-    /// Whether the equalizer is animating (playing state).
     var isAnimating: Bool
 
-    /// Number of bars to display.
     var barCount: Int = 3
 
-    /// Spacing between bars.
     var spacing: CGFloat = 2
 
-    /// Bar width.
     var barWidth: CGFloat = 3
 
-    /// Bar corner radius.
     var cornerRadius: CGFloat = 1.5
 
-    /// Bar color.
     var color: Color = .red
 
     func makeNSView(context _: Context) -> EqualizerBarsView {
@@ -52,10 +37,6 @@ struct EqualizerView: NSViewRepresentable {
     }
 }
 
-// MARK: - EqualizerBarsView
-
-/// Layer-backed bars for `EqualizerView`. Each bar grows from the view's bottom edge;
-/// its height, not a scale, animates so the rounded ends stay round.
 final class EqualizerBarsView: NSView {
     struct Configuration: Equatable {
         var isAnimating: Bool
@@ -67,17 +48,14 @@ final class EqualizerBarsView: NSView {
         var color: NSColor
     }
 
-    /// Timing and range for one bar, varied by index for a natural look.
     struct BarProfile: Equatable {
         let delay: TimeInterval
         let duration: TimeInterval
         let restingFraction: CGFloat
         let peakFraction: CGFloat
 
-        /// Height fraction a bar animates up from, and holds during its staggered start.
         static let startFraction: CGFloat = 0.3
 
-        /// Height fraction for every bar when Reduce Motion is on.
         static let reducedMotionFraction: CGFloat = 0.5
 
         init(index: Int) {
@@ -99,7 +77,6 @@ final class EqualizerBarsView: NSView {
         }
     }
 
-    /// Everything the bars' heights and animations derive from.
     private struct AnimationState: Equatable {
         var isAnimating: Bool
         var reduceMotion: Bool
@@ -132,7 +109,6 @@ final class EqualizerBarsView: NSView {
         true
     }
 
-    /// Decorative: clicks and context menus belong to the row underneath.
     override func hitTest(_: NSPoint) -> NSView? {
         nil
     }
@@ -145,7 +121,6 @@ final class EqualizerBarsView: NSView {
             self.barLayers.forEach { $0.removeFromSuperlayer() }
             self.barLayers = (0 ..< max(configuration.barCount, 0)).map { _ in
                 let bar = CALayer()
-                // Grow from the bottom edge (the view is flipped).
                 bar.anchorPoint = CGPoint(x: 0.5, y: 1)
                 self.layer?.addSublayer(bar)
                 return bar
@@ -186,18 +161,15 @@ final class EqualizerBarsView: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // The bar color is dynamic; `updateLayer` re-resolves it.
         self.needsDisplay = true
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // Animations do nothing off-window; start each bar's cycle fresh on attach.
         self.animationState = nil
         self.needsLayout = true
     }
 
-    /// Sets each bar's resting height and (re)starts its animation when an input changed.
     private func updateAnimations() {
         guard let configuration else { return }
         let state = AnimationState(
@@ -241,9 +213,6 @@ final class EqualizerBarsView: NSView {
     }
 }
 
-// MARK: - NowPlayingIndicator
-
-/// A compact now-playing indicator that shows equalizer when playing, or a static icon when paused.
 struct NowPlayingIndicator: View {
     var isPlaying: Bool
     var size: CGFloat = 16
@@ -269,31 +238,25 @@ struct NowPlayingIndicator: View {
     }
 }
 
-// MARK: - Preview
-
 #Preview {
     VStack(spacing: 24) {
-        // Playing state
         HStack(spacing: 24) {
             Text(String(localized: "Playing:"))
             EqualizerView(isAnimating: true)
                 .frame(width: 20, height: 20)
         }
 
-        // Paused state
         HStack(spacing: 24) {
             Text(String(localized: "Paused:"))
             EqualizerView(isAnimating: false)
                 .frame(width: 20, height: 20)
         }
 
-        // Now Playing Indicator
         HStack(spacing: 24) {
             NowPlayingIndicator(isPlaying: true)
             NowPlayingIndicator(isPlaying: false)
         }
 
-        // Larger version
         EqualizerView(isAnimating: true, barCount: 5, spacing: 3, barWidth: 4)
             .frame(width: 40, height: 30)
     }

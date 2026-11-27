@@ -3,8 +3,6 @@ import Foundation
 import os
 import WebKit
 
-// MARK: - PlaybackBridgeEventQueue
-
 @MainActor
 final class PlaybackBridgeEventQueue {
     private typealias Operation = @MainActor () async -> Void
@@ -66,8 +64,6 @@ final class PlaybackBridgeEventQueue {
     }
 }
 
-// MARK: - SingletonPlayerWebView.Coordinator
-
 extension SingletonPlayerWebView {
     nonisolated static func finitePlaybackBridgeDouble(from value: Any?) -> Double? {
         guard !(value is Bool) else { return nil }
@@ -92,11 +88,6 @@ extension SingletonPlayerWebView {
         WebPlaybackDocumentGeneration.decode(value).flatMap { Int(exactly: $0) }
     }
 
-    /// Sanitizes the thumbnail URL reported by the playback bridge.
-    ///
-    /// `img.src` resolves relative to the document, so a player-bar image that has not
-    /// yet been assigned a source reports the YouTube Music page URL. That value fetches
-    /// successfully as HTML and then fails to decode, so it must never reach `currentTrack`.
     nonisolated static func playbackBridgeThumbnailURLString(from value: Any?) -> String {
         guard let raw = (value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !raw.isEmpty,
@@ -111,8 +102,6 @@ extension SingletonPlayerWebView {
 
         return raw
     }
-
-    // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         private static let queueNavigationObservationGrace: Duration = .seconds(1)
@@ -259,8 +248,6 @@ extension SingletonPlayerWebView {
                           eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
                       ),
                       !endedDuringAd,
-                      // Identity retries retain this occurrence. Neither deduplication layer
-                      // may claim it before identity resolves or the observer's deadline arrives.
                       !endedIdentityUncertain || identityResolutionTimedOut,
                       !identityResolutionTimedOut || playbackOccurrence != nil,
                       coordinator.consumeTrackEndedOccurrence(
@@ -396,8 +383,6 @@ extension SingletonPlayerWebView {
             self.normalizedVideoId(body["videoId"])
         }
 
-        /// Uses the physical media identity when a state payload carries one. An explicitly empty
-        /// media identity stays unknown instead of falling back to metadata that may lead playback.
         static func playbackVideoId(from body: [String: Any]) -> String? {
             if body.keys.contains("mediaVideoId") {
                 return self.normalizedVideoId(body["mediaVideoId"])
@@ -480,7 +465,6 @@ extension SingletonPlayerWebView {
             }
         }
 
-        /// Returns `nil` when the page cannot tell the like state yet.
         private static func likeStatus(from rawValue: String?) -> LikeStatus? {
             switch rawValue {
             case "LIKE":
@@ -761,8 +745,6 @@ extension SingletonPlayerWebView {
                 "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
             )
 
-            // Apply the current volume when page finishes loading
-            // This is critical because YouTube may set its own default volume
             let savedVolume = self.playerService.volume
             let applyVolumeScript = """
                 (function() {
@@ -776,7 +758,6 @@ extension SingletonPlayerWebView {
                             video.volume = volume;
                         }
 
-                        // Sync YouTube's internal player APIs if ready
                         const ytVolume = Math.round(volume * 100);
                         const player = document.querySelector('ytmusic-player');
                         if (player && player.playerApi && typeof player.playerApi.setVolume === 'function') {
@@ -803,16 +784,12 @@ extension SingletonPlayerWebView {
                     DiagnosticsLogger.player.debug("Volume apply result: \(resultString)")
                 }
 
-                // Restore lyrics high-frequency polling if it was active
                 if SingletonPlayerWebView.shared.isLyricsPollActive {
                     SingletonPlayerWebView.shared.startLyricsPoll()
                 }
 
-                // Re-inject video mode CSS if it was active
                 if SingletonPlayerWebView.shared.displayMode == .video {
                     SingletonPlayerWebView.shared.refreshVideoModeCSS()
-                    // If refresh fails to find the container (because it's a new page),
-                    // it will log a debug message. We should also call the full injection.
                     SingletonPlayerWebView.shared.injectVideoModeCSS()
                 }
             }
@@ -833,7 +810,6 @@ extension SingletonPlayerWebView {
 }
 
 extension SingletonPlayerWebView.Coordinator {
-    /// Test-facing bridge hook for exercising observation ordering without a live WKWebView document.
     func handleStateUpdate(
         body: [String: Any],
         observedVideoId: String?,
@@ -1142,8 +1118,6 @@ extension SingletonPlayerWebView.Coordinator {
 
         self.playerService.updateVideoAvailability(hasVideo: hasVideo)
         let logicalMatchesMedia = observedVideoId != nil && observedVideoId == playbackVideoId
-        // The page's like state can lag a track change, so apply the first update after
-        // the change that reports one rather than the track-change update itself.
         if logicalMatchesMedia, acceptedObservedVideoIdChanged || trackChanged {
             self.pendingLikeStatusVideoId = observedVideoId
         }

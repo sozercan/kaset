@@ -1,4 +1,4 @@
-# ADR-0042: Single Now Playing entry
+# ADR-0050: Single Now Playing entry
 
 ## Status
 
@@ -44,6 +44,11 @@ actions and observed page state:
   own player stays a media-key target. A loading track keeps an existing entry without publishing
   a new one.
 - YouTube video keeps its tagged minimal entry, which is the video's only entry.
+- Kaset clears Now Playing metadata only when it carries Kaset's service-identifier tag, so
+  switching from a video claim back to music state-only removes Kaset's own entry and never
+  WebKit's. `NowPlayingManager` tracks what it publishes (none, state only, or a tagged claim)
+  behind a small `NowPlayingInfoPublishing` seam so these transitions are unit-tested without the
+  system center.
 
 ## Consequences
 

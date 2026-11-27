@@ -573,7 +573,6 @@
 "songs" = "曲";
 "tracks" = "トラック";
 
-// Appearance
 "Appearance" = "外観";
 "App Appearance" = "アプリの外観";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Kaset のライトモードまたはダークモードを選択するか、macOS の設定に合わせる";
@@ -581,7 +580,6 @@
 "Light Mode" = "ライトモード";
 "Dark Mode" = "ダークモード";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "ミュージックを再生";
 "Play Song" = "曲を再生";
 "Play Playlist" = "プレイリストを再生";
@@ -628,7 +626,6 @@
 "Couldn't play “%@”." = "「%@」を再生できませんでした。";
 "Couldn't rate “%@”." = "「%@」を評価できませんでした。";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "拡張機能を読み取れませんでした。削除してから、もう一度追加してください。";
 "The extension's access changed. Review it again before enabling it." = "拡張機能のアクセス内容が変更されました。有効にする前にもう一度確認してください。";
 "Extension Error" = "拡張機能エラー";

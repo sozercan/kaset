@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeSubscriptionsViewModelTests
-
 @Suite("YouTubeSubscriptionsViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeSubscriptionsViewModelTests {
@@ -75,14 +73,11 @@ struct YouTubeSubscriptionsViewModelTests {
         await sut.load()
 
         if case .error = sut.loadingState {
-            // expected
         } else {
             Issue.record("Expected error state, got \(sut.loadingState)")
         }
     }
 }
-
-// MARK: - YouTubeHistoryViewModelTests
 
 @Suite("YouTubeHistoryViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
@@ -121,8 +116,6 @@ struct YouTubeHistoryViewModelTests {
     }
 }
 
-// MARK: - YouTubePlaylistsViewModelTests
-
 @Suite("YouTubePlaylistsViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubePlaylistsViewModelTests {
@@ -141,8 +134,6 @@ struct YouTubePlaylistsViewModelTests {
         #expect(sut.playlists.map(\.playlistId) == ["PL1", "PL2"])
     }
 }
-
-// MARK: - YouTubeExploreViewModelTests
 
 @Suite("YouTubeExploreViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
@@ -181,8 +172,6 @@ struct YouTubeExploreViewModelTests {
         #expect(sut.loadingState == .idle)
     }
 }
-
-// MARK: - YouTubeWatchViewModelActionTests
 
 @Suite("YouTubeWatchViewModel actions", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
@@ -375,8 +364,6 @@ struct YouTubeWatchViewModelActionTests {
     }
 }
 
-// MARK: - GuideParserTests
-
 @Suite("GuideParser", .tags(.parser))
 struct GuideParserTests {
     @Test("Extracts channel entries and skips navigation entries")
@@ -434,12 +421,9 @@ struct GuideParserTests {
             return
         }
 
-        // Captured signed out — must not mis-classify nav entries as channels.
         #expect(GuideParser.subscribedChannels(data).isEmpty)
     }
 }
-
-// MARK: - YouTubePlaylistCollectionTests
 
 @Suite("YouTubeFeedParser playlist collection", .tags(.parser))
 struct YouTubePlaylistCollectionTests {

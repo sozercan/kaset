@@ -1,16 +1,6 @@
 import Foundation
 import os
 
-// MARK: - MixTracklistParser
-
-/// Parses tracklists for long mix videos using a two-tier approach:
-/// 1. YouTube chapters (structured API data)
-/// 2. Description timestamps (regex over timestamped tracklist lines)
-///
-/// Both tiers read the same `YouTubeClient.getWatchNext(videoId:)` response,
-/// which calls the regular YouTube `next` endpoint. The YTMusic `next`
-/// endpoint does NOT return chapter or description data (confirmed via API
-/// exploration, 2026-07-10).
 @MainActor
 final class MixTracklistParser {
     private enum CacheEntry {
@@ -53,9 +43,6 @@ final class MixTracklistParser {
 
     private let youTubeClient: any YouTubeClientProtocol
     private var cache: [String: CacheEntry] = [:]
-    /// In-flight parses keyed by video id. Each caller owns a waiter while all callers for the
-    /// same video share one underlying task. The last cancelled waiter removes and cancels that
-    /// request so a same-video retry can start immediately.
     private var inFlight: [String: InFlightParse] = [:]
     private let logger = DiagnosticsLogger.scrobbling
 
@@ -63,10 +50,6 @@ final class MixTracklistParser {
         self.youTubeClient = youTubeClient
     }
 
-    /// Parse a tracklist for a video. Returns nil if no tracklist is available.
-    /// Results (including confirmed misses) are cached by video ID for the lifetime
-    /// of this parser instance; transient fetch failures are not cached. Concurrent
-    /// requests for the same video share a single in-flight fetch.
     func parseTracklist(videoId: String) async -> MixTracklist? {
         guard !Task.isCancelled else { return nil }
 
@@ -98,8 +81,6 @@ final class MixTracklistParser {
         }
     }
 
-    /// Whether this video has a confirmed cached result, including a confirmed non-mix result.
-    /// Transient fetch failures and cancelled requests deliberately remain uncached.
     func hasCachedResult(for videoId: String) -> Bool {
         self.cache[videoId] != nil
     }
@@ -215,8 +196,6 @@ final class MixTracklistParser {
         return ParseResult(tracklist: nil, cacheEntry: .noTracklist)
     }
 
-    // MARK: - Tier 1: Chapter Extraction
-
     private func parseFromChapters(
         _ watchNextData: WatchNextData,
         videoId: String
@@ -240,8 +219,6 @@ final class MixTracklistParser {
         let tracklist = MixTracklist(videoId: videoId, entries: entries, source: .chapters)
         return tracklist.isMix ? tracklist : nil
     }
-
-    // MARK: - Tier 2: Description Timestamp Extraction
 
     private struct DescriptionLine {
         let lineIndex: Int
@@ -275,8 +252,6 @@ final class MixTracklistParser {
         let lines = block.lines
 
         let entries = lines.enumerated().map { index, line in
-            // The final entry intentionally remains unbounded here. MixTracklist.effectiveDuration
-            // resolves it against the current video's duration during live/provisional playback.
             let endTime = lines.indices.contains(index + 1) ? lines[index + 1].startTime : nil
             return MixTrackEntry(
                 startTime: line.startTime,
@@ -456,8 +431,6 @@ final class MixTracklistParser {
         )
     }
 
-    /// Removes a matched timestamp (plus any wrapping brackets), leading list numbering,
-    /// and leftover separator punctuation from a description line.
     private func label(
         byRemoving timestampRange: Range<String.Index>,
         from line: String,
@@ -581,14 +554,10 @@ final class MixTracklistParser {
         return result.overflow ? nil : result.partialValue
     }
 
-    // MARK: - Cache Management
-
-    /// Clears the cache for a specific video, forcing a re-parse on next access.
     func invalidate(videoId: String) {
         self.cache.removeValue(forKey: videoId)
     }
 
-    /// Clears all cached tracklists.
     func invalidateAll() {
         self.cache.removeAll()
     }

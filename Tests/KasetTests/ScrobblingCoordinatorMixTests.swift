@@ -16,8 +16,6 @@ struct ScrobblingCoordinatorMixTests {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    // MARK: - Mix-Mode Detection
-
     private func makeWatchNextData(chapters: [YouTubeChapter]) -> WatchNextData {
         WatchNextData(
             videoTitle: "Long Mix",
@@ -56,9 +54,6 @@ struct ScrobblingCoordinatorMixTests {
         }
     }
 
-    /// Regression: duration often arrives after the fallback parse. When the parsed bounds cannot
-    /// prove a long video, classification must remain pending without refetching, then commit the
-    /// already-parsed mix as soon as the current playback duration becomes authoritative.
     @Test("Mix parse stays pending until duration confirms it and fires exactly once")
     func mixParseWaitsForConfirmingDuration() async throws {
         let dir = try self.makeTemporaryDirectory()
@@ -77,7 +72,6 @@ struct ScrobblingCoordinatorMixTests {
         defer { settings.setServiceEnabled("Mock", false) }
 
         let playerService = PlayerService()
-        // Track is playing, but duration hasn't loaded yet (the race the fix addresses).
         playerService.currentTrack = TestFixtures.makeSong(id: "mix1", title: "Long Mix", duration: nil)
         playerService.state = .playing
         playerService.duration = 0
@@ -94,14 +88,12 @@ struct ScrobblingCoordinatorMixTests {
         coordinator.startMonitoring()
         defer { coordinator.stopMonitoring() }
 
-        // First poll ran synchronously in startMonitoring; duration unknown → no fetch attempted.
         #expect(mockYouTube.getWatchNextCallCount == 0)
         await self.waitUntil(timeout: .seconds(10)) {
             mockService.nowPlayingTracks.first?.title == "Long Mix"
         }
         #expect(mockService.nowPlayingTracks.first?.title == "Long Mix")
 
-        // Duration becomes known — the observed change must commit the existing parse result.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 0,
@@ -116,7 +108,6 @@ struct ScrobblingCoordinatorMixTests {
         await self.waitUntil { mockService.nowPlayingTracks.contains { $0.title == "Track 0" } }
         #expect(mockService.nowPlayingTracks.contains { $0.title == "Track 0" })
 
-        // Further duration churn must not re-fetch (latched once per track).
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 0.2,
@@ -147,7 +138,7 @@ struct ScrobblingCoordinatorMixTests {
         let playerService = PlayerService()
         playerService.currentTrack = TestFixtures.makeSong(id: "short1", title: "Regular Song", duration: 240)
         playerService.state = .playing
-        playerService.duration = 3600 // May still be stale from the previous track.
+        playerService.duration = 3600
         playerService.setPlaybackStateVideoId("short1")
 
         let coordinator = ScrobblingCoordinator(
@@ -161,7 +152,6 @@ struct ScrobblingCoordinatorMixTests {
         coordinator.startMonitoring()
         defer { coordinator.stopMonitoring() }
 
-        // The Song's own 4-minute duration is tied to this video and wins over stale player state.
         await self.waitUntil(timeout: .milliseconds(200)) { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
         await self.waitUntil { mockService.nowPlayingTracks.count == 1 }
@@ -208,7 +198,6 @@ struct ScrobblingCoordinatorMixTests {
         #expect(mockYouTube.getWatchNextCallCount == 0)
         #expect(mockService.nowPlayingTracks.isEmpty)
 
-        // Even another stale progress update must not make that duration current-track scoped.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 11,
@@ -219,8 +208,6 @@ struct ScrobblingCoordinatorMixTests {
         #expect(mockYouTube.getWatchNextCallCount == 0)
         #expect(mockService.nowPlayingTracks.isEmpty)
 
-        // The current video's real duration arrives later. Detection must still be unresolved so
-        // it can parse the mix instead of remaining latched in whole-track mode.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 1,
@@ -273,7 +260,6 @@ struct ScrobblingCoordinatorMixTests {
         #expect(mockYouTube.getWatchNextCallCount == 0)
         #expect(mockService.nowPlayingTracks.isEmpty)
 
-        // PlayerService publishes progress and duration together for the current playback update.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 1,
@@ -597,8 +583,6 @@ struct ScrobblingCoordinatorMixTests {
         playerService.progress = 1
         try await Task.sleep(for: .milliseconds(20))
 
-        // Leave the track while its parse is still pending. The next track must start normally,
-        // while the qualifying previous listen waits for classification instead of being dropped.
         playerService.currentTrack = TestFixtures.makeSong(id: "next", title: "Next Song", duration: 200)
         playerService.duration = 200
         try await Task.sleep(for: .milliseconds(50))
@@ -794,7 +778,6 @@ struct ScrobblingCoordinatorMixTests {
         await parseGate.open()
         await self.waitUntil { queue.count == 1 }
 
-        // Trigger live mix handling after the provisional listen already qualified Track 0.
         playerService.progress = 1.1
         await self.waitUntil { mockService.nowPlayingTracks.count == 1 }
         playerService.progress = 2.1

@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - HomeRefreshCacheTests
-
 @Suite(.serialized, .tags(.api), .timeLimit(.minutes(1)))
 @MainActor
 struct HomeRefreshCacheTests {
@@ -180,8 +178,6 @@ struct HomeRefreshCacheTests {
         _ = try await seedTask.value
         try #require(client.hasMoreHomeSections)
 
-        // The bottom-of-scroll sentinel's task gets cancelled when a freshly
-        // appended page pushes it out of the lazy stack mid-request.
         let cancelledTask = Task {
             try await client.getHomeContinuation()
         }
@@ -697,8 +693,6 @@ struct HomeRefreshCacheTests {
         ])
     }
 }
-
-// MARK: - HomeRefreshControlledURLProtocol
 
 private final class HomeRefreshControlledURLProtocol: URLProtocol {
     private static let lock = NSLock()

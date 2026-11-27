@@ -1,8 +1,6 @@
 "Ad" = "Anuncio";
 "Advertisement" = "Anuncio";
 
-// Localizable.strings
-
 "%lld songs" = "%lld canciones";
 "%lld songs listened today" = "%lld canciones escuchadas hoy";
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "\"En vivo\" cambia los colores a medida que se reproduce el video; los demás permanecen constantes";
@@ -557,7 +555,6 @@
 "YouTube" = "YouTube";
 "YouTube video" = "Video de YouTube";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Preguntar a Gemini";
 "Ask about this video..." = "Pregunta sobre este vídeo…";
 "Ask anything about this video..." = "Pregunta lo que quieras sobre este vídeo…";
@@ -578,7 +575,6 @@
 "Ask Gemini response ready" = "Respuesta de Preguntar a Gemini lista";
 "New Ask Gemini chat ready" = "Nueva conversación de Preguntar a Gemini lista";
 
-// Appearance
 "Appearance" = "Aspecto";
 "App Appearance" = "Aspecto de la app";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Elige el modo claro u oscuro para Kaset, o usa el ajuste de macOS";
@@ -586,7 +582,6 @@
 "Light Mode" = "Modo claro";
 "Dark Mode" = "Modo oscuro";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "Reproducir música";
 "Play Song" = "Reproducir canción";
 "Play Playlist" = "Reproducir playlist";
@@ -633,7 +628,6 @@
 "Couldn't play “%@”." = "No se pudo reproducir “%@”.";
 "Couldn't rate “%@”." = "No se pudo valorar “%@”.";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "No se pudo leer la extensión. Elimínala y vuelve a agregarla.";
 "The extension's access changed. Review it again before enabling it." = "El acceso de la extensión cambió. Revísala de nuevo antes de activarla.";
 "Extension Error" = "Error de la extensión";

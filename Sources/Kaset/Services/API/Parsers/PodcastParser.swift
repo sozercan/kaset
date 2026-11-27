@@ -1,17 +1,11 @@
 import Foundation
 
-/// Parser for podcast responses from YouTube Music API.
 enum PodcastParser {
     private static let logger = DiagnosticsLogger.api
 
-    // MARK: - Discovery Page Parsing
-
-    /// Parses the podcasts discovery page (FEmusic_podcasts) response.
-    /// This page uses the same structure as home/explore but with podcast-specific items.
     static func parseDiscovery(_ data: [String: Any]) -> [PodcastSection] {
         var sections: [PodcastSection] = []
 
-        // Navigate to contents
         guard let contents = data["contents"] as? [String: Any],
               let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
               let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
@@ -34,11 +28,9 @@ enum PodcastParser {
         return sections
     }
 
-    /// Parses a continuation response for podcasts page.
     static func parseContinuation(_ data: [String: Any]) -> [PodcastSection] {
         var sections: [PodcastSection] = []
 
-        // Continuation responses use continuationContents
         if let continuationContents = data["continuationContents"] as? [String: Any],
            let sectionListContinuation = continuationContents["sectionListContinuation"] as? [String: Any],
            let contents = sectionListContinuation["contents"] as? [[String: Any]]
@@ -50,7 +42,6 @@ enum PodcastParser {
             }
         }
 
-        // Also try musicCarouselShelfContinuation for carousel-style continuations
         if let continuationContents = data["continuationContents"] as? [String: Any],
            let carouselContinuation = continuationContents["musicCarouselShelfContinuation"] as? [String: Any],
            let contents = carouselContinuation["contents"] as? [[String: Any]]
@@ -62,7 +53,6 @@ enum PodcastParser {
                 }
             }
             if !items.isEmpty {
-                // Generate stable ID from title and first item
                 let firstItemId = items.first.map { Self.extractPodcastItemId($0) } ?? ""
                 let stableId = ParsingHelpers.stableId(title: "More", components: firstItemId)
                 sections.append(PodcastSection(id: stableId, title: "More", items: items))
@@ -72,20 +62,15 @@ enum PodcastParser {
         return sections
     }
 
-    // MARK: - Section Parsing
-
     private static func parsePodcastSection(_ data: [String: Any]) -> PodcastSection? {
-        // Try musicCarouselShelfRenderer (horizontal carousels)
         if let carouselRenderer = data["musicCarouselShelfRenderer"] as? [String: Any] {
             return self.parseMusicCarouselShelf(carouselRenderer)
         }
 
-        // Try musicShelfRenderer (vertical lists)
         if let shelfRenderer = data["musicShelfRenderer"] as? [String: Any] {
             return Self.parseMusicShelf(shelfRenderer)
         }
 
-        // Try itemSectionRenderer (wrapper for other renderers)
         if let itemSectionRenderer = data["itemSectionRenderer"] as? [String: Any],
            let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
         {
@@ -115,7 +100,6 @@ enum PodcastParser {
 
         guard !items.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = items.first.map { Self.extractPodcastItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
@@ -142,7 +126,6 @@ enum PodcastParser {
 
         guard !items.isEmpty else { return nil }
 
-        // Generate stable ID from title and first item to avoid SwiftUI identity churn
         let firstItemId = items.first.map { Self.extractPodcastItemId($0) } ?? ""
         let stableId = ParsingHelpers.stableId(title: title, components: firstItemId)
 
@@ -153,20 +136,15 @@ enum PodcastParser {
         )
     }
 
-    // MARK: - Item Parsing
-
     private static func parsePodcastItem(_ data: [String: Any]) -> PodcastSectionItem? {
-        // Try musicTwoRowItemRenderer (podcast shows as cards)
         if let twoRowRenderer = data["musicTwoRowItemRenderer"] as? [String: Any] {
             return self.parseTwoRowItem(twoRowRenderer)
         }
 
-        // Try musicMultiRowListItemRenderer (podcast episodes with progress)
         if let multiRowRenderer = data["musicMultiRowListItemRenderer"] as? [String: Any] {
             return Self.parseMultiRowListItem(multiRowRenderer)
         }
 
-        // Try musicResponsiveListItemRenderer (fallback for some episodes)
         if let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] {
             return Self.parseResponsiveListItem(responsiveRenderer)
         }
@@ -174,7 +152,6 @@ enum PodcastParser {
         return nil
     }
 
-    /// Parses a two-row item (typically a podcast show thumbnail card).
     private static func parseTwoRowItem(_ data: [String: Any]) -> PodcastSectionItem? {
         let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
@@ -189,7 +166,6 @@ enum PodcastParser {
             return nil
         }
 
-        // Check if this is a podcast show (MPSPP prefix)
         if browseId.hasPrefix("MPSPP") {
             let author = ParsingHelpers.extractSubtitle(from: data)
             let show = PodcastShow(
@@ -203,7 +179,6 @@ enum PodcastParser {
             return .show(show)
         }
 
-        // Otherwise it might be an episode with watchEndpoint
         if let watchEndpoint = navigationEndpoint["watchEndpoint"] as? [String: Any],
            let videoId = watchEndpoint["videoId"] as? String
         {
@@ -226,9 +201,7 @@ enum PodcastParser {
         return nil
     }
 
-    /// Parses a multi-row list item (podcast episodes with playback progress).
     private static func parseMultiRowListItem(_ data: [String: Any]) -> PodcastSectionItem? {
-        // Extract video ID from navigation
         guard let onTap = data["onTap"] as? [String: Any],
               let watchEndpoint = onTap["watchEndpoint"] as? [String: Any],
               let videoId = watchEndpoint["videoId"] as? String
@@ -236,19 +209,14 @@ enum PodcastParser {
             return nil
         }
 
-        // Extract title from title field
         let title = Self.extractMultiRowTitle(from: data) ?? "Unknown Episode"
 
-        // Extract thumbnail
         let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
-        // Extract subtitle (show name)
         let showTitle = Self.extractMultiRowSubtitle(from: data)
 
-        // Extract show browse ID for navigation
         let showBrowseId = Self.extractShowBrowseId(from: data)
 
-        // Extract playback progress (0-100 or 0.0-1.0)
         var playbackProgress: Double = 0
         var isPlayed = false
 
@@ -259,7 +227,6 @@ enum PodcastParser {
             isPlayed = percentage >= 95
         }
 
-        // Check for "Played" text in played text field
         if let playedTextRuns = data["playedText"] as? [String: Any],
            let runs = playedTextRuns["runs"] as? [[String: Any]],
            let text = runs.first?["text"] as? String,
@@ -269,7 +236,6 @@ enum PodcastParser {
             playbackProgress = 1.0
         }
 
-        // Extract duration
         var duration: String?
         var durationSeconds: Int?
 
@@ -281,7 +247,6 @@ enum PodcastParser {
             durationSeconds = Self.parseDurationToSeconds(durationStr)
         }
 
-        // Extract published date
         var publishedDate: String?
         if let publishedTimeText = data["publishedTimeText"] as? [String: Any],
            let runs = publishedTimeText["runs"] as? [[String: Any]],
@@ -290,7 +255,6 @@ enum PodcastParser {
             publishedDate = dateStr
         }
 
-        // Extract description
         var description: String?
         if let descriptionData = data["description"] as? [String: Any],
            let runs = descriptionData["runs"] as? [[String: Any]]
@@ -315,10 +279,8 @@ enum PodcastParser {
         return .episode(episode)
     }
 
-    /// Parses a responsive list item (fallback for some episodes).
     private static func parseResponsiveListItem(_ data: [String: Any]) -> PodcastSectionItem? {
         guard let videoId = ParsingHelpers.extractVideoId(from: data) else {
-            // Might be a podcast show
             if let browseId = ParsingHelpers.extractBrowseId(from: data),
                browseId.hasPrefix("MPSPP")
             {
@@ -360,9 +322,6 @@ enum PodcastParser {
         return .episode(episode)
     }
 
-    // MARK: - Podcast Show Detail Parsing
-
-    /// Parses a podcast show detail page (MPSPP{id}).
     static func parseShowDetail( // swiftlint:disable:this function_body_length cyclomatic_complexity
         _ data: [String: Any],
         showId: String
@@ -375,7 +334,6 @@ enum PodcastParser {
         var continuationToken: String?
         var isSubscribed = false
 
-        // Parse header from old format (musicDetailHeaderRenderer)
         if let header = data["header"] as? [String: Any],
            let musicDetailHeaderRenderer = header["musicDetailHeaderRenderer"] as? [String: Any]
         {
@@ -386,11 +344,9 @@ enum PodcastParser {
             thumbnailURL = ParsingHelpers.extractThumbnailURL(from: musicDetailHeaderRenderer)
         }
 
-        // Parse from twoColumnBrowseResultsRenderer (current format)
         if let contents = data["contents"] as? [String: Any],
            let twoColumnResults = contents["twoColumnBrowseResultsRenderer"] as? [String: Any]
         {
-            // Parse header from tabs → sectionListRenderer → musicResponsiveHeaderRenderer
             if let tabs = twoColumnResults["tabs"] as? [[String: Any]],
                let firstTab = tabs.first,
                let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
@@ -408,7 +364,6 @@ enum PodcastParser {
                             thumbnailURL = headerThumbnailURL
                         }
 
-                        // Extract subscription status from buttons
                         if let buttons = headerRenderer["buttons"] as? [[String: Any]] {
                             for button in buttons {
                                 if let toggleButton = button["toggleButtonRenderer"] as? [String: Any],
@@ -423,7 +378,6 @@ enum PodcastParser {
                 }
             }
 
-            // Parse episodes from secondaryContents
             if let secondaryContents = twoColumnResults["secondaryContents"] as? [String: Any],
                let sectionListRenderer = secondaryContents["sectionListRenderer"] as? [String: Any],
                let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
@@ -440,7 +394,6 @@ enum PodcastParser {
                             }
                         }
 
-                        // Extract continuation token
                         if let continuations = shelfRenderer["continuations"] as? [[String: Any]],
                            let firstContinuation = continuations.first,
                            let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
@@ -453,7 +406,6 @@ enum PodcastParser {
             }
         }
 
-        // Fallback: Parse episodes from singleColumnBrowseResultsRenderer (old format)
         if episodes.isEmpty,
            let contents = data["contents"] as? [String: Any],
            let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
@@ -505,7 +457,6 @@ enum PodcastParser {
         )
     }
 
-    /// Parses a continuation response for more episodes.
     static func parseEpisodesContinuation(_ data: [String: Any]) -> PodcastEpisodesContinuation {
         var episodes: [PodcastEpisode] = []
         var continuationToken: String?
@@ -522,7 +473,6 @@ enum PodcastParser {
                 }
             }
 
-            // Extract next continuation token
             if let continuations = shelfContinuation["continuations"] as? [[String: Any]],
                let firstContinuation = continuations.first,
                let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
@@ -538,9 +488,6 @@ enum PodcastParser {
         )
     }
 
-    // MARK: - Helper Methods
-
-    /// Extracts a stable ID from a PodcastSectionItem for identity purposes.
     private static func extractPodcastItemId(_ item: PodcastSectionItem) -> String {
         switch item {
         case let .show(show): show.id
@@ -578,7 +525,6 @@ enum PodcastParser {
     }
 
     private static func extractShowBrowseId(from data: [String: Any]) -> String? {
-        // Look for browse endpoint in subtitle runs
         if let subtitle = data["subtitle"] as? [String: Any],
            let runs = subtitle["runs"] as? [[String: Any]]
         {
@@ -604,9 +550,7 @@ enum PodcastParser {
         return nil
     }
 
-    /// Parses duration string like "36 min" or "1:11:19" to seconds.
     private static func parseDurationToSeconds(_ string: String) -> Int? {
-        // Try "X min" format
         if string.hasSuffix(" min") {
             let numberPart = string.dropLast(4)
             if let minutes = Int(numberPart) {
@@ -614,7 +558,6 @@ enum PodcastParser {
             }
         }
 
-        // Try "X:XX" or "X:XX:XX" format
         let components = string.split(separator: ":").compactMap { Int($0) }
         if components.count == 2 {
             return components[0] * 60 + components[1]
@@ -625,28 +568,21 @@ enum PodcastParser {
         return nil
     }
 
-    // MARK: - Podcast Detection Helpers
-
-    /// Checks if a browse ID is a podcast show.
     static func isPodcastShow(_ browseId: String) -> Bool {
         browseId.hasPrefix("MPSPP")
     }
 
-    /// Checks if content data contains podcast indicators.
     static func isPodcastContent(_ data: [String: Any]) -> Bool {
-        // Check for multiRowListItemRenderer (podcast-specific)
         if data["musicMultiRowListItemRenderer"] != nil {
             return true
         }
 
-        // Check for playbackProgress field
         if let multiRow = data["musicMultiRowListItemRenderer"] as? [String: Any],
            multiRow["playbackProgress"] != nil
         {
             return true
         }
 
-        // Check for MPSPP browse ID
         if let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
            let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String,

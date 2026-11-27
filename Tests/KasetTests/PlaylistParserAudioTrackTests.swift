@@ -2,15 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for resolving the audio recording behind music-video album rows.
-///
-/// Some albums are returned with every track row typed `MUSIC_VIDEO_TYPE_OMV`.
-/// YouTube Music still advertises each track's audio recording in the row's
-/// credits menu, as `MPTC` + the audio video ID.
 @Suite(.tags(.parser))
 struct PlaylistParserAudioTrackTests {
-    // MARK: - Parser
-
     @Test("Music-video album rows expose the audio recording from their credits entry")
     func musicVideoRowResolvesAudioTrackVideoId() {
         let data = self.makeAlbumData(rows: [
@@ -54,8 +47,6 @@ struct PlaylistParserAudioTrackTests {
         #expect(detail.tracks.first?.audioTrackVideoId == nil)
     }
 
-    // MARK: - Helper
-
     @Test("Credits entries are matched by page type, not by menu label")
     func creditsEntryMatchedByPageTypeUnderAnyLanguage() {
         let renderer = Self.makeRowRenderer(
@@ -94,8 +85,6 @@ struct PlaylistParserAudioTrackTests {
 
         #expect(ParsingHelpers.extractTrackCreditsVideoId(from: renderer) == nil)
     }
-
-    // MARK: - Model
 
     @Test("Preferred audio video ID falls back to the row's own video ID")
     func preferredAudioVideoIdFallsBack() {
@@ -142,8 +131,6 @@ struct PlaylistParserAudioTrackTests {
         #expect(queued.map(\.audioTrackVideoId) == ["qCDPprTDkJE"])
         #expect(queued.map(\.preferredAudioVideoId) == ["qCDPprTDkJE"])
     }
-
-    // MARK: - Fixtures
 
     private struct Row {
         let videoId: String
@@ -197,8 +184,6 @@ struct PlaylistParserAudioTrackTests {
         musicVideoType: String = "MUSIC_VIDEO_TYPE_OMV",
         creditsLabel: String = "View song credits"
     ) -> [String: Any] {
-        // Album rows carry no top-level navigationEndpoint; the play overlay holds
-        // the watch endpoint, matching live `browse` responses for MPRE albums.
         var renderer: [String: Any] = [
             "playlistItemData": ["videoId": videoId],
             "overlay": [

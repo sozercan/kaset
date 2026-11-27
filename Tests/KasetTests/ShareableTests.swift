@@ -2,11 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - ShareableTests
-
 struct ShareableTests {
-    // MARK: - Song Tests
-
     @Test("Song shareText includes title and artist")
     func songShareText() {
         let song = Song(
@@ -46,8 +42,6 @@ struct ShareableTests {
 
         #expect(song.shareText == "Collaboration Track by Artist One, Artist Two, Artist Three")
     }
-
-    // MARK: - Playlist Tests
 
     @Test("Playlist shareText includes title and author")
     func playlistShareText() {
@@ -90,8 +84,6 @@ struct ShareableTests {
 
         #expect(playlist.shareText == "No Author Playlist")
     }
-
-    // MARK: - Album Tests
 
     @Test("Album with MPRE prefix has shareURL")
     func albumShareURL_MPRE() {
@@ -149,8 +141,6 @@ struct ShareableTests {
 
         #expect(album.shareText == "Solo Album")
     }
-
-    // MARK: - Artist Tests
 
     @Test("Artist with UC prefix has shareURL")
     func artistShareURL_valid() {

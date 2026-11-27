@@ -1,65 +1,45 @@
 import Foundation
 import Observation
 
-/// Bridges PlayerService playback mutations to scrobbling backends.
 @MainActor
 @Observable
 final class ScrobblingCoordinator {
     static let mixMinimumVideoDuration: TimeInterval = 600
     static let mixReplayStartTolerance: TimeInterval = 5
 
-    // MARK: - Dependencies
-
     let playerService: PlayerService
     private let settingsManager: any ScrobblingSettingsProviding
-    /// All registered scrobbling service backends.
     let services: [any ScrobbleServiceProtocol]
     let logger = DiagnosticsLogger.scrobbling
 
-    /// The offline scrobble queue.
     let queue: ScrobbleQueue
 
-    /// Optional mix-tracklist parser; requires a YouTubeClient that some contexts do not provide.
     let mixTracklistParser: MixTracklistParser?
     let unknownDurationParseDelay: Duration
     let mixParseTimeout: Duration
     private let now: () -> Date
 
-    // MARK: - Tracking State
-
-    /// The video ID of the track currently being tracked.
     var currentTrackVideoId: String?
 
-    /// Title of the track currently being tracked (for change detection when videoId is stale).
     private var currentTrackTitle: String?
 
-    /// Artist of the track currently being tracked (for change detection when videoId is stale).
     private var currentTrackArtist: String?
     var requiredPlaybackStateSequence: Int?
 
-    /// Snapshot of the tracked Song at the time tracking started (for finalization).
     var trackedSong: Song?
 
-    /// Play-time state machine for the whole track (single-track mode). Nil when nothing is tracked.
     var trackTracker: PlaybackScrobbleTracker?
     var pendingWholeTrackPlays: [PendingWholeTrackPlay] = []
 
-    /// Tracked-video duration retained across transitions so finalization never reads the next track.
     var trackedVideoDuration: TimeInterval?
 
-    // MARK: - Mix-Mode State
-
-    /// Classification gate that defers whole-track side effects until mix detection resolves.
     var mixDetectionState: MixDetectionState = .unresolved
 
-    /// The sub-track currently being tracked within the mix.
     private var currentMixEntry: MixTrackEntry?
 
-    /// Play-time state machine for the current mix sub-track. Nil between entries.
     var mixEntryTracker: PlaybackScrobbleTracker?
     var mixEntryScrobbledIds: Set<UUID> = []
 
-    /// In-flight tracklist parse and its current-track result monitor.
     var mixParseTask: Task<MixTracklist?, Never>?
     var mixParseMonitorTask: Task<Void, Never>?
     var mixParseTimeoutTask: Task<Void, Never>?
@@ -68,13 +48,10 @@ final class ScrobblingCoordinator {
     var durationConfirmationCompleted = false
     var mixParseStartedWithoutDuration = false
 
-    /// Monotonic token preventing a cancelled/stale parse from clearing or applying newer work.
     var mixParseGeneration = 0
 
-    /// Eligible ended tracks whose parse may safely finish off the current-track path.
     var pendingMixFinalizations: [UUID: PendingMixFinalization] = [:]
 
-    /// Verified progress ranges retained until delayed chapter metadata can credit real sub-tracks.
     var provisionalMixHistory = ProvisionalMixPlaybackHistory()
     var provisionalCurrentMixCredit: (entryId: UUID, credit: ProvisionalMixPlaybackHistory.Credit)?
 
@@ -84,25 +61,17 @@ final class ScrobblingCoordinator {
     }
 
     // swiftformat:disable modifierOrder
-    /// Queue flush task, cancelled in deinit.
     private var flushTask: Task<Void, Never>?
 
-    /// Monotonic token that prevents stale flush tasks from clearing newer scheduled work.
     private var flushTaskGeneration = 0
 
-    /// Now-playing tasks, cancelled in stopMonitoring/deinit.
     var nowPlayingTasks: [Task<Void, Never>] = []
     // swiftformat:enable modifierOrder
 
-    /// Whether the coordinator is actively monitoring.
     private(set) var isMonitoring = false
 
-    /// Monotonic token used to ignore one-shot Observation callbacks armed before a stop/start cycle.
     private var monitoringGeneration = 0
 
-    // MARK: - Init
-
-    /// Creates a ScrobblingCoordinator with injectable services, settings, queue, and mix parser.
     init(
         playerService: PlayerService,
         settingsManager: any ScrobblingSettingsProviding = SettingsManager.shared,
@@ -123,30 +92,20 @@ final class ScrobblingCoordinator {
         self.now = now
     }
 
-    /// Permanent teardown must call stopMonitoring(finalizeCurrentTrack: true) first.
-    deinit {
-        // Main-actor state cannot be safely finalized from deinit.
-    }
+    deinit {}
 
-    // MARK: - Service Helpers
-
-    /// Whether any registered service is both enabled in settings and connected.
     private var hasAnyEnabledConnectedService: Bool {
         self.services.contains { service in
             self.settingsManager.isServiceEnabled(service.serviceName) && service.authState.isConnected
         }
     }
 
-    /// All services that are currently enabled in settings and authenticated.
     var enabledConnectedServices: [any ScrobbleServiceProtocol] {
         self.services.filter { service in
             self.settingsManager.isServiceEnabled(service.serviceName) && service.authState.isConnected
         }
     }
 
-    // MARK: - Lifecycle
-
-    /// Starts monitoring; must be paired with stopMonitoring() before deinit.
     func startMonitoring() {
         guard !self.isMonitoring else { return }
         self.isMonitoring = true
@@ -160,7 +119,6 @@ final class ScrobblingCoordinator {
         self.scheduleQueueFlushIfNeeded()
     }
 
-    /// Stops active monitoring. Set `finalizeCurrentTrack` only for permanent teardown.
     func stopMonitoring(finalizeCurrentTrack: Bool = false) {
         if finalizeCurrentTrack {
             self.finalizeCurrentTrack()
@@ -178,16 +136,12 @@ final class ScrobblingCoordinator {
         self.logger.info("Scrobbling coordinator stopped monitoring")
     }
 
-    /// Restores authentication state from persistent storage on app launch.
     func restoreAuthState() {
         for service in self.services {
             service.restoreSession()
         }
     }
 
-    // MARK: - Observation
-
-    /// Re-arms observation for playback fields, avoiding an independent app-lifetime polling timer.
     private func observePlayerStateChanges(generation: Int) {
         guard self.isMonitoring(generation: generation) else { return }
 
@@ -209,7 +163,6 @@ final class ScrobblingCoordinator {
         }
     }
 
-    /// Re-arms service eligibility observation and unschedules queue work when none is active.
     private func observeMonitoringEligibilityChanges(generation: Int) {
         guard self.isMonitoring(generation: generation) else { return }
 
@@ -232,24 +185,19 @@ final class ScrobblingCoordinator {
         self.isMonitoring && self.monitoringGeneration == generation
     }
 
-    /// Core scrobbling logic — driven by observed playback mutations instead of a periodic timer.
     func pollPlayerState() {
-        // Skip if no service is both enabled and connected
         guard self.hasAnyEnabledConnectedService else { return }
 
         let currentTrack = self.playerService.currentTrack
         let isPlaying = self.playerService.isPlaying
         let progress = self.playerService.progress
 
-        // Track change detection
         if let track = currentTrack {
             let videoIdChanged = track.videoId != self.currentTrackVideoId
-            // Also detect by title/artist for natural transitions where videoId is stale
             let metadataChanged = self.currentTrackVideoId != nil
                 && (track.title != self.currentTrackTitle || track.artistsDisplay != self.currentTrackArtist)
 
             if videoIdChanged || metadataChanged {
-                // Track changed — finalize previous, start tracking new
                 let requiredPlaybackStateSequence = metadataChanged && !videoIdChanged
                     ? self.playerService.playbackStateObservationSequence &+ 1
                     : nil
@@ -280,14 +228,9 @@ final class ScrobblingCoordinator {
                 }
             }
 
-            // Resolve whether this is a regular track or a mix. Duration is often unknown at
-            // track-start, so unresolved/parsing states keep provisional play time but suppress
-            // whole-track now-playing/scrobble side effects until classification completes.
             self.resolveMixDetection(for: track)
             switch self.mixDetectionState {
             case .unresolved, .parsing, .awaitingDuration:
-                // Provisional whole-track accounting intentionally matches regular-track behavior:
-                // `accumulate` rejects the seek delta but preserves verified play time on both sides.
                 self.accumulateWholeTrack(
                     progress: progress,
                     isPlaying: isPlaying,
@@ -310,29 +253,23 @@ final class ScrobblingCoordinator {
                 break
             }
 
-            // Accumulate play time (the tracker ignores seeks and paused spans internally)
             self.accumulateWholeTrack(
                 progress: progress,
                 isPlaying: isPlaying,
                 recordProvisionalSegment: false
             )
 
-            // Send "now playing" once per track
             if self.trackTracker?.hasSentNowPlaying == false, isPlaying {
                 self.sendNowPlaying(track)
             }
 
-            // Check scrobble threshold
             if self.trackTracker?.hasScrobbled == false, let duration = self.trackedVideoDuration {
                 self.checkScrobbleThreshold(track: track, duration: duration)
             }
         } else if self.currentTrackVideoId != nil {
-            // Track was cleared
             self.finalizeCurrentTrack()
         }
     }
-
-    // MARK: - Track Lifecycle
 
     private func startTrackingNewTrack(
         _ track: Song,
@@ -353,7 +290,6 @@ final class ScrobblingCoordinator {
             self.updateTrackedVideoDuration(for: track)
         }
 
-        // Reset mix-mode state for the new track
         self.mixDetectionState = .unresolved
         self.currentMixEntry = nil
         self.mixEntryTracker = nil
@@ -365,12 +301,8 @@ final class ScrobblingCoordinator {
         self.scheduleUnknownDurationParse(for: track)
 
         self.logger.debug("Started tracking: \(track.title) by \(track.artistsDisplay)")
-
-        // Mix detection is gated on duration, which is often not yet known here. The poll loop
-        // retries `resolveMixDetection(for:)` until duration is available.
     }
 
-    /// Resolves long tracks through parsing and short/no-parser tracks as whole-track mode.
     private func resolveMixDetection(for track: Song) {
         let scopedDuration = self.scopedDuration(for: track)
         if case let .awaitingDuration(tracklist) = self.mixDetectionState {
@@ -455,8 +387,6 @@ final class ScrobblingCoordinator {
             let tracklist = await parseTask.value
             guard let self else { return }
 
-            // A track change may have cancelled this request and started another. Only the task
-            // owning the current generation may clear the in-flight slot or publish its result.
             guard self.mixParseGeneration == generation else { return }
             guard !Task.isCancelled, self.currentTrackVideoId == videoId else { return }
             self.mixParseTimeoutTask?.cancel()
@@ -580,23 +510,18 @@ final class ScrobblingCoordinator {
 
         self.resolveAwaitingDurationForFinalization()
 
-        // A qualifying regular track whose parse is still pending finalizes after that parse says
-        // it is not a mix. Detaching it keeps the next track's detection independent.
         if !self.deferPendingRegularTrackFinalizationIfNeeded() {
             self.cancelMixTracklistFetch()
         }
 
         self.finalizeResidualMixHistoryIfNeeded()
 
-        // Finalize mix-mode sub-track if active
         if self.currentMixTracklist != nil, let entry = self.currentMixEntry {
             self.finalizeMixEntry(entry, song: self.trackedSong)
         }
 
-        // Nothing to finalize if no track was being tracked
         guard self.currentTrackVideoId != nil else { return }
 
-        // Final threshold check before discarding accumulated play time (single-track mode only)
         if case .notMix = self.mixDetectionState,
            self.trackTracker?.hasScrobbled == false,
            let song = self.trackedSong
@@ -608,7 +533,6 @@ final class ScrobblingCoordinator {
 
         self.logger.debug("Finalized track (accumulated: \(String(format: "%.1f", self.trackTracker?.accumulatedPlayTime ?? 0))s, scrobbled: \(self.trackTracker?.hasScrobbled ?? false))")
 
-        // Reset tracking state
         self.currentTrackVideoId = nil
         self.currentTrackTitle = nil
         self.currentTrackArtist = nil
@@ -618,7 +542,6 @@ final class ScrobblingCoordinator {
         self.trackedVideoDuration = nil
         self.pendingWholeTrackPlays.removeAll()
 
-        // Reset mix-mode state
         self.mixDetectionState = .unresolved
         self.currentMixEntry = nil
         self.mixEntryTracker = nil
@@ -627,9 +550,6 @@ final class ScrobblingCoordinator {
         self.provisionalCurrentMixCredit = nil
     }
 
-    // MARK: - Scrobble Threshold
-
-    /// Whole-track thresholds treat unknown duration as ineligible.
     var trackThresholds: PlaybackScrobbleTracker.Thresholds {
         .init(
             percent: self.settingsManager.scrobblePercentThreshold,
@@ -638,7 +558,6 @@ final class ScrobblingCoordinator {
         )
     }
 
-    /// Mix sub-tracks with unknown chapter bounds can still qualify via `minSeconds`.
     var mixEntryThresholds: PlaybackScrobbleTracker.Thresholds {
         .init(
             percent: self.settingsManager.scrobblePercentThreshold,
@@ -661,19 +580,14 @@ final class ScrobblingCoordinator {
         self.logger.info("Scrobble threshold met for: \(track.title) (accumulated: \(String(format: "%.1f", tracker.accumulatedPlayTime))s)")
     }
 
-    // MARK: - Mix-Mode Playback Handling
-
-    /// Handles per-sub-track scrobbling when a mix tracklist is available.
     private func handleMixPlayback(
         track: Song,
         tracklist: MixTracklist,
         progress: TimeInterval,
         isPlaying: Bool
     ) {
-        // Determine the sub-track at the current playback position
         let entry = tracklist.entry(at: progress)
 
-        // Sub-track changed — finalize previous, start new
         if entry?.id != self.currentMixEntry?.id {
             if let prevEntry = self.currentMixEntry {
                 if let endTime = tracklist.effectiveEndTime(
@@ -697,15 +611,12 @@ final class ScrobblingCoordinator {
             if let entry {
                 self.startMixEntry(entry, progress: progress)
             } else {
-                // Between entries or before the first — clear current
                 self.currentMixEntry = nil
             }
         }
 
         guard let entry, self.currentMixEntry?.id == entry.id else { return }
 
-        // A backward jump after scrobbling is a replay and gets a fresh timestamp. Other seeks
-        // only reset accumulated play time; already-sent latches remain set to prevent duplicates.
         if let tracker = self.mixEntryTracker, abs(progress - tracker.lastProgress) > 5.0 {
             let restartedNearEntryStart = progress <= entry.startTime + Self.mixReplayStartTolerance
             if tracker.hasScrobbled,
@@ -721,21 +632,17 @@ final class ScrobblingCoordinator {
             }
         }
 
-        // Accumulate play time (the tracker ignores seeks and paused spans internally)
         self.mixEntryTracker?.accumulate(progress: progress, isPlaying: isPlaying, now: self.now())
 
-        // Send "now playing" once per sub-track
         if self.mixEntryTracker?.hasSentNowPlaying == false, isPlaying {
             self.sendMixNowPlaying(entry, song: track)
         }
 
-        // Check sub-track scrobble threshold
         if self.mixEntryTracker?.hasScrobbled == false {
             self.checkMixEntryScrobbleThreshold(entry: entry, song: track)
         }
     }
 
-    /// Starts tracking a new sub-track within the mix.
     private func startMixEntry(_ entry: MixTrackEntry, progress: TimeInterval) {
         self.currentMixEntry = entry
         let pendingCredit = self.provisionalCurrentMixCredit
@@ -766,9 +673,7 @@ final class ScrobblingCoordinator {
         self.logger.debug("Mix sub-track started: \(entry.artist ?? "?") - \(entry.title) at \(String(format: "%.1f", entry.startTime))s")
     }
 
-    /// Finalizes a mix sub-track — checks threshold and scrobbles if met.
     private func finalizeMixEntry(_ entry: MixTrackEntry, song: Song?) {
-        // Final threshold check before the sub-track ends (skip if it already scrobbled)
         if self.mixEntryTracker?.hasScrobbled == false {
             self.checkMixEntryScrobbleThreshold(entry: entry, song: song)
         }
@@ -779,7 +684,6 @@ final class ScrobblingCoordinator {
         self.mixEntryTracker = nil
     }
 
-    /// Checks whether the current sub-track has met the scrobble threshold.
     private func checkMixEntryScrobbleThreshold(entry: MixTrackEntry, song: Song?) {
         let duration = self.mixEntryDuration(entry, song: song)
         guard var tracker = self.mixEntryTracker,
@@ -802,8 +706,6 @@ final class ScrobblingCoordinator {
         self.scheduleQueueFlushIfNeeded()
         self.logger.info("Mix scrobble: \(entry.artist ?? "?") - \(entry.title) (accumulated: \(String(format: "%.1f", tracker.accumulatedPlayTime))s)")
     }
-
-    // MARK: - Queue Flush
 
     func scheduleQueueFlushIfNeeded(after delay: Duration = .seconds(30)) {
         guard self.isMonitoring,
@@ -837,19 +739,15 @@ final class ScrobblingCoordinator {
         }
     }
 
-    /// Exposed for focused tests; true only when there is pending queue work eligible for a one-shot flush.
     var isQueueFlushScheduled: Bool {
         guard let flushTask else { return false }
         return !flushTask.isCancelled
     }
 
-    /// Flushes pending scrobbles from the queue to all enabled services.
-    /// Services deduplicate naturally (e.g., Last.fm ignores duplicate artist+track+timestamp).
     func flushQueue() async {
         guard self.hasAnyEnabledConnectedService else { return }
         guard !self.queue.isEmpty else { return }
 
-        // Prune expired entries first
         self.queue.pruneExpired()
 
         let batch = self.queue.dequeue(limit: 50)
@@ -857,8 +755,6 @@ final class ScrobblingCoordinator {
 
         self.logger.debug("Flushing \(batch.count) scrobbles from queue")
 
-        // Submit to all enabled+connected services. Services deduplicate, so
-        // re-submitting to a service that already accepted is safe (Option A).
         var acceptedIds = Set<UUID>()
 
         for service in self.enabledConnectedServices {
@@ -871,7 +767,6 @@ final class ScrobblingCoordinator {
                     self.logger.info("Flushed \(accepted.count)/\(batch.count) scrobbles to \(service.serviceName)")
                 }
 
-                // Log rejected scrobbles
                 let rejected = results.filter { !$0.accepted }
                 for result in rejected {
                     self.logger.warning("Scrobble rejected by \(service.serviceName): \(result.track.title) - \(result.errorMessage ?? "unknown reason")")
@@ -892,7 +787,6 @@ final class ScrobblingCoordinator {
             }
         }
 
-        // Only mark accepted tracks as completed; rejected tracks remain in the queue for retry.
         if !acceptedIds.isEmpty {
             self.queue.markCompleted(acceptedIds)
         }

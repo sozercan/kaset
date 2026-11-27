@@ -11,8 +11,8 @@ struct LRCParserTests {
 
         let synced = try #require(LRCParser.parse(lrc))
 
-        #expect(synced.lines.count == 3) // 0ms + 2 lines
-        #expect(synced.lines[0].timeInMs == 0) // Auto-inserted
+        #expect(synced.lines.count == 3)
+        #expect(synced.lines[0].timeInMs == 0)
         #expect(synced.lines[0].duration == 12000)
 
         #expect(synced.lines[1].timeInMs == 12000)
@@ -34,8 +34,6 @@ struct LRCParserTests {
         let synced = try #require(LRCParser.parse(lrc))
 
         #expect(synced.lines.count == 3)
-        // Offset 500ms means 10.00 becomes 9.50 (9500)
-        // 0 line inserted (first line > 300ms)
         #expect(synced.lines[0].timeInMs == 0)
         #expect(synced.lines[1].timeInMs == 9500)
         #expect(synced.lines[2].timeInMs == 19500)

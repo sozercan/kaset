@@ -3,8 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-// MARK: - HomeItemCellTests
-
 @Suite(.tags(.model))
 @MainActor
 struct HomeItemCellTests {
@@ -29,7 +27,6 @@ struct HomeItemCellTests {
     func colorGlyphDetection() {
         #expect(HomeItemCell.mayContainColorGlyphs("Summer 🌴"))
         #expect(HomeItemCell.mayContainColorGlyphs("Sunny \u{2600}\u{FE0F}"))
-        // Text-default emoji that CoreText still draws from Apple Color Emoji.
         #expect(HomeItemCell.mayContainColorGlyphs("\u{1F399} Daily Mix"))
         #expect(HomeItemCell.mayContainColorGlyphs("Hot \u{1F336}"))
         #expect(!HomeItemCell.mayContainColorGlyphs("Hot Hits"))
@@ -82,7 +79,6 @@ struct HomeItemCellTests {
         #expect(label.contains("Band"))
         #expect(label.contains("Explicit"))
         #expect(cell.accessibilityRole() == .button)
-        // No like control without a personal account, even when hovered.
         cell.setHovered(true, animated: false)
         #expect(cell.likeButtonFrame == nil)
     }
@@ -358,8 +354,6 @@ struct HomeItemCellTests {
         ))
     }
 }
-
-// MARK: - HomeItemTestWindow
 
 @MainActor
 private final class HomeItemTestWindow: NSWindow {

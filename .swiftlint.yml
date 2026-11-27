@@ -1,10 +1,8 @@
-# SwiftLint configuration for YouTube Music
-# Matches AGENTS.md coding style requirements
 
 disabled_rules:
   - trailing_comma
   - line_length
-  - opening_brace # Allow SwiftFormat's multi-line condition style
+  - opening_brace
 
 opt_in_rules:
   - closure_spacing
@@ -37,7 +35,6 @@ excluded:
   - Packages
   - Sources/APIExplorer
 
-# Rules configuration
 identifier_name:
   min_length: 1
   max_length: 60
@@ -68,7 +65,6 @@ nesting:
   type_level: 3
   function_level: 3
 
-# Custom rules to match AGENTS.md requirements
 custom_rules:
   no_navigation_view:
     name: "No NavigationView"
@@ -82,7 +78,7 @@ custom_rules:
     message: "Use Swift concurrency (async/await, MainActor) instead of DispatchQueue"
     severity: error
     excluded:
-      - "Sources/Kaset/Services/NetworkMonitor.swift"  # NWPathMonitor requires DispatchQueue
+      - "Sources/Kaset/Services/NetworkMonitor.swift"
 
   no_print:
     name: "No print statements"

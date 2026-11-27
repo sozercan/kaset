@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Queue Playlist Actions
-
 @MainActor
 extension PlayerService {
     var currentAccountMutationOwner: MusicAccountMutationOwner {
@@ -15,7 +13,6 @@ extension PlayerService {
         owner == self.currentAccountMutationOwner
     }
 
-    /// Creates a private playlist from the current queue and notifies library views.
     func saveQueueAsPlaylist(title: String) async throws -> Playlist {
         let owner = self.currentAccountMutationOwner
         return try await self.saveQueueAsPlaylist(

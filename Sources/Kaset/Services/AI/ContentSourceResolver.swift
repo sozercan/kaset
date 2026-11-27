@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - ContentSourceResolver
-
 @available(macOS 26.0, *)
 enum ContentSourceResolver {
     static func buildSearchQuery(
@@ -350,8 +348,6 @@ enum ContentSourceResolver {
         let requiresLexicalGrounding = MusicDiscoveryTaxonomy.requiresLexicalGrounding(for: groundingQuery)
         let roleGroundingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(groundingQuery, title: intent.query)
 
-        // Guided generation can fill optional string fields with plausible but
-        // unrequested values. Keep only modifiers represented in the subject.
         var genre = requiresLexicalGrounding
             ? self.groundedValue(
                 intent.genre,

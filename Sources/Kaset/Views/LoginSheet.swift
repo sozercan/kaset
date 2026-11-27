@@ -1,8 +1,5 @@
 import SwiftUI
 
-// MARK: - LoginSheet
-
-/// Login sheet presented when authentication is required.
 struct LoginSheet: View {
     @Environment(AuthService.self) private var authService
     @Environment(AccountService.self) private var accountService
@@ -25,13 +22,10 @@ struct LoginSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             self.headerView
 
             Divider()
 
-            // Do not create the login WebView until reauthentication has drained
-            // old session mutations and established its cookie baseline.
             if self.authService.isCookieRestoreUnavailable || self.authService.loginCleanupRequired {
                 self.loginRecoveryView
             } else if self.didCaptureInitialLoginState {
@@ -139,8 +133,6 @@ struct LoginSheet: View {
                     _ = await self.authService.resolveLoginRollbackAfterDraining(
                         expectedAttemptID: loginAttemptID,
                         prepareRollback: { true },
-                        // No transaction means no cookie state was restored. A
-                        // prior durable-cleanup failure must remain quarantined.
                         rollback: { forceCleanup in
                             forceCleanup || self.authService.loginCleanupRequired ? .failed : .rolledBack
                         }
@@ -206,7 +198,6 @@ struct LoginSheet: View {
                     .frame(width: 13, height: 13)
             }
 
-            // Same path as Esc: onDisappear cancels the attempt and rolls back cookies.
             Button {
                 self.dismiss()
             } label: {
@@ -223,8 +214,6 @@ struct LoginSheet: View {
         guard !self.authService.loginCleanupRequired,
               let loginAttemptID = self.loginAttemptID
         else { return }
-        // Sign In must still reopen the recovery sheet after it is dismissed.
-        // Release its presentation attempt before Retry checks storage.
         if self.authService.isCookieRestoreUnavailable {
             self.authService.deferLoginForCookieRestore(expectedAttemptID: loginAttemptID)
             return
@@ -274,9 +263,6 @@ struct LoginSheet: View {
             await self.rollBackPreparedLogin(transaction, loginAttemptID: loginAttemptID)
             return
         }
-        // Reauthentication starts from a signed-out WebView, but only the live
-        // jar is cleared, inside the transaction. Cancelling restores the prior
-        // session and archive instead of leaving the user durably signed out.
         if isReauthenticating {
             guard await self.webKitManager.clearLiveLoginCookies(for: transaction),
                   !Task.isCancelled,
@@ -326,8 +312,6 @@ struct LoginSheet: View {
             return true
         case .unavailable:
             self.authService.deferLoginForCookieRestore(expectedAttemptID: expectedAttemptID)
-            // Keep the sheet's attempt ID: if a retry reveals an invalid archive,
-            // cleanup must still prove ownership of this logged-out attempt.
             return false
         case .failed:
             let didClear = await self.authService.clearFailedLoginAfterDraining(
@@ -420,7 +404,6 @@ struct LoginSheet: View {
         await self.prepareLoginAttempt()
     }
 
-    /// Starts a periodic task to check for successful login.
     private func startPollingForLogin() {
         guard self.isActive else { return }
         self.pollTask = Task {
@@ -455,7 +438,6 @@ struct LoginSheet: View {
         self.isCheckingLogin = true
         defer { self.isCheckingLogin = false }
 
-        // Small delay to allow cookies to settle.
         try? await Task.sleep(for: .milliseconds(300))
         guard !Task.isCancelled, self.isActive else { return }
 
@@ -465,8 +447,6 @@ struct LoginSheet: View {
             return
         }
 
-        // Allow the rest of the login cookie set to propagate before taking
-        // the durable snapshot used across app restarts.
         try? await Task.sleep(for: .milliseconds(200))
         guard !Task.isCancelled, self.isActive else { return }
 
@@ -506,8 +486,6 @@ struct LoginSheet: View {
         self.dismiss()
     }
 }
-
-// MARK: - Failed Login Cleanup
 
 @MainActor
 private func rollbackLoginCookiesWithFallback(
@@ -552,8 +530,6 @@ private func clearFailedLogin(
         }
     )
 }
-
-// MARK: - LoginCompletionGate
 
 @MainActor
 struct LoginCompletionGate {

@@ -1,5 +1,3 @@
-// MARK: - YouTubeWatchPlaybackLifecycle
-
 @MainActor
 enum YouTubeWatchPlaybackLifecycle {
     static func presentSurface(

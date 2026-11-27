@@ -2,12 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - Song + CustomTestStringConvertible
-
-/// Provides readable test descriptions for Song in test failure logs.
-///
-/// When a test fails involving a Song, Swift Testing will display:
-/// `"Never Gonna Give You Up" by Rick Astley (3:33)` instead of the full debug description.
 extension Song: CustomTestStringConvertible {
     public var testDescription: String {
         let artistsText = artists.isEmpty ? "Unknown Artist" : artistsDisplay
@@ -16,12 +10,6 @@ extension Song: CustomTestStringConvertible {
     }
 }
 
-// MARK: - Playlist + CustomTestStringConvertible
-
-/// Provides readable test descriptions for Playlist in test failure logs.
-///
-/// When a test fails involving a Playlist, Swift Testing will display:
-/// `"My Playlist" (25 songs)` instead of the full debug description.
 extension Playlist: CustomTestStringConvertible {
     public var testDescription: String {
         let countText = trackCountDisplay.isEmpty ? "unknown tracks" : trackCountDisplay
@@ -30,12 +18,6 @@ extension Playlist: CustomTestStringConvertible {
     }
 }
 
-// MARK: - Album + CustomTestStringConvertible
-
-/// Provides readable test descriptions for Album in test failure logs.
-///
-/// When a test fails involving an Album, Swift Testing will display:
-/// `"Thriller" by Michael Jackson (1982)` instead of the full debug description.
 extension Album: CustomTestStringConvertible {
     public var testDescription: String {
         let artistsText = artistsDisplay.isEmpty ? "Unknown Artist" : artistsDisplay
@@ -44,21 +26,12 @@ extension Album: CustomTestStringConvertible {
     }
 }
 
-// MARK: - Artist + CustomTestStringConvertible
-
-/// Provides readable test descriptions for Artist in test failure logs.
-///
-/// When a test fails involving an Artist, Swift Testing will display:
-/// `Artist: "Taylor Swift"` instead of the full debug description.
 extension Artist: CustomTestStringConvertible {
     public var testDescription: String {
         "Artist: \"\(name)\""
     }
 }
 
-// MARK: - PlaylistDetail + CustomTestStringConvertible
-
-/// Provides readable test descriptions for PlaylistDetail in test failure logs.
 extension PlaylistDetail: CustomTestStringConvertible {
     public var testDescription: String {
         let typeText = isAlbum ? "album" : "playlist"
@@ -67,9 +40,6 @@ extension PlaylistDetail: CustomTestStringConvertible {
     }
 }
 
-// MARK: - HomeSectionItem + CustomTestStringConvertible
-
-/// Provides readable test descriptions for HomeSectionItem in test failure logs.
 extension HomeSectionItem: CustomTestStringConvertible {
     public var testDescription: String {
         switch self {
@@ -85,9 +55,6 @@ extension HomeSectionItem: CustomTestStringConvertible {
     }
 }
 
-// MARK: - FavoriteItem + CustomTestStringConvertible
-
-/// Provides readable test descriptions for FavoriteItem in test failure logs.
 extension FavoriteItem: CustomTestStringConvertible {
     public var testDescription: String {
         switch itemType {
@@ -105,9 +72,6 @@ extension FavoriteItem: CustomTestStringConvertible {
     }
 }
 
-// MARK: - PodcastShow + CustomTestStringConvertible
-
-/// Provides readable test descriptions for PodcastShow in test failure logs.
 extension PodcastShow: CustomTestStringConvertible {
     public var testDescription: String {
         let authorText = author.map { " by \($0)" } ?? ""
@@ -115,9 +79,6 @@ extension PodcastShow: CustomTestStringConvertible {
     }
 }
 
-// MARK: - PodcastEpisode + CustomTestStringConvertible
-
-/// Provides readable test descriptions for PodcastEpisode in test failure logs.
 extension PodcastEpisode: CustomTestStringConvertible {
     public var testDescription: String {
         let showText = showTitle.map { " from \($0)" } ?? ""
@@ -126,9 +87,6 @@ extension PodcastEpisode: CustomTestStringConvertible {
     }
 }
 
-// MARK: - PodcastSectionItem + CustomTestStringConvertible
-
-/// Provides readable test descriptions for PodcastSectionItem in test failure logs.
 extension PodcastSectionItem: CustomTestStringConvertible {
     public var testDescription: String {
         switch self {
@@ -140,9 +98,6 @@ extension PodcastSectionItem: CustomTestStringConvertible {
     }
 }
 
-// MARK: - SearchResultItem + CustomTestStringConvertible
-
-/// Provides readable test descriptions for SearchResultItem in test failure logs.
 extension SearchResultItem: CustomTestStringConvertible {
     public var testDescription: String {
         switch self {

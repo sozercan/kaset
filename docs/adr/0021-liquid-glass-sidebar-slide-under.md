@@ -99,6 +99,10 @@ macOS 15 where the `#available` check is false at runtime) it falls back to an
 produce the same resting layout on the legacy path (there is simply no glass
 to slide under).
 
+### Window sizing
+
+Apply the minimum content size to both SwiftUI and `NSWindow` so live resizing and restored AppKit frames cannot squeeze out the sidebar or playback controls. When expanding an undersized restored frame, keep the title bar's top edge fixed to avoid moving the window downward. Base the shared compact player-bar breakpoint on the remaining width after sidebar and chrome insets, allowing for live-resize rounding.
+
 ## Consequences
 
 - The sidebar is a translucent Liquid Glass panel; horizontal shelves slide

@@ -1,14 +1,10 @@
 import Testing
 @testable import Kaset
 
-/// Unit tests for HapticService.
 @Suite(.tags(.service))
 struct HapticServiceTests {
-    // MARK: - FeedbackType Pattern Mapping Tests
-
     @Test("Playback action uses generic pattern")
     func playbackActionPattern() {
-        // Verify the FeedbackType maps correctly
         let feedbackType = HapticService.FeedbackType.playbackAction
         #expect(feedbackType == .playbackAction)
     }
@@ -43,8 +39,6 @@ struct HapticServiceTests {
         #expect(feedbackType == .error)
     }
 
-    // MARK: - All FeedbackType Cases
-
     @Test("All feedback types are defined", arguments: [
         HapticService.FeedbackType.playbackAction,
         HapticService.FeedbackType.toggle,
@@ -54,7 +48,6 @@ struct HapticServiceTests {
         HapticService.FeedbackType.error,
     ])
     func allFeedbackTypesDefined(feedbackType: HapticService.FeedbackType) {
-        // Just verifying that all types exist and can be used
         #expect(feedbackType == feedbackType)
     }
 }

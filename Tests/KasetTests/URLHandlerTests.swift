@@ -2,11 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - URLHandlerTests
-
 struct URLHandlerTests {
-    // MARK: - YouTube Music URL Tests
-
     @Test("Parse watch URL extracts video ID")
     func parseWatchURL() throws {
         let url = try #require(URL(string: "https://music.youtube.com/watch?v=dQw4w9WgXcQ"))
@@ -103,8 +99,6 @@ struct URLHandlerTests {
         #expect(id == "MPLAUCtest123")
     }
 
-    // MARK: - Custom Scheme Tests
-
     @Test("Parse kaset://play URL extracts video ID")
     func parseKasetPlayURL() throws {
         let url = try #require(URL(string: "kaset://play?v=abc123"))
@@ -152,8 +146,6 @@ struct URLHandlerTests {
         }
         #expect(id == "UCchannel")
     }
-
-    // MARK: - Invalid URL Tests
 
     @Test("Unrecognized URL returns nil")
     func parseUnrecognizedURL() throws {

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for ChartsViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct ChartsViewModelTests {
@@ -14,16 +13,12 @@ struct ChartsViewModelTests {
         self.viewModel = ChartsViewModel(client: self.mockClient)
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle with empty sections")
     func initialState() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.sections.isEmpty)
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Load Tests
 
     @Test("Load success sets sections")
     func loadSuccess() async {
@@ -84,8 +79,6 @@ struct ChartsViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
     }
 
-    // MARK: - Continuation Tests
-
     @Test("Initial load does not drain chart continuations")
     func initialLoadDoesNotDrainChartContinuations() async {
         self.mockClient.chartsResponse = HomeResponse(sections: [TestFixtures.makeHomeSection(title: "Initial")])
@@ -123,8 +116,6 @@ struct ChartsViewModelTests {
         #expect(self.mockClient.getChartsContinuationCallCount == 0)
     }
 
-    // MARK: - Refresh Tests
-
     @Test("Refresh clears sections and reloads")
     func refreshClearsSectionsAndReloads() async {
         self.mockClient.chartsResponse = HomeResponse(sections: [
@@ -157,7 +148,6 @@ struct ChartsViewModelTests {
 
         #expect(self.viewModel.hasMoreSections == false)
 
-        // Reset continuation for refresh
         self.mockClient.chartsContinuationSections = [
             [TestFixtures.makeHomeSection(title: "Even More")],
         ]

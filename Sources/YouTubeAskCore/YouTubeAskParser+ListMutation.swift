@@ -1,10 +1,6 @@
 import Foundation
 
 extension YouTubeAskParser {
-    /// Current `get_panel` responses insert assistant items and follow-up chips
-    /// through one top-level list mutation. Only contents under the confirmed
-    /// insertion path are eligible; sibling framework/entity updates remain
-    /// ignored.
     static func parseConfirmedMutationCommand(
         _ value: YouTubeAskJSONValue,
         content: inout ConversationAccumulator

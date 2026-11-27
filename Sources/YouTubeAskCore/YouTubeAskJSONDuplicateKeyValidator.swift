@@ -1,7 +1,5 @@
 import Foundation
 
-/// Validates JSON member uniqueness before Foundation materializes objects as
-/// dictionaries, which would otherwise discard duplicate-key evidence.
 enum YouTubeAskJSONDuplicateKeyValidator {
     static func validate(_ data: Data) throws {
         var parser = Parser(bytes: [UInt8](data))

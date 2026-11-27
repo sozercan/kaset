@@ -13,16 +13,12 @@ struct MoodsAndGenresViewModelTests {
         self.viewModel = MoodsAndGenresViewModel(client: self.mockClient)
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle")
     func initialStateIsIdle() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.sections.isEmpty)
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Load Tests
 
     @Test("Load success sets sections and loaded state")
     func loadSuccessSetsData() async {
@@ -48,7 +44,6 @@ struct MoodsAndGenresViewModelTests {
         await self.viewModel.load()
 
         if case .error = self.viewModel.loadingState {
-            // Expected
         } else {
             Issue.record("Expected error state, got \(self.viewModel.loadingState)")
         }
@@ -60,12 +55,10 @@ struct MoodsAndGenresViewModelTests {
             TestFixtures.makeHomeSection(title: "Section 1"),
         ])
 
-        // Start first load
         let task1 = Task {
             await self.viewModel.load()
         }
 
-        // Try to start another load immediately
         try? await Task.sleep(for: .milliseconds(20))
         let task2 = Task {
             await self.viewModel.load()
@@ -74,11 +67,8 @@ struct MoodsAndGenresViewModelTests {
         await task1.value
         await task2.value
 
-        // Should complete without issues
         #expect(self.viewModel.loadingState == .loaded)
     }
-
-    // MARK: - Background Continuation Tests
 
     @Test("Initial load does not drain continuations")
     func initialLoadDoesNotDrainContinuations() async {
@@ -125,26 +115,20 @@ struct MoodsAndGenresViewModelTests {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
-        // No continuation sections → hasMoreMoodsAndGenresSections will be false
 
         await self.viewModel.load()
 
         #expect(self.viewModel.hasMoreSections == false)
     }
 
-    // MARK: - Refresh Tests
-
     @Test("Refresh clears sections and reloads")
     func refreshClearsAndReloads() async {
-        // Initial load
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
-        // No continuation sections
         await self.viewModel.load()
         #expect(self.viewModel.sections.count == 1)
 
-        // Refresh with different data
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Refreshed 1"),
             TestFixtures.makeHomeSection(title: "Refreshed 2"),
@@ -160,11 +144,9 @@ struct MoodsAndGenresViewModelTests {
     @Test("Refresh resets hasMoreSections flag")
     func refreshResetsHasMoreSections() async {
         self.mockClient.moodsAndGenresResponse = HomeResponse(sections: [])
-        // No continuation sections
         await self.viewModel.load()
         #expect(self.viewModel.hasMoreSections == false)
 
-        // Refresh - add continuation sections so hasMore becomes true
         self.mockClient.moodsAndGenresContinuationSections = [
             [TestFixtures.makeHomeSection(title: "Continuation")],
         ]
@@ -172,8 +154,6 @@ struct MoodsAndGenresViewModelTests {
 
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Client Exposure Tests
 
     @Test("Client is exposed for navigation")
     func clientIsExposed() {

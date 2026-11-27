@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the ParsingHelpers.
 @Suite(.tags(.parser))
 struct ParsingHelpersTests {
-    // MARK: - Chart Section Detection
-
     @Test(
         "Chart section detection returns true for chart titles",
         arguments: ["Top Charts", "Weekly Top 50", "Trending Now", "Daily Top 100"]
@@ -22,8 +19,6 @@ struct ParsingHelpersTests {
     func isChartSectionWithNonChart(title: String) {
         #expect(ParsingHelpers.isChartSection(title) == false)
     }
-
-    // MARK: - Explicit Badge Detection
 
     @Test("extractIsExplicit returns true for MUSIC_EXPLICIT_BADGE in badges array")
     func extractIsExplicitFromBadges() {
@@ -74,8 +69,6 @@ struct ParsingHelpersTests {
         #expect(ParsingHelpers.extractIsExplicit(from: data) == false)
     }
 
-    // MARK: - URL Normalization
-
     @Test("Normalize URL adds https to protocol-relative URL")
     func normalizeURLWithProtocolRelative() {
         let result = ParsingHelpers.normalizeURL("//example.com/image.jpg")
@@ -87,8 +80,6 @@ struct ParsingHelpersTests {
         let result = ParsingHelpers.normalizeURL("https://example.com/image.jpg")
         #expect(result == "https://example.com/image.jpg")
     }
-
-    // MARK: - Playlist Occurrence ID Extraction
 
     @Test("Playlist occurrence ID prefers playlistItemData")
     func extractPlaylistSetVideoIdFromPlaylistItemData() {
@@ -147,8 +138,6 @@ struct ParsingHelpersTests {
         #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == nil)
     }
 
-    // MARK: - Thumbnail Extraction
-
     @Test("Extract thumbnails from musicThumbnailRenderer")
     func extractThumbnailsFromMusicThumbnailRenderer() {
         let data: [String: Any] = [
@@ -177,8 +166,6 @@ struct ParsingHelpersTests {
         let thumbnails = ParsingHelpers.extractThumbnails(from: data)
         #expect(thumbnails.isEmpty)
     }
-
-    // MARK: - Title Extraction
 
     @Test("Extract title from standard title key")
     func extractTitle() {
@@ -214,8 +201,6 @@ struct ParsingHelpersTests {
         let title = ParsingHelpers.extractTitle(from: data)
         #expect(title == nil)
     }
-
-    // MARK: - Artist Extraction
 
     @Test("Extract artists from subtitle runs")
     func extractArtists() {
@@ -427,8 +412,6 @@ struct ParsingHelpersTests {
         #expect(artists.map(\.name) == ["Fixture Creator"])
     }
 
-    // MARK: - Video ID Extraction
-
     @Test("Extract video ID from playlistItemData")
     func extractVideoIdFromPlaylistItemData() {
         let data: [String: Any] = [
@@ -471,8 +454,6 @@ struct ParsingHelpersTests {
         #expect(videoId == "overlay123")
     }
 
-    // MARK: - Browse ID Extraction
-
     @Test("Extract browse ID from navigation endpoint")
     func extractBrowseId() {
         let data: [String: Any] = [
@@ -485,13 +466,11 @@ struct ParsingHelpersTests {
         #expect(browseId == "VLPL12345")
     }
 
-    // MARK: - Duration Parsing
-
     @Test(
         "Parse duration string to seconds",
         arguments: [
-            ("3:45", 225.0), // 3 * 60 + 45
-            ("1:30:00", 5400.0), // 1 * 3600 + 30 * 60
+            ("3:45", 225.0),
+            ("1:30:00", 5400.0),
         ]
     )
     func parseDuration(input: String, expectedSeconds: TimeInterval) {
@@ -518,8 +497,6 @@ struct ParsingHelpersTests {
         let duration = ParsingHelpers.extractDurationFromFlexColumns(self.makeAccessibilityOverlayRow(label: label))
         #expect(duration == expectedSeconds)
     }
-
-    // MARK: - Flex Column Extraction
 
     @Test("Extract title from flex columns")
     func extractTitleFromFlexColumns() {
@@ -605,12 +582,8 @@ struct ParsingHelpersTests {
         #expect(artists.first?.id == "UC123")
     }
 
-    // MARK: - Duration from Flex Columns (Artist Page)
-
     @Test("Extract duration from combined flex column runs (artist top songs)")
     func extractDurationFromCombinedFlexRuns() {
-        // Artist page top songs have duration as the last run in a combined flex column:
-        // "Artist • Album • 4:55"
         let data: [String: Any] = [
             "flexColumns": [
                 [
@@ -635,7 +608,7 @@ struct ParsingHelpersTests {
         ]
 
         let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
-        #expect(duration == 295.0) // 4 * 60 + 55
+        #expect(duration == 295.0)
     }
 
     @Test("Linked duration-looking flex run is skipped")

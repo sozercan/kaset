@@ -4,29 +4,18 @@ import CryptoKit
 import Foundation
 import ImageIO
 
-/// Thread-safe image cache with memory and disk caching.
 actor ImageCache {
     static let shared = ImageCache()
 
-    /// Maximum concurrent network fetches during prefetching.
     private static let maxConcurrentPrefetch = 4
 
-    /// Maximum disk cache size in bytes (200MB).
     private static let defaultMaxDiskCacheSize: Int64 = 200 * 1024 * 1024
 
-    /// Reconcile the approximate disk-size counter periodically to account for
-    /// external changes without scanning the cache directory after every write.
     private static let defaultDiskEvictionWriteThreshold = 32
 
     // swiftformat:disable modifierOrder
-    /// `NSCache` is thread-safe, so the memory tier can be read synchronously
-    /// from the main thread (see `cachedImage(for:targetSize:)`) without an
-    /// actor hop — AppKit cells that are rebuilt during scrolling rely on that.
     nonisolated(unsafe) private let memoryCache = NSCache<NSString, NSImage>()
     // swiftformat:enable modifierOrder
-    /// Keyed by URL + target size (the memory-cache key), so an in-flight
-    /// 320×180 fetch is not awaited by a 1280×720 request and handed back the
-    /// small downsampled image.
     private var inFlight: [NSString: Task<NSImage?, Never>] = [:]
     private var rawDataInFlight: [String: Task<Data?, Never>] = [:]
     private let fileManager = FileManager.default
@@ -49,9 +38,8 @@ actor ImageCache {
         session: URLSession = .shared
     ) {
         self.memoryCache.countLimit = 200
-        self.memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB
+        self.memoryCache.totalCostLimit = 50 * 1024 * 1024
 
-        // Set up disk cache directory
         if let diskCacheURL {
             self.diskCacheURL = diskCacheURL
         } else {
@@ -64,13 +52,10 @@ actor ImageCache {
         self.session = session
         try? self.fileManager.createDirectory(at: self.diskCacheURL, withIntermediateDirectories: true)
 
-        // Set up memory pressure monitoring.
         if monitorsMemoryPressure {
             Self.setupMemoryPressureMonitoring(cache: self)
         }
 
-        // Evict disk cache if needed on startup and initialize the size estimate.
-        // Perform file system I/O off the main actor.
         if startsEvictionTask {
             Task(priority: .utility) {
                 await self.scheduleDiskEviction(force: true)
@@ -78,9 +63,7 @@ actor ImageCache {
         }
     }
 
-    /// Sets up monitoring for system memory pressure notifications.
     private static func setupMemoryPressureMonitoring(cache: ImageCache) {
-        // Use DispatchSource for memory pressure monitoring
         let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
         source.setEventHandler {
             Task {
@@ -88,50 +71,28 @@ actor ImageCache {
             }
         }
         source.resume()
-        // Store the source to prevent deallocation
         Self.memoryPressureSource = source
     }
 
     // swiftformat:disable modifierOrder
-    /// Dispatch source for memory pressure monitoring.
     nonisolated(unsafe) private static var memoryPressureSource: DispatchSourceMemoryPressure?
     // swiftformat:enable modifierOrder
 
-    /// Fetches an image from cache or network.
-    /// - Parameters:
-    ///   - url: The URL of the image to fetch.
-    ///   - targetSize: Optional target size for downsampling. If provided, the image will be
-    ///                 downsampled to fit this size, significantly reducing memory usage.
-    /// Synchronous memory-cache lookup; returns nil on a miss without loading.
     nonisolated func cachedImage(for url: URL, targetSize: CGSize? = nil) -> NSImage? {
         self.memoryCache.object(forKey: Self.memoryKey(for: url, targetSize: targetSize))
     }
 
     func image(for url: URL, targetSize: CGSize? = nil) async -> NSImage? {
-        // Memory cache is keyed by URL *and* target size: the same thumbnail is
-        // requested at different sizes (Home cards at 320×180, the watch
-        // placeholder at 1280×720). Keying by URL alone let the first small
-        // decode satisfy a later large request, leaving the large view blurry.
         let memoryKey = Self.memoryKey(for: url, targetSize: targetSize)
         if let cached = memoryCache.object(forKey: memoryKey) {
             return cached
         }
 
-        // Coalesce concurrent cold requests for the same URL+size BEFORE any
-        // suspension point. The disk read runs off the actor (so decodes
-        // parallelize across cores), but registering the in-flight task first
-        // means two callers — e.g. the first-screen prefetch and a visible card
-        // — share one disk read + at most one network download instead of
-        // racing past each other and both downloading.
         if let existing = inFlight[memoryKey] {
             return await existing.value
         }
 
         let task = Task<NSImage?, Never> { [self] in
-            // Disk holds the raw bytes (URL-keyed) and re-decodes at the
-            // requested size, so different sizes share one download but get
-            // distinct decodes. loadFromDisk is nonisolated (immutable state),
-            // run detached so the decode does not serialize on the actor.
             if let diskImage = await Task.detached(priority: .userInitiated, operation: {
                 self.loadFromDisk(url: url, targetSize: targetSize)
             }).value {
@@ -139,7 +100,6 @@ actor ImageCache {
                 return diskImage
             }
 
-            // Cold miss: download raw bytes once per URL, then decode independently per target size.
             guard let data = await self.rawImageData(for: url),
                   let image = Self.createImage(from: data, targetSize: targetSize)
             else { return nil }
@@ -154,8 +114,6 @@ actor ImageCache {
         return result
     }
 
-    /// Memory-cache key combining the URL with the requested decode size, so
-    /// decodes at different sizes for the same URL do not evict one another.
     private static func memoryKey(for url: URL, targetSize: CGSize?) -> NSString {
         guard let targetSize else { return url.absoluteString as NSString }
         return "\(url.absoluteString)@\(Int(targetSize.width))x\(Int(targetSize.height))" as NSString
@@ -195,30 +153,19 @@ actor ImageCache {
         return urls.filter { seen.insert($0).inserted }
     }
 
-    /// Prefetches images with controlled concurrency to avoid network congestion.
-    /// Supports cooperative cancellation from SwiftUI's structured concurrency.
-    /// - Parameters:
-    ///   - urls: URLs to prefetch.
-    ///   - targetSize: Optional target size for downsampling.
-    ///   - maxConcurrent: Maximum number of concurrent fetches (default: 4).
     func prefetch(urls: [URL], targetSize: CGSize? = nil, maxConcurrent: Int = maxConcurrentPrefetch) async {
         let urls = Self.uniqued(urls)
         let maxConcurrent = max(1, maxConcurrent)
 
-        // Use structured concurrency directly - cancellation propagates automatically
-        // when SwiftUI's .task is cancelled (view disappears or id changes)
         await withTaskGroup(of: Void.self) { group in
             var inProgress = 0
             for url in urls {
-                // Check cancellation before starting new work
                 guard !Task.isCancelled else { break }
 
-                // Skip if already in memory cache
                 if self.memoryCache.object(forKey: Self.memoryKey(for: url, targetSize: targetSize)) != nil {
                     continue
                 }
 
-                // Wait for a slot if we're at capacity
                 if inProgress >= maxConcurrent {
                     await group.next()
                     inProgress -= 1
@@ -230,20 +177,15 @@ actor ImageCache {
                 }
                 inProgress += 1
             }
-            // Wait for remaining tasks (will be cancelled if parent is cancelled)
             await group.waitForAll()
         }
     }
 
-    // MARK: - Image Creation with Downsampling
-
-    /// Creates an NSImage from data, optionally downsampling for memory efficiency.
     private static func createImage(from data: Data, targetSize: CGSize?) -> NSImage? {
         guard let targetSize else {
             return NSImage(data: data)
         }
 
-        // Use ImageIO for memory-efficient downsampling
         let options: [CFString: Any] = [
             kCGImageSourceShouldCache: false,
         ]
@@ -252,7 +194,7 @@ actor ImageCache {
             return NSImage(data: data)
         }
 
-        let maxDimension = max(targetSize.width, targetSize.height) * 2 // Account for Retina
+        let maxDimension = max(targetSize.width, targetSize.height) * 2
         let downsampleOptions: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceShouldCacheImmediately: true,
@@ -270,14 +212,12 @@ actor ImageCache {
         return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
     }
 
-    /// Clears the memory cache.
     func clearMemoryCache() {
         self.memoryCache.removeAllObjects()
         self.inFlight.removeAll()
         self.rawDataInFlight.removeAll()
     }
 
-    /// Clears both memory and disk caches.
     func clearAllCaches() {
         self.clearMemoryCache()
         try? self.fileManager.removeItem(at: self.diskCacheURL)
@@ -285,7 +225,6 @@ actor ImageCache {
         self.estimatedDiskCacheSize = 0
     }
 
-    /// Returns the total size of the disk cache in bytes.
     func diskCacheSize() -> Int64 {
         let size = self.scanDiskCacheSize()
         self.estimatedDiskCacheSize = size
@@ -310,8 +249,6 @@ actor ImageCache {
         return totalSize
     }
 
-    // MARK: - Disk Cache Helpers
-
     // swiftformat:disable modifierOrder
     nonisolated private func cacheKey(for url: URL) -> String {
         let data = Data(url.absoluteString.utf8)
@@ -323,11 +260,6 @@ actor ImageCache {
         self.diskCacheURL.appendingPathComponent(self.cacheKey(for: url))
     }
 
-    /// Reads and decodes a cached image off the actor. `nonisolated` so warm
-    /// disk hits — `Data(contentsOf:)` plus the ImageIO downsample in
-    /// `createImage` — run concurrently across cores instead of serializing on
-    /// the `ImageCache` actor (every visible card used to queue its decode
-    /// behind the others). Touches only immutable state (`diskCacheURL`).
     nonisolated private func loadFromDisk(url: URL, targetSize: CGSize? = nil) -> NSImage? {
         let path = self.diskCachePath(for: url)
         guard let data = try? Data(contentsOf: path) else {
@@ -352,8 +284,6 @@ actor ImageCache {
             self.writesSinceDiskEvictionCheck += 1
             self.scheduleDiskEvictionIfNeededAfterWrite()
         } else {
-            // First write before the startup/lazy size scan completes. Coalesce a
-            // single forced reconciliation instead of scanning on every save.
             self.scheduleDiskEviction(force: true)
         }
     }
@@ -390,18 +320,12 @@ actor ImageCache {
         self.diskEvictionTask = task
     }
 
-    // MARK: - Disk Cache Eviction
-
-    /// Metadata for a cached file used during eviction.
     private struct CachedFileInfo {
         let url: URL
         let modificationDate: Date
         let fileSize: Int
     }
 
-    /// Evicts oldest files until disk cache is under the size limit.
-    /// Uses LRU (Least Recently Used) eviction based on file modification dates.
-    /// Marked async to document the I/O-bound nature and satisfy actor isolation.
     private func evictDiskCacheIfNeeded(force: Bool = false) async {
         defer {
             self.diskEvictionTask = nil
@@ -412,9 +336,6 @@ actor ImageCache {
             return
         }
 
-        // One directory pass gives both exact size and eviction metadata. This
-        // avoids the previous save path's diskCacheSize() pass plus a second
-        // directory listing to choose victims.
         guard let files = self.cachedFilesForEviction() else { return }
         let currentSize = files.reduce(Int64(0)) { $0 + Int64($1.fileSize) }
         self.estimatedDiskCacheSize = currentSize

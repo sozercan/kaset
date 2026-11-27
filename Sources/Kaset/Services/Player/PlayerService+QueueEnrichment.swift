@@ -1,17 +1,11 @@
 import Foundation
 
-// MARK: - Queue Metadata Enrichment
-
 @MainActor
 extension PlayerService {
-    /// Starts queue metadata enrichment if the current queue needs it.
-    ///
-    /// This is intentionally one-shot/event-driven: no app-lifetime polling loop is kept alive.
     func startQueueEnrichmentService() {
         self.scheduleQueueEnrichmentIfNeeded()
     }
 
-    /// Stops any scheduled/running one-shot enrichment pass.
     func stopQueueEnrichmentService() {
         self.queueEnrichmentNeedsReschedule = false
         self.queueEnrichmentGeneration += 1
@@ -21,7 +15,6 @@ extension PlayerService {
         self.enrichmentTask = nil
     }
 
-    /// Reacts to external queue mutations by re-arming bounded retries and scheduling enrichment only when needed.
     func queueDidChangeForEnrichment() {
         guard !self.isApplyingQueueEnrichmentResult else { return }
 
@@ -29,17 +22,11 @@ extension PlayerService {
         self.scheduleQueueEnrichmentIfNeeded()
     }
 
-    /// Re-arms bounded retry state after an external queue/client event.
     func resetQueueEnrichmentAttemptState() {
         self.queueEnrichmentAttemptsByEntryID.removeAll()
-        // Queue replacements and client/account switches invalidate both sleeping
-        // retries and active fetches. The cancelled pass checks cancellation before
-        // applying its response, while the generation bump prevents it from clearing
-        // a replacement task scheduled by the external event.
         self.stopQueueEnrichmentService()
     }
 
-    /// Schedules a single delayed enrichment pass when the queue has incomplete metadata.
     func scheduleQueueEnrichmentIfNeeded(delay requestedDelay: Duration? = nil) {
         self.pruneQueueEnrichmentAttemptState()
 
@@ -88,7 +75,6 @@ extension PlayerService {
         }
     }
 
-    /// Runs the scheduled enrichment pass and clears/reschedules state as appropriate.
     func runScheduledQueueEnrichment(generation: Int) async {
         guard generation == self.queueEnrichmentGeneration else { return }
         let songsToEnrich = self.identifyEnrichableSongsNeedingEnrichment()
@@ -119,14 +105,12 @@ extension PlayerService {
         }
     }
 
-    /// Clears a scheduled task if it still owns the current enrichment generation.
     func finishScheduledQueueEnrichment(generation: Int) async {
         guard generation == self.queueEnrichmentGeneration else { return }
 
         self.enrichmentTask = nil
     }
 
-    /// Identifies incomplete queue entries that have not exhausted their bounded retry budget.
     func identifyEnrichableSongsNeedingEnrichment() -> [(entryID: UUID, videoId: String)] {
         self.identifySongsNeedingEnrichment().filter { item in
             self.queueEnrichmentAttemptsByEntryID[item.entryID, default: 0]
@@ -134,7 +118,6 @@ extension PlayerService {
         }
     }
 
-    /// Drops retry state for entries that are no longer in the queue.
     func pruneQueueEnrichmentAttemptState() {
         let activeEntryIDs = Set(self.queueEntryIDs)
         self.queueEnrichmentAttemptsByEntryID = self.queueEnrichmentAttemptsByEntryID.filter { entryID, _ in
@@ -142,13 +125,10 @@ extension PlayerService {
         }
     }
 
-    /// Returns whether a song has placeholder or missing metadata that the API can improve.
     func songNeedsQueueMetadataEnrichment(_ song: Song) -> Bool {
         Self.songNeedsQueueEnrichment(song)
     }
 
-    /// Identifies songs in the queue that need metadata enrichment.
-    /// - Returns: Stable queue-entry IDs and video IDs for songs needing enrichment.
     func identifySongsNeedingEnrichment() -> [(entryID: UUID, videoId: String)] {
         self.queueEntries.compactMap { entry in
             Self.songNeedsQueueEnrichment(entry.song)
@@ -157,8 +137,6 @@ extension PlayerService {
         }
     }
 
-    /// Enriches queue metadata by fetching full song details for incomplete entries.
-    /// This updates the queue in-place and persists the enriched data.
     func enrichQueueMetadata(
         songsToEnrich requestedSongsToEnrich: [(entryID: UUID, videoId: String)]? = nil
     ) async {
@@ -170,7 +148,6 @@ extension PlayerService {
         self.logger.info("Enriching metadata for \(songsToEnrich.count) songs in queue")
         var didUpdateQueue = false
 
-        // Process one exact queue occurrence at a time to be gentle on the API.
         for (entryID, videoId) in songsToEnrich {
             guard !Task.isCancelled else { break }
             guard self.queueEntries.contains(where: {
@@ -191,7 +168,6 @@ extension PlayerService {
                         response: enrichedSong,
                         includesAccountMetadata: false
                     )
-                    // Preserve `source` so a Smart Shuffle `.suggested` entry is not demoted to `.queued`.
                     updatedEntries[index] = QueueEntry(
                         id: updatedEntries[index].id,
                         song: mergedSong,
@@ -219,7 +195,6 @@ extension PlayerService {
             }
         }
 
-        // Save the enriched queue to persistence
         if didUpdateQueue {
             self.saveQueueForPersistence()
             self.logger.info("Queue metadata enrichment complete, saved to persistence")
@@ -252,9 +227,6 @@ extension PlayerService {
             duration: current.duration ?? response.duration,
             thumbnailURL: current.thumbnailURL ?? response.thumbnailURL,
             videoId: current.videoId,
-            // `getSong` uses the `next` parser, which defaults playability to true.
-            // Preserve the browse renderer's authoritative grey-out state during
-            // background enrichment alongside the account-scoped fields below.
             isPlayable: includesAccountMetadata ? response.isPlayable : current.isPlayable,
             hasVideo: current.hasVideo ?? response.hasVideo,
             musicVideoType: current.musicVideoType ?? response.musicVideoType,

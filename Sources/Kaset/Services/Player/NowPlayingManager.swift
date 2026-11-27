@@ -4,28 +4,20 @@ import MediaPlayer
 import Observation
 import os
 
-// MARK: - RemoteMusicCommandDirection
-
 enum RemoteMusicCommandDirection: Equatable {
     case forward
     case backward
 }
 
-// MARK: - RemoteMusicCommandPayload
-
 enum RemoteMusicCommandPayload: Equatable {
     case play
     case pause
     case togglePlayPause
-    /// The next/previous media keys, which seek instead when the media control style says so.
     case nextPrevious(direction: RemoteMusicCommandDirection)
-    /// An explicit track change (App Intents), regardless of the media control style.
     case trackNavigation(direction: RemoteMusicCommandDirection)
     case skip(interval: TimeInterval, direction: RemoteMusicCommandDirection)
     case absoluteSeek(position: TimeInterval)
 }
-
-// MARK: - CapturedRemoteMusicCommand
 
 struct CapturedRemoteMusicCommand: Equatable {
     let sequence: UInt64
@@ -34,10 +26,6 @@ struct CapturedRemoteMusicCommand: Equatable {
     let payload: RemoteMusicCommandPayload
 }
 
-// MARK: - RemoteMusicCommandIngress
-
-/// Thread-safe callback inbox for native media commands. Callback order and clocks
-/// are captured synchronously before any MainActor scheduling can reorder delivery.
 final class RemoteMusicCommandIngress: @unchecked Sendable {
     private struct State {
         var nextSequence: UInt64 = 0
@@ -48,7 +36,6 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
     private let lock = NSLock()
     private var state = State()
 
-    /// Returns `true` only when the caller must schedule the single MainActor drain.
     @discardableResult
     func capture(_ payload: RemoteMusicCommandPayload) -> Bool {
         self.lock.withLock {
@@ -60,7 +47,6 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
         }
     }
 
-    /// Deterministic clock injection for ingress ordering and stale-admission tests.
     @discardableResult
     func capture(
         _ payload: RemoteMusicCommandPayload,
@@ -84,8 +70,6 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
         }
     }
 
-    /// Returns `true` when callbacks arrived during the last batch and the existing
-    /// drain must loop. Otherwise, it atomically rearms scheduling for the next callback.
     func finishDrainBatch() -> Bool {
         self.lock.withLock {
             guard self.state.pendingCommands.isEmpty else { return true }
@@ -114,44 +98,25 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
     }
 }
 
-// MARK: - NowPlayingInfoPublishing
-
-/// The slice of `MPNowPlayingInfoCenter` the native claim writes, so claim transitions can be
-/// tested without publishing to the system Now Playing center.
 @MainActor
 protocol NowPlayingInfoPublishing: AnyObject {
     var nowPlayingInfo: [String: Any]? { get set }
     var playbackState: MPNowPlayingPlaybackState { get set }
 }
 
-// MARK: - MPNowPlayingInfoCenter + NowPlayingInfoPublishing
-
 extension MPNowPlayingInfoCenter: NowPlayingInfoPublishing {}
 
-// MARK: - NowPlayingManager
-
-/// Manages remote-command routing and the app's Now Playing ownership.
-/// WebKit publishes the rich card for the music page as its own Now Playing entry, so for music
-/// Kaset publishes only its playback state: its own player stays a media-key target, and the card
-/// is the single Kaset entry in Control Center. YouTube video keeps a tagged minimal entry.
 @MainActor
 @Observable
 final class NowPlayingManager {
-    /// Shared singleton instance. Must be configured with `configure(playerService:)` before use.
     static let shared = NowPlayingManager()
 
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
-    /// What Kaset is publishing to the system center. The claim's tag lets release logic
-    /// distinguish our metadata from anything else.
     private var nativeOwnership: NativeNowPlayingOwnership = .none
     @ObservationIgnored private var nowPlayingObservationGeneration: UInt64 = 0
 
-    /// YouTube video routing (optional; absent in music-only flows).
-    /// When the arbiter says the video source played last, play/pause/toggle
-    /// media keys control it instead of the music player. Guarded so music
-    /// behavior is identical when video routing is not configured/active.
     private weak var youtubePlayerService: YouTubePlayerService?
     private weak var playbackArbiter: PlaybackArbiter?
     private let settings = SettingsManager.shared
@@ -160,8 +125,6 @@ final class NowPlayingManager {
     nonisolated static let nativeClaimServiceIdentifier = "com.sertacozercan.Kaset.native-now-playing-claim"
 
     private init() {}
-
-    // MARK: - Now Playing Claim
 
     enum NativeClaimPlaybackState: Equatable, Sendable {
         case playing
@@ -175,10 +138,6 @@ final class NowPlayingManager {
         }
     }
 
-    /// What Kaset should tell the system Now Playing center for the current player state.
-    /// `handsOff` keeps an existing claim (marked playing) without publishing a new one,
-    /// `stateOnly` publishes playback state without metadata next to WebKit's music card, and
-    /// `release` clears what Kaset published when no resumable media remains.
     enum NowPlayingClaim: Equatable {
         case handsOff
         case stateOnly(NativeClaimPlaybackState)
@@ -186,13 +145,9 @@ final class NowPlayingManager {
         case claim(title: String, artist: String, playbackState: NativeClaimPlaybackState)
     }
 
-    /// What Kaset currently publishes to the system Now Playing center.
     enum NativeNowPlayingOwnership: Equatable {
         case none
-        /// Playback state only: keeps Kaset's own player a media-key target without adding a
-        /// second Control Center entry next to WebKit's card.
         case stateOnly
-        /// Tagged minimal metadata for a YouTube video (title and channel).
         case claim
     }
 
@@ -203,12 +158,6 @@ final class NowPlayingManager {
         let isPlaybackConfirmed: Bool
     }
 
-    /// Pure decision: given the active source and its playback state, what claim do we want?
-    /// Music publishes playback state only: WebKit's card for the music page is in Control Center
-    /// as soon as the page loads a track, so metadata of our own would be a second entry (#457).
-    /// The state keeps Kaset's own player a media-key target while paused. A loading track keeps
-    /// an existing claim without publishing a new one. A paused or loading video keeps a minimal
-    /// video claim until WebKit reports playback.
     nonisolated static func desiredClaim(
         state: PlayerService.PlaybackState,
         hasTrack: Bool,
@@ -235,7 +184,6 @@ final class NowPlayingManager {
         }
     }
 
-    /// Reads current player state and pushes the desired claim to the system center.
     private func updateNowPlayingClaim() {
         guard let player = self.playerService else { return }
         let claim = Self.desiredClaim(
@@ -246,7 +194,6 @@ final class NowPlayingManager {
         self.applyNowPlayingClaim(claim)
     }
 
-    /// Maps a claim onto `MPNowPlayingInfoCenter`.
     private func applyNowPlayingClaim(_ claim: NowPlayingClaim) {
         self.nativeOwnership = Self.apply(
             claim,
@@ -255,8 +202,6 @@ final class NowPlayingManager {
         )
     }
 
-    /// Applies `claim` to `center` and returns what Kaset publishes afterwards.
-    /// Metadata is only ever cleared when it carries Kaset's tag.
     static func apply(
         _ claim: NowPlayingClaim,
         to center: any NowPlayingInfoPublishing,
@@ -272,13 +217,10 @@ final class NowPlayingManager {
                 return .stateOnly
             case .claim:
                 guard self.isNativeClaim(center.nowPlayingInfo) else { return .none }
-                // Keep the existing fallback, marked as playing, without publishing a new one.
                 center.playbackState = .playing
                 return .claim
             }
         case let .stateOnly(playbackState):
-            // WebKit publishes its card as a separate Now Playing entry rather than replacing the
-            // app's metadata, so metadata of ours would show up as a second Kaset entry (#457).
             if self.isNativeClaim(center.nowPlayingInfo) {
                 center.nowPlayingInfo = nil
             }
@@ -311,12 +253,10 @@ final class NowPlayingManager {
         }
     }
 
-    /// Returns whether the current center metadata is the tagged native claim Kaset published.
     nonisolated static func isNativeClaim(_ info: [String: Any]?) -> Bool {
         info?[MPNowPlayingInfoPropertyServiceIdentifier] as? String == self.nativeClaimServiceIdentifier
     }
 
-    /// Video metadata used for a native fallback until its WebView confirms active playback.
     private var activeVideoClaimInput: ActiveVideoClaim? {
         guard self.routesToYouTubeVideo,
               let youtube = self.youtubePlayerService,
@@ -331,13 +271,11 @@ final class NowPlayingManager {
         )
     }
 
-    /// Replaces the current one-shot observation loop with one that tracks the latest dependencies.
     private func restartNowPlayingObservation() {
         self.nowPlayingObservationGeneration &+= 1
         self.observePlaybackState(generation: self.nowPlayingObservationGeneration)
     }
 
-    /// Re-runs the claim whenever music state, the current track, or active-video state changes.
     private func observePlaybackState(generation: UInt64) {
         withObservationTracking {
             _ = self.playerService?.state
@@ -355,7 +293,6 @@ final class NowPlayingManager {
         }
     }
 
-    /// Configures the singleton with a player service. Only configures once; subsequent calls are ignored.
     func configure(playerService: PlayerService) {
         guard !self.isConfigured else {
             self.logger.debug("NowPlayingManager already configured, skipping")
@@ -374,9 +311,6 @@ final class NowPlayingManager {
         self.restartNowPlayingObservation()
     }
 
-    /// Registers the YouTube video player for media-key routing.
-    /// Additive: without this call (or when video is inactive), all commands
-    /// route to the music player exactly as before.
     func configureYouTubeRouting(
         youtubePlayerService: YouTubePlayerService,
         arbiter: PlaybackArbiter
@@ -388,7 +322,6 @@ final class NowPlayingManager {
         self.logger.info("NowPlayingManager: YouTube video routing configured")
     }
 
-    /// Whether play/pause media keys should control the YouTube video player.
     private var routesToYouTubeVideo: Bool {
         self.playbackArbiter?.routesMediaKeysToVideo == true
     }
@@ -413,7 +346,6 @@ final class NowPlayingManager {
         }
     }
 
-    /// Syncs the media control style setting to the singleton WebView and its bootstrap state.
     private func syncMediaControlSetting() {
         let useNextPrev = self.settings.mediaControlStyle == .nextPreviousTrack
         SingletonPlayerWebView.shared.setMediaControlStyle(useNextPrev: useNextPrev)
@@ -427,12 +359,9 @@ final class NowPlayingManager {
         commandCenter.skipBackwardCommand.isEnabled = enableSkipCommands
     }
 
-    /// Syncs the preferred playback audio quality setting to the singleton WebView and its bootstrap state.
     private func syncPlaybackAudioQualitySetting() {
         SingletonPlayerWebView.shared.setPlaybackAudioQuality(self.settings.playbackAudioQuality)
     }
-
-    // MARK: - Remote Commands
 
     private func setupRemoteCommands() {
         guard self.playerService != nil else { return }
@@ -445,7 +374,6 @@ final class NowPlayingManager {
             }
         }
 
-        // Remove any existing targets to prevent duplicates
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)
         commandCenter.togglePlayPauseCommand.removeTarget(nil)
@@ -455,42 +383,36 @@ final class NowPlayingManager {
         commandCenter.skipBackwardCommand.removeTarget(nil)
         commandCenter.changePlaybackPositionCommand.removeTarget(nil)
 
-        // Play command
         commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { _ in
             captureCommand(.play)
             return .success
         }
 
-        // Pause command
         commandCenter.pauseCommand.isEnabled = true
         commandCenter.pauseCommand.addTarget { _ in
             captureCommand(.pause)
             return .success
         }
 
-        // Toggle play/pause command
         commandCenter.togglePlayPauseCommand.isEnabled = true
         commandCenter.togglePlayPauseCommand.addTarget { _ in
             captureCommand(.togglePlayPause)
             return .success
         }
 
-        // Next track command
         commandCenter.nextTrackCommand.isEnabled = true
         commandCenter.nextTrackCommand.addTarget { _ in
             captureCommand(.nextPrevious(direction: .forward))
             return .success
         }
 
-        // Previous track command
         commandCenter.previousTrackCommand.isEnabled = true
         commandCenter.previousTrackCommand.addTarget { _ in
             captureCommand(.nextPrevious(direction: .backward))
             return .success
         }
 
-        // Skip forward command (Control Center skip buttons or media keys)
         commandCenter.skipForwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
         commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
         commandCenter.skipForwardCommand.addTarget { event in
@@ -499,7 +421,6 @@ final class NowPlayingManager {
             return .success
         }
 
-        // Skip backward command (Control Center skip buttons or media keys)
         commandCenter.skipBackwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
         commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
         commandCenter.skipBackwardCommand.addTarget { event in
@@ -508,7 +429,6 @@ final class NowPlayingManager {
             return .success
         }
 
-        // Change playback position command
         commandCenter.changePlaybackPositionCommand.isEnabled = true
         commandCenter.changePlaybackPositionCommand.addTarget { event in
             guard let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
@@ -521,10 +441,6 @@ final class NowPlayingManager {
         self.logger.info("Remote commands configured")
     }
 
-    /// Admits a transport command from App Intents through the media-key ingress, so Shortcuts
-    /// and Siri control whichever source (music or video) the media keys would.
-    /// Returns false when there is nothing to control: before `configure(playerService:)`, or when
-    /// no video is routed and the music player has no track, pending load, or queue.
     @discardableResult
     func handleAppIntentCommand(_ payload: RemoteMusicCommandPayload) -> Bool {
         guard let player = self.playerService,
@@ -661,7 +577,6 @@ final class NowPlayingManager {
         )
     }
 
-    /// Moves to the next or previous item of whichever source the media keys control.
     private func handleTrackChange(
         direction: RemoteMusicCommandDirection,
         capturedCommand: CapturedRemoteMusicCommand,
