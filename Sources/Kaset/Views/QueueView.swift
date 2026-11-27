@@ -1,27 +1,20 @@
 import SwiftUI
 
-// MARK: - QueueView
-
-/// Right sidebar panel displaying the playback queue.
 struct QueueView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.showCommandBar) private var showCommandBar
 
-    /// Namespace for glass effect morphing.
     @Namespace private var queueNamespace
 
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
-                // Header
                 self.headerView
 
                 Divider()
                     .opacity(0.3)
 
-                // Content
                 self.contentView
             }
             .frame(width: 280)
@@ -32,8 +25,6 @@ struct QueueView: View {
         .accessibilityIdentifier(AccessibilityID.Queue.container)
     }
 
-    // MARK: - Header
-
     private var headerView: some View {
         HStack {
             Text(String(localized: "Up Next"))
@@ -42,7 +33,6 @@ struct QueueView: View {
 
             Spacer()
 
-            // Clear queue button (only show if there are items beyond the current track)
             if self.playerService.queue.count > 1 {
                 Button {
                     self.playerService.clearQueue()
@@ -69,8 +59,6 @@ struct QueueView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
-
-    // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
@@ -111,7 +99,6 @@ struct QueueView: View {
                         index: index,
                         isSuggested: entry.source == .suggested,
                         allowsLikeActions: self.authService.hasPersonalAccount,
-                        favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
                             self.playerService.removeFromQueue(entryIDs: [entry.id])
@@ -136,15 +123,12 @@ struct QueueView: View {
     }
 }
 
-// MARK: - QueueRowView
-
 private struct QueueRowView: View {
     let song: Song
     let isCurrentTrack: Bool
     let index: Int
     let isSuggested: Bool
     let allowsLikeActions: Bool
-    let favoritesManager: FavoritesManager
     let playerService: PlayerService
     let onRemove: () -> Void
     let onTap: () -> Void
@@ -154,14 +138,11 @@ private struct QueueRowView: View {
     var body: some View {
         Button(action: self.onTap) {
             HStack(spacing: 12) {
-                // Now Playing indicator or track number
                 self.leadingIndicator
                     .frame(width: 24)
 
-                // Thumbnail
                 SongThumbnailView(song: self.song, size: 40, cornerRadius: 4)
 
-                // Track info
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(self.song.title)
@@ -181,10 +162,8 @@ private struct QueueRowView: View {
 
                 Spacer()
 
-                // Favorite toggle
                 LikeButton(song: self.song, isRowHovered: self.isHovering, allowsActions: self.allowsLikeActions)
 
-                // Duration
                 if let duration = song.duration {
                     Text(self.formatDuration(duration))
                         .font(.system(size: 11))
@@ -201,17 +180,17 @@ private struct QueueRowView: View {
             self.isHovering = hovering
         }
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: self.song, manager: self.favoritesManager)
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: self.song)
+            SongContextMenu(
+                song: self.song,
+                client: self.playerService.ytMusicClient,
+                play: self.isCurrentTrack ? nil : self.onTap,
+                showsGoToArtist: false,
+                showsGoToAlbum: false
+            )
 
             if !self.isCurrentTrack {
+                Divider()
+
                 Button(role: .destructive) {
                     self.onRemove()
                 } label: {
@@ -270,7 +249,6 @@ private struct QueueRowView: View {
 
 #Preview("Queue View with Items") {
     let playerService = PlayerService()
-    // Note: In real use, queue would be populated via playQueue()
     QueueView()
         .environment(playerService)
         .environment(FavoritesManager.shared)

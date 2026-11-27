@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// The signed-in user's YouTube playlists.
 struct YouTubePlaylistsView: View {
     let viewModel: YouTubePlaylistsViewModel
 
@@ -32,9 +31,6 @@ struct YouTubePlaylistsView: View {
             }
         }
         .navigationTitle(Text("Playlists", comment: "YouTube playlists title"))
-        // Keyed on the view-model identity so a cold-launch account swap (which
-        // rebuilds the model) re-fires the load instead of leaving the fresh,
-        // idle model stuck. See YouTubeHomeView for the full rationale.
         .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
         }
@@ -55,9 +51,7 @@ struct YouTubePlaylistsView: View {
                 }
             }
             .padding(.vertical, 20)
+            .detailScrollContentInset()
         }
-        // Edge-to-edge with a resting inset so the grid extends under the
-        // floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 }

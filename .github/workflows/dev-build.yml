@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
@@ -64,7 +64,6 @@ jobs:
           KASET_SIGNING: adhoc
           ARCHES: "arm64 x86_64"
         run: |
-          # Override version for dev builds
           echo "MARKETING_VERSION=0.0.0-dev.${{ steps.slug.outputs.sha_short }}" > version.env
           echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
           Scripts/build-app.sh release
@@ -83,18 +82,16 @@ jobs:
 
           echo "Found app at: $APP_PATH"
 
-          # Create a temporary directory for DMG contents
           mkdir -p dmg_contents
           cp -R "$APP_PATH" dmg_contents/
 
-          # Create DMG
           hdiutil create -volname "Kaset-dev" \
             -srcfolder dmg_contents \
             -ov -format UDZO \
             kaset-dev.dmg
 
       - name: Upload DMG
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name != 'pull_request'
         with:
           name: kaset-dev-${{ steps.slug.outputs.sha_short }}

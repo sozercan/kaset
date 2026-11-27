@@ -2,8 +2,6 @@ import AppKit
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeWatchSurfaceOwnershipTests
-
 @MainActor
 struct YouTubeWatchSurfaceOwnershipTests {
     @Test("A late outgoing Shorts host cannot reclaim the selected surface")

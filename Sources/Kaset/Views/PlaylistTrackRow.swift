@@ -1,13 +1,5 @@
 import SwiftUI
 
-// MARK: - PlaylistTrackRow
-
-/// A single track row in a playlist or album detail view.
-///
-/// Shows track number/now-playing indicator, thumbnail (for non-album views),
-/// title, artist links or subtitle, like button, and duration.
-/// Artist names are rendered as clickable navigation links when they have
-/// navigable IDs; non-navigable artists fall back to plain text.
 @available(macOS 26.0, *)
 struct PlaylistTrackRow<Menu: View>: View {
     let track: Song
@@ -82,9 +74,14 @@ struct PlaylistTrackRow<Menu: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            LikeButton(song: self.track, isRowHovered: self.isHovered, allowsActions: self.allowsLikeActions)
-                .disabled(!self.track.isPlayable)
-                .allowsHitTesting(self.allowsLikeActions && self.track.isPlayable)
+            LikeButton(
+                song: self.track,
+                isRowHovered: self.isHovered,
+                allowsActions: self.allowsLikeActions,
+                isNestedInButton: false
+            )
+            .disabled(!self.track.isPlayable)
+            .allowsHitTesting(self.allowsLikeActions && self.track.isPlayable)
 
             Text(self.track.durationDisplay)
                 .font(.system(size: 12))
@@ -102,7 +99,7 @@ struct PlaylistTrackRow<Menu: View>: View {
             Color.clear
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.interactiveRow(cornerRadius: 6))
+        .buttonStyle(.interactiveRow(cornerRadius: 6, isHovered: self.isHovered && self.track.isPlayable))
         .disabled(!self.track.isPlayable)
         .accessibilityLabel(Text(verbatim: self.playbackAccessibilityLabel))
         .accessibilityHint(Text(String(localized: "Play")))

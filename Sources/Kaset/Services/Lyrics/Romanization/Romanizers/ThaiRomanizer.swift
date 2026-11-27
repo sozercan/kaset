@@ -1,6 +1,5 @@
 import Foundation
 
-/// Romanizes Thai text using macOS's built-in CFStringTokenizer.
 enum ThaiRomanizer {
     static func romanize(_ text: String) -> String? {
         let cfText = text as CFString

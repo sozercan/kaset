@@ -2,14 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - LibraryMutationSerialTests
-
-/// Serializes every suite that exercises LibraryMutationActions' process-wide
-/// mutation coordinator. Separate `.serialized` suites may still run concurrently.
 @Suite(.serialized)
 struct LibraryMutationSerialTests {}
-
-// MARK: LibraryMutationSerialTests.LibraryMutationActionsTests
 
 extension LibraryMutationSerialTests {
     @Suite(.tags(.viewModel), .timeLimit(.minutes(1)))
@@ -24,6 +18,38 @@ extension LibraryMutationSerialTests {
             APICache.shared.invalidateAll()
             URLCache.shared.removeAllCachedResponses()
             LibraryMutationActions.artistReconciliationRetryDelays = [.milliseconds(1), .milliseconds(1)]
+        }
+
+        @Test("Playlist pending state survives menu reopening and clears after success or failure", arguments: [false, true])
+        func playlistPendingStateTracksRequest(shouldFail: Bool) async {
+            let playlist = TestFixtures.makePlaylist(id: "VLPL-menu-pending")
+            let requestStarted = AsyncGate()
+            let releaseRequest = AsyncGate()
+            self.mockClient.beforeSubscribeToPlaylistReturn = { _ in
+                await requestStarted.open()
+                await releaseRequest.wait()
+            }
+            if shouldFail {
+                self.mockClient.shouldThrowError = URLError(.notConnectedToInternet)
+            }
+            let task = Task {
+                try await LibraryMutationActions.addPlaylistToLibrary(
+                    playlist,
+                    client: self.mockClient,
+                    libraryViewModel: self.libraryViewModel,
+                    reconciliationDelay: .zero
+                )
+            }
+            await requestStarted.wait()
+
+            #expect(LibraryMutationActions.isPlaylistMutationPending(playlistId: playlist.id))
+            #expect(LibraryMutationActions.isPlaylistMutationPending(playlistId: "PL-menu-pending"))
+            #expect(!LibraryMutationActions.isPlaylistMutationPending(playlistId: "PL-other"))
+
+            await releaseRequest.open()
+            _ = await task.result
+
+            #expect(!LibraryMutationActions.isPlaylistMutationPending(playlistId: playlist.id))
         }
 
         @Test("Add song to playlist delegates to client")

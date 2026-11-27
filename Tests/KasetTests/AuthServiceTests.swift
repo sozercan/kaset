@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for AuthService.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct AuthServiceTests {
@@ -592,7 +591,7 @@ struct AuthServiceTests {
 
     @Test("Failed startup cleanup refuses surviving authentication cookies")
     func failedStartupCleanupRefusesAuthenticationCookies() async {
-        self.mockWebKitManager.waitForInitialCookieRestoreResult = false
+        self.mockWebKitManager.waitForInitialCookieRestoreResult = .failed
         self.mockWebKitManager.sapisidValue = "surviving-session"
 
         await self.authService.checkLoginStatus()

@@ -1,7 +1,5 @@
 import Foundation
 
-/// Lyrics provider that fetches timed (synced) lyrics from YouTube Music's API.
-/// Uses the "next" endpoint to extract `timedLyricsModel` data with per-line timestamps.
 final class YTMusicSyncedProvider: LyricsProvider {
     let name = "YTMusic"
 

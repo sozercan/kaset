@@ -1,17 +1,11 @@
 import Foundation
 
-// MARK: - AccessibilityID
-
-/// Centralized accessibility identifiers for UI testing.
-/// Using an enum namespace prevents typos and enables autocomplete.
 enum AccessibilityID {
     static func isAuxiliaryPlayerWindowIdentifier(_ identifier: String?) -> Bool {
         identifier == VideoWindow.container
             || identifier == MiniPlayer.container
             || identifier == YouTubeContent.videoWindow
     }
-
-    // MARK: - Sidebar
 
     enum Sidebar {
         static let container = "sidebar"
@@ -27,9 +21,8 @@ enum AccessibilityID {
         static let historyItem = "sidebar.history"
     }
 
-    // MARK: - PlayerBar
-
     enum PlayerBar {
+        static let nowPlayingButton = "playerBar.nowPlayingButton"
         static let playPauseButton = "playerBar.playPause"
         static let previousButton = "playerBar.previous"
         static let nextButton = "playerBar.next"
@@ -49,8 +42,6 @@ enum AccessibilityID {
         static let trackArtist = "playerBar.trackArtist"
         static let thumbnail = "playerBar.thumbnail"
     }
-
-    // MARK: - Mini Player
 
     enum MiniPlayer {
         static let container = "miniPlayer"
@@ -75,8 +66,6 @@ enum AccessibilityID {
         static let trackArtist = "miniPlayer.trackArtist"
     }
 
-    // MARK: - Queue View
-
     enum Queue {
         static let container = "queueView"
         static let scrollView = "queueView.scrollView"
@@ -92,13 +81,9 @@ enum AccessibilityID {
         }
     }
 
-    // MARK: - Lyrics
-
     enum Lyrics {
         static let fallbackPanel = "lyrics.fallbackPanel"
     }
-
-    // MARK: - HomeView
 
     enum Home {
         static let container = "homeView"
@@ -118,8 +103,6 @@ enum AccessibilityID {
             "homeView.section.\(sectionIndex).item.\(itemIndex)"
         }
     }
-
-    // MARK: - SearchView
 
     enum Search {
         static let container = "searchView"
@@ -144,8 +127,6 @@ enum AccessibilityID {
         }
     }
 
-    // MARK: - LibraryView
-
     enum Library {
         static let container = "libraryView"
         static let scrollView = "libraryView.scrollView"
@@ -156,8 +137,6 @@ enum AccessibilityID {
             "libraryView.playlist.\(index)"
         }
     }
-
-    // MARK: - PlaylistDetailView
 
     enum PlaylistDetail {
         static let container = "playlistDetailView"
@@ -172,26 +151,19 @@ enum AccessibilityID {
         }
     }
 
-    // MARK: - Main Window
-
     enum MainWindow {
         static let container = "mainWindow"
         static let initializingView = "mainWindow.initializing"
         static let aiButton = "mainWindow.aiButton"
-        static let commandBar = "mainWindow.commandBar"
         static let commandBarOverlay = "mainWindow.commandBarOverlay"
         static let commandBarInput = "mainWindow.commandBarInput"
     }
-
-    // MARK: - Explore View
 
     enum Explore {
         static let container = "exploreView"
         static let scrollView = "exploreView.scrollView"
         static let loadingIndicator = "exploreView.loading"
     }
-
-    // MARK: - Liked Music View
 
     enum LikedMusic {
         static let container = "likedMusicView"
@@ -204,13 +176,9 @@ enum AccessibilityID {
         }
     }
 
-    // MARK: - History View
-
     enum History {
         static let scrollView = "historyView.scrollView"
     }
-
-    // MARK: - Video Window
 
     enum VideoWindow {
         static let container = "videoWindow"

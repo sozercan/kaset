@@ -2,15 +2,22 @@
 
 This document covers testing strategies, commands, and best practices for Kaset.
 
-> 🔁 **Default local loop lives in `AGENTS.md`** — Stay CLI-first for everyday verification: `swift build`, `swift test --skip KasetUITests`, then `swiftlint --strict && swiftformat .`. Use Xcode/`xcodebuild` only for UI/runtime debugging, scheme-specific investigation, or CI parity.
+> 🔁 **Default local loop lives in `AGENTS.md`** — Stay CLI-first for everyday verification: `swift build`, `swift test --skip KasetUITests --no-parallel`, then `swiftlint --strict && swiftformat .`. Use Xcode/`xcodebuild` only for UI/runtime debugging, scheme-specific investigation, or CI parity.
 
 ## Common Tasks
 
 ### Unit Tests
 
 ```bash
-swift test --skip KasetUITests
+swift test --skip KasetUITests --no-parallel
 ```
+
+Run the full suite serially, as CI does. Several suites drive process-wide
+state (`SingletonPlayerWebView.shared`, `SongLikeStatusManager.shared`, and
+standard `UserDefaults`), so a parallel full run can fail in those suites
+when nothing is broken. Focused `--filter` runs can stay parallel. New tests
+that persist data should use an isolated `UserDefaults(suiteName:)`, such as
+`PlayerService.queuePersistenceDefaults`.
 
 ### Focused YouTube Ask and Localization Tests
 
@@ -188,6 +195,8 @@ Add `.timeLimit()` to async tests to prevent hangs:
 ```
 
 ## Environment Isolation
+
+Unit tests should use injected or temporary storage and avoid production account, cookie, notification, and Spotlight effects. [Issue #606](https://github.com/sozercan/kaset/issues/606) tracks replacing the remaining runtime test-host heuristics with explicit isolation. UI tests enter their mock-service mode through launch arguments and environment settings; a mock podcast HTTP 404 exercises regional discovery visibility without changing the user's account or region.
 
 ### Using MockURLProtocol
 

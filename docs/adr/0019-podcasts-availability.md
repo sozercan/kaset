@@ -41,6 +41,12 @@ up to 2 seconds for account resolution, then fails open with the primary-account
 scope while the account request continues. State is **in-memory only** and every
 cold launch re-probes from scratch.
 
+Discovery availability is independent of playback identity. A podcast show
+uses an `MPSPP` browse ID, while an episode uses a playable video ID. Keep the
+show's browse ID separately for navigation from the episode. Duration text can
+be displayed when the API does not provide seconds, and playback progress is
+a fraction from 0 to 1, not a percentage.
+
 ### State machine
 
 ```

@@ -12,12 +12,10 @@ struct AppLocalizationTests {
             .deletingLastPathComponent()
     }
 
-    /// Helper to find the specific `.lproj` bundle for direct string verification.
     private func localizedBundle(for localization: String) -> Bundle? {
         AppLocalization.bundle(forLocalization: localization)
     }
 
-    /// Helper to read a localized string from a specific locale bundle.
     private func localizedValue(key: String, localeIdentifier: String) -> String {
         guard let lprojBundle = self.localizedBundle(for: localeIdentifier) else {
             return key
@@ -33,7 +31,6 @@ struct AppLocalizationTests {
         return try #require(catalog["strings"] as? [String: Any])
     }
 
-    /// Helper to read a localized value directly from the source string catalog.
     private func sourceCatalogValue(key: String, localeIdentifier: String) throws -> String {
         let strings = try self.sourceCatalogStrings()
         let entry = try #require(strings[key] as? [String: Any])
@@ -68,7 +65,6 @@ struct AppLocalizationTests {
 
     @Test("Supported localization resources have matching key sets")
     func supportedLocalizationResourcesHaveMatchingKeySets() throws {
-        // English uses the catalog's source values and only has two format-order overrides.
         let localeCodes = SettingsManager.ContentLanguage.allCases
             .compactMap(\.languageCode)
             .filter { $0 != "en" }
@@ -196,12 +192,6 @@ struct AppLocalizationTests {
         }
     }
 
-    /// Guards against a recurrence of the French column misalignment fixed in
-    /// this PR (introduced by #160, where the `fr` values were shifted onto the
-    /// wrong keys). Asserts representative keys map to their known-good French
-    /// values both in the source catalog and via the runtime `.lproj` override
-    /// bundle, so a future shift fails CI rather than shipping silently —
-    /// mirrors `indonesianSourceCatalogMapsAffectedStrings`.
     @Test("French source catalog maps affected strings correctly")
     func frenchSourceCatalogMapsAffectedStrings() throws {
         let expectedValues = [
@@ -219,14 +209,12 @@ struct AppLocalizationTests {
         }
     }
 
-    /// Verifies the renamed account-status key resolves through the runtime
-    /// `.lproj` override bundles (not just the catalog), since the per-language
-    /// `.lproj` files are the source the language override reads at runtime.
     @Test("Renamed signed-in status resolves in lproj override bundles")
     func renamedSignedInStatusResolvesInLprojBundles() {
         let expected = [
             ("fr", "Connecté à YouTube"),
             ("id", "Sudah masuk ke YouTube"),
+            ("ja", "YouTube にサインイン済み"),
             ("ko", "YouTube에 로그인됨"),
         ]
         for (locale, value) in expected {
@@ -243,6 +231,7 @@ struct AppLocalizationTests {
             ("fr", "Lecture aléatoire intelligente"),
             ("id", "Acak Cerdas"),
             ("it", "Shuffle intelligente"),
+            ("ja", "スマートシャッフル"),
             ("ko", "스마트 셔플"),
             ("nl", "Slimme shuffle"),
             ("pl", "Inteligentne losowanie"),
@@ -260,10 +249,6 @@ struct AppLocalizationTests {
         }
     }
 
-    /// The two Chinese locales are distinguished by script, so a mix-up would
-    /// still produce plausible-looking Chinese. Assert on strings whose
-    /// simplified and traditional forms differ in wording, not just in
-    /// character shape, so a swapped or machine-converted file fails here.
     @Test("Chinese locales use script-appropriate vocabulary")
     func chineseLocalesUseScriptAppropriateVocabulary() {
         let expectedValues = [
@@ -334,6 +319,56 @@ struct AppLocalizationTests {
         #expect(artist == "Artista")
         #expect(title.hasPrefix("Iscriviti"))
         #expect(title.contains("34.6M"))
+    }
+
+    @Test("Japanese bundle localizes artist and subscribe strings")
+    func japaneseLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "ja")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "ja")
+        let title = String(format: localizedText, locale: Locale(identifier: "ja"), "34.6M")
+
+        #expect(artist == "アーティスト")
+        #expect(title.hasPrefix("登録"))
+        #expect(title.contains("34.6M"))
+        #expect(self.localizedValue(key: "Home", localeIdentifier: "ja") == "ホーム")
+        #expect(self.localizedValue(key: "Library", localeIdentifier: "ja") == "ライブラリ")
+        #expect(self.localizedValue(key: "Liked Music", localeIdentifier: "ja") == "高く評価した曲")
+    }
+
+    @Test("Japanese source catalog maps affected strings correctly")
+    func japaneseSourceCatalogMapsAffectedStrings() throws {
+        let expectedValues = [
+            ("Home", "ホーム"),
+            ("Search", "検索"),
+            ("Explore", "探索"),
+            ("Library", "ライブラリ"),
+            ("Playlist", "プレイリスト"),
+            ("Video", "動画"),
+            ("Sign In", "サインイン"),
+            ("Sign Out", "サインアウト"),
+            ("Lyrics", "歌詞"),
+            ("Hide lyrics explanation", "歌詞の説明を非表示"),
+            ("Subscribe %@", "登録 %@"),
+        ]
+
+        for (key, expectedValue) in expectedValues {
+            #expect(try self.sourceCatalogValue(key: key, localeIdentifier: "ja") == expectedValue)
+            #expect(self.localizedValue(key: key, localeIdentifier: "ja") == expectedValue)
+        }
+    }
+
+    @Test("Japanese runtime interpolation resolves reordered placeholders")
+    func japaneseRuntimeInterpolationResolvesReorderedPlaceholders() throws {
+        let bundle = try #require(self.localizedBundle(for: "ja"))
+        let locale = Locale(identifier: "ja")
+
+        let shelf = "アルバム"
+        #expect(String(localized: "Scroll \(shelf) left", bundle: bundle, locale: locale) == "アルバム を左にスクロール")
+        #expect(String(localized: "Scroll \(shelf) right", bundle: bundle, locale: locale) == "アルバム を右にスクロール")
+        #expect(String(localized: "Sign in to use \(shelf)", bundle: bundle, locale: locale) == "アルバム を使用するにはサインインしてください")
+        #expect(String(localized: "Jump to chapter: \(shelf)", bundle: bundle, locale: locale) == "チャプターへ移動：アルバム")
+        #expect(try self.sourceCatalogValue(key: "Scroll %@ left", localeIdentifier: "ja") == "%1$@ を左にスクロール")
+        #expect(try self.sourceCatalogValue(key: "Scroll %@ right", localeIdentifier: "ja") == "%1$@ を右にスクロール")
     }
 
     @Test("Dutch bundle localizes artist and subscribe strings")

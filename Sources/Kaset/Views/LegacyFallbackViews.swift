@@ -1,29 +1,13 @@
 import SwiftUI
 
-// Minimal fallback views used when the host OS is macOS 15 and the
-// Liquid-Glass / Apple-Intelligence-powered counterparts are unavailable.
-//
-// These intentionally provide a stripped-down but functional surface so the
-// app remains usable on Sequoia. On macOS 26+ the original full-featured
-// views are used instead.
-
-// MARK: - SimplePlaylistDetailView
-
-/// Minimal playlist view used on macOS 15 (no Liquid Glass, no AI refine).
 struct SimplePlaylistDetailView: View {
     let playlist: Playlist
-    let playerBarNavigationAction: PlayerBarNavigationAction
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
-    init(
-        playlist: Playlist,
-        viewModel: PlaylistDetailViewModel,
-        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
-    ) {
+    init(playlist: Playlist, viewModel: PlaylistDetailViewModel) {
         self.playlist = playlist
-        self.playerBarNavigationAction = playerBarNavigationAction
         self._viewModel = State(initialValue: viewModel)
     }
 
@@ -54,14 +38,15 @@ struct SimplePlaylistDetailView: View {
             if case .error = self.viewModel.loadingState {
             } else {
                 PlayerBar()
-                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
-                    .environment(\.playerBarCurrentAlbumID, self.playlist.isAlbum ? self.playlist.id : nil)
+                    .environment(
+                        \.playerBarCurrentAlbumIDs,
+                        PlayerBarCurrentRoute.albumIDs(for: self.playlist, detail: self.viewModel.playlistDetail)
+                    )
             }
         }
-        .task {
-            if self.viewModel.loadingState == .idle {
-                await self.viewModel.load()
-            }
+        .task(id: self.viewModel.loadingState == .idle) {
+            guard self.viewModel.loadingState == .idle else { return }
+            await self.viewModel.ensureLoaded()
         }
         .refreshable {
             await self.viewModel.refresh()
@@ -175,10 +160,18 @@ struct SimplePlaylistDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(!track.isPlayable)
                 .opacity(track.isPlayable ? 1 : 0.5)
-                .onAppear {
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
-                        Task { await self.viewModel.loadMore() }
+                .contextMenu {
+                    if track.isPlayable {
+                        SongContextMenu(
+                            song: track,
+                            client: self.viewModel.client,
+                            play: { Task { await self.playFromIndex(index, tracks: tracks) } },
+                            showsGoToAlbum: self.viewModel.playlistDetail?.isAlbum != true
+                        )
                     }
+                }
+                .onAppear {
+                    self.viewModel.loadMoreIfNeeded(appearingAt: index)
                 }
                 Divider().opacity(0.2)
             }
@@ -220,10 +213,6 @@ struct SimplePlaylistDetailView: View {
     }
 }
 
-// MARK: - SimpleLyricsView
-
-/// Minimal lyrics panel used on macOS 15. Shows synced lyrics if available,
-/// without AI explanations.
 struct SimpleLyricsView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
@@ -231,6 +220,7 @@ struct SimpleLyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -251,7 +241,7 @@ struct SimpleLyricsView: View {
                 self.contentView
             }
             .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 20), isEnabled: self.showsPanel)
         }
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != self.lastLoadedVideoId {
@@ -267,9 +257,10 @@ struct SimpleLyricsView: View {
             self.updateLyricsPolling(for: newLyrics)
         }
         .onDisappear {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
+            LyricsPollLease.release()
         }
         .onAppear {
+            LyricsPollLease.acquire()
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
         .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)

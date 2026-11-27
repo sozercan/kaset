@@ -2,26 +2,19 @@ import Foundation
 import Observation
 import os
 
-/// View model for the ArtistDetailView.
 @MainActor
 @Observable
 final class ArtistDetailViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// The loaded artist detail.
     private(set) var artistDetail: ArtistDetail?
 
-    /// Whether a subscription operation is in progress.
     private(set) var isSubscribing: Bool = false
 
-    /// Error message from subscription toggle (nil if no error).
     private(set) var subscriptionError: String?
 
-    /// Whether to show all songs instead of limited preview.
     var showAllSongs: Bool = false
 
-    /// Number of songs to show in preview mode.
     static let previewSongCount = 5
 
     private let artist: Artist
@@ -39,7 +32,6 @@ final class ArtistDetailViewModel {
         self.libraryViewModel = libraryViewModel
     }
 
-    /// Loads the artist details including songs and albums.
     func load() async {
         guard self.loadingState != .loading else { return }
 
@@ -56,7 +48,6 @@ final class ArtistDetailViewModel {
             let songCount = detail.songs.count
             self.logger.info("Artist loaded: \(songCount) songs")
         } catch is CancellationError {
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Artist detail load cancelled")
             self.loadingState = .idle
         } catch {
@@ -65,14 +56,12 @@ final class ArtistDetailViewModel {
         }
     }
 
-    /// Refreshes the artist details.
     func refresh() async {
         self.artistDetail = nil
         self.showAllSongs = false
         await self.load()
     }
 
-    /// Toggles subscription status for the artist.
     func toggleSubscription() async {
         guard let detail = artistDetail,
               let channelId = detail.channelId
@@ -109,7 +98,6 @@ final class ArtistDetailViewModel {
         }
     }
 
-    /// The songs to display based on showAllSongs state.
     var displayedSongs: [Song] {
         guard let songs = artistDetail?.songs else { return [] }
         if self.showAllSongs {
@@ -118,26 +106,18 @@ final class ArtistDetailViewModel {
         return Array(songs.prefix(Self.previewSongCount))
     }
 
-    /// Whether there are more songs to show (either loaded or available via API).
     var hasMoreSongs: Bool {
         guard let detail = artistDetail else { return false }
-        // Show "See all" if there are more songs loaded than preview count,
-        // OR if the API indicates more songs are available
         return detail.songs.count > Self.previewSongCount || detail.hasMoreSongs
     }
 
-    /// All songs for the artist (fetched on demand).
     private(set) var allSongs: [Song]?
 
-    /// Fetches all songs for the artist if not already loaded.
-    /// Returns all songs for queue playback.
     func getAllSongs() async -> [Song] {
-        // If we already have all songs cached, return them
         if let allSongs {
             return allSongs
         }
 
-        // If there's no browse ID, we already have all the songs from artistDetail
         guard let detail = artistDetail,
               let browseId = detail.songsBrowseId
         else {
@@ -160,7 +140,6 @@ final class ArtistDetailViewModel {
             self.logger.warning("Failed to fetch all songs: \(error.localizedDescription)")
         }
 
-        // Fallback to existing songs
         return self.artistDetail?.songs ?? []
     }
 

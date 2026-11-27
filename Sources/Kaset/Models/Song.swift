@@ -1,9 +1,6 @@
 import CoreTransferable
 import Foundation
 
-// MARK: - Song
-
-/// Represents a song/track from YouTube Music.
 struct Song: Identifiable, Codable, Hashable {
     let id: String
     let title: String
@@ -14,29 +11,25 @@ struct Song: Identifiable, Codable, Hashable {
     let videoId: String
     let isPlayable: Bool
 
-    /// Whether this track has a music video available.
     var hasVideo: Bool?
 
-    /// The type of music video (OMV, ATV, UGC, etc.).
-    /// Use `musicVideoType?.hasVideoContent` to check if video is worth displaying.
     var musicVideoType: MusicVideoType?
 
-    /// Like/dislike status of the song (nil if unknown).
     var likeStatus: LikeStatus?
 
-    /// Whether the song is in the user's library (nil if unknown).
     var isInLibrary: Bool?
 
-    /// Feedback tokens for library add/remove operations.
     var feedbackTokens: FeedbackTokens?
 
-    /// Whether this song carries an explicit-content badge (nil if unknown).
     var isExplicit: Bool?
 
-    /// This track's occurrence-specific identifier within a playlist, required to remove
-    /// the correct instance (the same song can appear more than once in a playlist).
-    /// Only populated when the song was parsed from a playlist's track list.
     var playlistSetVideoId: String?
+
+    var audioTrackVideoId: String?
+
+    var preferredAudioVideoId: String {
+        self.audioTrackVideoId ?? self.videoId
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -54,9 +47,9 @@ struct Song: Identifiable, Codable, Hashable {
         case feedbackTokens
         case isExplicit
         case playlistSetVideoId
+        case audioTrackVideoId
     }
 
-    /// Memberwise initializer with default values for mutable properties.
     init(
         id: String,
         title: String,
@@ -72,7 +65,8 @@ struct Song: Identifiable, Codable, Hashable {
         isInLibrary: Bool? = nil,
         feedbackTokens: FeedbackTokens? = nil,
         isExplicit: Bool? = nil,
-        playlistSetVideoId: String? = nil
+        playlistSetVideoId: String? = nil,
+        audioTrackVideoId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -89,6 +83,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.feedbackTokens = feedbackTokens
         self.isExplicit = isExplicit
         self.playlistSetVideoId = playlistSetVideoId
+        self.audioTrackVideoId = audioTrackVideoId
     }
 
     init(from decoder: any Decoder) throws {
@@ -108,6 +103,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.feedbackTokens = try container.decodeIfPresent(FeedbackTokens.self, forKey: .feedbackTokens)
         self.isExplicit = try container.decodeIfPresent(Bool.self, forKey: .isExplicit)
         self.playlistSetVideoId = try container.decodeIfPresent(String.self, forKey: .playlistSetVideoId)
+        self.audioTrackVideoId = try container.decodeIfPresent(String.self, forKey: .audioTrackVideoId)
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -127,6 +123,7 @@ struct Song: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(self.feedbackTokens, forKey: .feedbackTokens)
         try container.encodeIfPresent(self.isExplicit, forKey: .isExplicit)
         try container.encodeIfPresent(self.playlistSetVideoId, forKey: .playlistSetVideoId)
+        try container.encodeIfPresent(self.audioTrackVideoId, forKey: .audioTrackVideoId)
     }
 
     func replacingDisplayMetadata(title: String, artists: [Artist], thumbnailURL: URL?) -> Song {
@@ -145,16 +142,24 @@ struct Song: Identifiable, Codable, Hashable {
             isInLibrary: self.isInLibrary,
             feedbackTokens: self.feedbackTokens,
             isExplicit: self.isExplicit,
-            playlistSetVideoId: self.playlistSetVideoId
+            playlistSetVideoId: self.playlistSetVideoId,
+            audioTrackVideoId: self.audioTrackVideoId
         )
     }
 
-    /// Display string for artists (comma-separated).
+    static func placeholder(videoId: String) -> Song {
+        Song(
+            id: videoId,
+            title: "Loading...",
+            artists: [],
+            videoId: videoId
+        )
+    }
+
     var artistsDisplay: String {
         self.artists.map(\.name).joined(separator: ", ")
     }
 
-    /// Formatted duration string (e.g., "3:45").
     var durationDisplay: String {
         guard let duration else { return "--:--" }
         let minutes = Int(duration) / 60
@@ -162,12 +167,10 @@ struct Song: Identifiable, Codable, Hashable {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    /// YouTube's public video thumbnail as a fallback when the API doesn't provide one.
     var fallbackThumbnailURL: URL? {
         URL(string: "https://i.ytimg.com/vi/\(self.videoId)/hqdefault.jpg")
     }
 
-    /// YouTube's public high-quality 16:9 thumbnail for wide video cards.
     var wideHighQualityThumbnailURL: URL? {
         var components = URLComponents(string: "https://i.ytimg.com/vi/\(self.videoId)/hq720.jpg")
         components?.queryItems = [URLQueryItem(name: "kaset", value: "wide-v2")]
@@ -176,7 +179,6 @@ struct Song: Identifiable, Codable, Hashable {
 }
 
 extension Song {
-    /// Creates a Song from YouTube Music API response data.
     init?(from data: [String: Any]) {
         guard let videoId = data["videoId"] as? String else { return nil }
 
@@ -184,21 +186,18 @@ extension Song {
         self.videoId = videoId
         self.title = (data["title"] as? String) ?? "Unknown Title"
 
-        // Parse artists
         if let artistsData = data["artists"] as? [[String: Any]] {
             self.artists = artistsData.compactMap { Artist(from: $0) }
         } else {
             self.artists = []
         }
 
-        // Parse album
         if let albumData = data["album"] as? [String: Any] {
             self.album = Album(from: albumData)
         } else {
             self.album = nil
         }
 
-        // Parse duration (in seconds)
         if let durationSeconds = data["duration_seconds"] as? Double {
             self.duration = durationSeconds
         } else if let durationString = data["duration"] as? String {
@@ -207,7 +206,6 @@ extension Song {
             self.duration = nil
         }
 
-        // Parse thumbnail
         if let thumbnails = data["thumbnails"] as? [[String: Any]],
            let lastThumbnail = thumbnails.last,
            let urlString = lastThumbnail["url"] as? String
@@ -221,7 +219,6 @@ extension Song {
         self.isExplicit = ParsingHelpers.extractIsExplicit(from: data)
     }
 
-    /// Parses duration string like "3:45" to TimeInterval.
     private static func parseDuration(_ string: String) -> TimeInterval? {
         let components = string.split(separator: ":").compactMap { Int($0) }
         guard components.count >= 2 else { return nil }
@@ -235,11 +232,8 @@ extension Song {
     }
 }
 
-// MARK: - Equatable & Hashable
-
 extension Song {
     static func == (lhs: Song, rhs: Song) -> Bool {
-        // Compare by video ID for identity equality
         lhs.videoId == rhs.videoId
     }
 
@@ -247,8 +241,6 @@ extension Song {
         hasher.combine(self.videoId)
     }
 }
-
-// MARK: Transferable
 
 extension Song: Transferable {
     static var transferRepresentation: some TransferRepresentation {

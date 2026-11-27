@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - YouTubeAskWireEnvelope
-
 package struct YouTubeAskWireEnvelope: Sendable {
     package enum Format: Equatable, Sendable {
         case jsonObject
@@ -18,8 +16,6 @@ package struct YouTubeAskWireEnvelope: Sendable {
         self.roots.count
     }
 }
-
-// MARK: - YouTubeAskWireDecoder
 
 package struct YouTubeAskWireDecoder: Sendable {
     private var buffer = Data()

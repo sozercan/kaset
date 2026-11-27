@@ -1,10 +1,7 @@
 import XCTest
 
-/// UI tests for the ExploreView.
 @MainActor
 final class ExploreViewUITests: KasetUITestCase {
-    // MARK: - Basic Display
-
     func testExploreViewDisplaysTitle() {
         launchDefault()
 
@@ -15,7 +12,7 @@ final class ExploreViewUITests: KasetUITestCase {
     }
 
     func testExploreViewShowsContent() {
-        launchWithMockHome() // Explore uses same mock data format
+        launchWithMockHome()
 
         navigateToExplore()
 
@@ -35,8 +32,6 @@ final class ExploreViewUITests: KasetUITestCase {
         scrollView.swipeDown()
     }
 
-    // MARK: - Navigation
-
     func testExploreNavigationFromSidebar() {
         launchDefault()
 
@@ -45,8 +40,6 @@ final class ExploreViewUITests: KasetUITestCase {
         let title = app.staticTexts["Explore"]
         XCTAssertTrue(waitForElement(title))
     }
-
-    // MARK: - Player Bar Integration
 
     func testExploreViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)

@@ -1,21 +1,17 @@
 import SwiftUI
 
-// MARK: - HomeSectionItemCard
-
-/// Reusable card view for home section items (songs, playlists, albums, artists).
-struct HomeSectionItemCard: View {
+struct HomeSectionItemCard: View, Equatable {
     let item: HomeSectionItem
     let rank: Int?
     let playAction: (() -> Void)?
     let action: () -> Void
+    private let hasPlayAction: Bool
     @Environment(AuthService.self) private var authService
 
-    /// Card dimensions.
     private static let squareThumbnailSize = CGSize(width: 160, height: 160)
     private static let videoThumbnailSize = CGSize(width: 284, height: 160)
     private static let playButtonSize = CGSize(width: 48, height: 48)
 
-    /// Hover state for play overlay.
     @State private var isHovering = false
     @State private var failedThumbnailURLs: Set<URL> = []
 
@@ -29,6 +25,13 @@ struct HomeSectionItemCard: View {
         self.rank = rank
         self.playAction = playAction
         self.action = action
+        self.hasPlayAction = playAction != nil
+    }
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.item.hasSameCardContent(as: rhs.item)
+            && lhs.rank == rhs.rank
+            && lhs.hasPlayAction == rhs.hasPlayAction
     }
 
     var body: some View {
@@ -53,14 +56,6 @@ struct HomeSectionItemCard: View {
             }
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
         }
-        .scaleEffect(self.isHovering ? 1.02 : 1)
-        .shadow(
-            color: self.isHovering ? .black.opacity(0.15) : .clear,
-            radius: self.isHovering ? 12 : 0,
-            x: 0,
-            y: self.isHovering ? 4 : 0
-        )
-        .animation(AppAnimation.spring, value: self.isHovering)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
@@ -71,16 +66,12 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    // MARK: - Regular Card Content
-
     private var regularContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             self.thumbnail
             self.titleAndSubtitle
         }
     }
-
-    // MARK: - Chart Card Content
 
     private func chartContent(rank: Int) -> some View {
         ZStack(alignment: .bottomLeading) {
@@ -89,7 +80,6 @@ struct HomeSectionItemCard: View {
                 self.titleAndSubtitle
             }
 
-            // Rank badge overlay with adaptive styling
             Text("\(rank)")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
@@ -98,8 +88,6 @@ struct HomeSectionItemCard: View {
                 .padding(.bottom, 60)
         }
     }
-
-    // MARK: - Shared Components
 
     private var thumbnail: some View {
         let thumbnailURLs = self.thumbnailURLs
@@ -126,15 +114,14 @@ struct HomeSectionItemCard: View {
         }
         .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
+        .modifier(ThumbnailHoverLift(isHovering: self.isHovering))
         .overlay {
-            // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
                 SongCoverPlayOverlay(size: Self.playButtonSize)
                     .transition(.opacity)
             }
         }
         .overlay(alignment: .topTrailing) {
-            // Favorite heart in the corner for songs
             if case let .song(song) = self.item {
                 LikeButton(song: song, isRowHovered: self.isHovering, allowsActions: self.authService.hasPersonalAccount)
                     .padding(6)
@@ -144,7 +131,7 @@ struct HomeSectionItemCard: View {
 
     private var supportsPlaylistPlayAction: Bool {
         guard case .playlist = self.item else { return false }
-        return self.playAction != nil
+        return self.hasPlayAction
     }
 
     @ViewBuilder
@@ -205,21 +192,17 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    /// Placeholder view for items without thumbnails.
-    /// Uses the API-provided color for mood/genre cards, or a gradient based on the title.
     private var placeholderView: some View {
         let gradient = self.gradientForItem
         return Rectangle()
             .fill(gradient)
             .overlay {
-                // Show a contextual icon based on item type
                 Image(systemName: self.placeholderIcon)
                     .font(.system(size: 36))
                     .foregroundStyle(.white.opacity(0.8))
             }
     }
 
-    /// Returns appropriate icon for the placeholder based on item type.
     private var placeholderIcon: String {
         switch self.item {
         case .song: self.isVideoSong ? "play.rectangle" : "music.note"
@@ -229,16 +212,12 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    /// Generates a gradient for the card.
-    /// Uses API-provided color (from description) for mood cards, or title-based hash.
     private var gradientForItem: LinearGradient {
-        // Check if this is a mood card with color in description
         if case let .playlist(playlist) = item,
            let colorHex = playlist.description,
            colorHex.hasPrefix("#"),
            let color = Color(hex: colorHex)
         {
-            // Create a gradient from the API color
             return LinearGradient(
                 colors: [color, color.opacity(0.7)],
                 startPoint: .topLeading,
@@ -246,11 +225,9 @@ struct HomeSectionItemCard: View {
             )
         }
 
-        // Fallback to title-based gradient
         return Self.gradientForTitle(self.item.title)
     }
 
-    /// Generates a consistent gradient color based on the title string.
     private static func gradientForTitle(_ title: String) -> LinearGradient {
         let hash = abs(title.hashValue)
         let hue1 = Double(hash % 360) / 360.0
@@ -299,18 +276,28 @@ struct HomeSectionItemCard: View {
     }
 
     private var isVideoSong: Bool {
-        guard case let .song(song) = self.item else { return false }
-
-        if let musicVideoType = song.musicVideoType {
-            return musicVideoType != .atv
-        }
-
-        let subtitle = song.artistsDisplay.lowercased()
-        return subtitle.contains("views") || subtitle.contains("video")
+        self.item.isVideoSong
     }
 }
 
-// MARK: - LiquidGlassPlayIcon
+private struct ThumbnailHoverLift: ViewModifier {
+    let isHovering: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if self.isHovering {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.black.opacity(0.15))
+                        .blur(radius: 12)
+                        .offset(y: 4)
+                        .allowsHitTesting(false)
+                }
+            }
+            .scaleEffect(self.isHovering ? 1.02 : 1)
+            .animation(AppAnimation.spring, value: self.isHovering)
+    }
+}
 
 private struct LiquidGlassPlayIcon: View {
     let size: CGSize
@@ -326,9 +313,7 @@ private struct LiquidGlassPlayIcon: View {
     }
 }
 
-// MARK: - SongCoverPlayOverlay
-
-private struct SongCoverPlayOverlay: View {
+struct SongCoverPlayOverlay: View {
     let size: CGSize
 
     var body: some View {
@@ -345,12 +330,8 @@ private struct SongCoverPlayOverlay: View {
         videoId: "testVideo"
     )
     HStack {
-        HomeSectionItemCard(item: .song(song)) {
-            // No-op for preview
-        }
-        HomeSectionItemCard(item: .song(song), rank: 1) {
-            // No-op for preview
-        }
+        HomeSectionItemCard(item: .song(song)) {}
+        HomeSectionItemCard(item: .song(song), rank: 1) {}
     }
     .padding()
     .environment(AuthService())

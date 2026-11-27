@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// View model for `ArtistDiscographyView` — loads the full album list behind
-/// an Albums-shelf "See all" on an artist page.
 @MainActor
 @Observable
 final class ArtistDiscographyViewModel {
@@ -11,7 +9,7 @@ final class ArtistDiscographyViewModel {
     private(set) var albums: [Album] = []
 
     let destination: ArtistSeeAllDestination
-    private let client: any YTMusicClientProtocol
+    let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
     init(destination: ArtistSeeAllDestination, client: any YTMusicClientProtocol) {

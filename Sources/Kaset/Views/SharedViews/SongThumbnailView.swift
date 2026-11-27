@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - SongThumbnailSource
-
 struct SongThumbnailSource: Equatable {
     struct PrimaryFailureKey: Equatable {
         let videoId: String
@@ -25,11 +23,6 @@ struct SongThumbnailSource: Equatable {
     }
 }
 
-// MARK: - SongThumbnailView
-
-/// Displays a song's thumbnail with automatic YouTube fallback.
-/// If the API-provided thumbnail URL fails to load, falls back to
-/// YouTube's public video thumbnail (`i.ytimg.com`).
 struct SongThumbnailView: View {
     let song: Song
     var size: CGFloat = 48
@@ -37,12 +30,10 @@ struct SongThumbnailView: View {
 
     @State private var failedPrimaryKey: SongThumbnailSource.PrimaryFailureKey?
 
-    /// The API-provided thumbnail URL.
     private var primaryURL: URL? {
         self.song.thumbnailURL?.highQualityThumbnailURL
     }
 
-    /// YouTube's public video thumbnail as fallback.
     private var fallbackURL: URL? {
         self.song.fallbackThumbnailURL
     }
@@ -55,7 +46,6 @@ struct SongThumbnailView: View {
         )
     }
 
-    /// The URL to display: primary first, fallback only if that exact primary source failed.
     private var activeURL: URL? {
         self.thumbnailSource.activeURL(failedPrimaryKey: self.failedPrimaryKey)
     }

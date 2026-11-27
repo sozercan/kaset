@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - YouTubeAskToolbarButton
-
 struct YouTubeAskToolbarButton: View {
     let viewModel: YouTubeAskViewModel
 
@@ -23,8 +21,6 @@ struct YouTubeAskToolbarButton: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.askButton)
     }
 }
-
-// MARK: - YouTubeAskFloatingOverlay
 
 struct YouTubeAskFloatingOverlay: View {
     private static let bottomPadding: CGFloat = 16
@@ -74,8 +70,6 @@ struct YouTubeAskFloatingOverlay: View {
         }
     }
 }
-
-// MARK: - YouTubeAskEscapeKeyMonitor
 
 private struct YouTubeAskEscapeKeyMonitor: NSViewRepresentable {
     let dismiss: @MainActor () -> Void
@@ -139,8 +133,6 @@ private struct YouTubeAskEscapeKeyMonitor: NSViewRepresentable {
     }
 }
 
-// MARK: - YouTubeAskEscapeMonitorView
-
 @MainActor
 private final class YouTubeAskEscapeMonitorView: NSView {
     var windowDidChange: ((NSWindow?) -> Void)?
@@ -151,11 +143,6 @@ private final class YouTubeAskEscapeMonitorView: NSView {
     }
 }
 
-// MARK: - YouTubeAskPanelView
-
-/// Floating, watch-scoped Ask Gemini panel. It presents YouTube-generated
-/// messages and server-issued suggestions in the same compact shell as the
-/// music command bar.
 struct YouTubeAskPanelView: View {
     private static let headerReservedHeight: CGFloat = 58
 
@@ -251,8 +238,6 @@ struct YouTubeAskPanelView: View {
     }
 
     private var preferredFocusTarget: FocusTarget? {
-        // A renewed composer command belongs to the latest conversation
-        // revision and should regain focus even after earlier transcript turns.
         if self.viewModel.acceptsFreeTextInput {
             return .input
         }
@@ -505,8 +490,6 @@ struct YouTubeAskPanelView: View {
     }
 }
 
-// MARK: - YouTubeAskSuggestionFlowLayout
-
 private struct YouTubeAskSuggestionFlowLayout: Layout {
     let horizontalSpacing: CGFloat
     let verticalSpacing: CGFloat
@@ -588,15 +571,11 @@ private struct YouTubeAskSuggestionFlowLayout: Layout {
     }
 }
 
-// MARK: - YouTube Ask Accessibility Announcements
-
 extension View {
     func youtubeAskAccessibilityAnnouncements(viewModel: YouTubeAskViewModel) -> some View {
         self.modifier(YouTubeAskAccessibilityAnnouncementsModifier(viewModel: viewModel))
     }
 }
-
-// MARK: - YouTubeAskAccessibilityAnnouncementsModifier
 
 private struct YouTubeAskAccessibilityAnnouncementsModifier: ViewModifier {
     let viewModel: YouTubeAskViewModel
@@ -627,8 +606,6 @@ private struct YouTubeAskAccessibilityAnnouncementsModifier: ViewModifier {
     }
 }
 
-// MARK: - YouTubeAskAccessibilityCopy
-
 private enum YouTubeAskAccessibilityCopy {
     static func errorText(for error: YouTubeAskPresentationError) -> String {
         switch error {
@@ -654,8 +631,6 @@ private enum YouTubeAskAccessibilityCopy {
         }
     }
 }
-
-// MARK: - AccessibilityID.YouTubeContent
 
 extension AccessibilityID.YouTubeContent {
     static let askButton = "youtubeContent.askButton"

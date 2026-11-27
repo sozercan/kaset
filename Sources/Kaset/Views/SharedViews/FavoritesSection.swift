@@ -1,22 +1,14 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - FavoritesSection
-
-/// A horizontal scrolling section displaying pinned Favorites items.
-/// Supports drag-and-drop reordering and context menu actions.
 struct FavoritesSection: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @State private var draggedItem: FavoriteItem?
     @State private var navigationPath: NavigationPath?
 
-    /// Binding to navigation path for navigation within the section.
     var onNavigate: ((any Hashable) -> Void)?
 
-    /// Resting horizontal inset for the shelf content, so items rest clear of
-    /// the floating glass sidebar while still scrolling underneath it.
-    /// Defaults to `0` (edge-to-edge) to preserve existing call sites.
     var contentInset: CGFloat = 0
 
     var body: some View {
@@ -60,8 +52,6 @@ struct FavoritesSection: View {
             }
     }
 
-    // MARK: - Actions
-
     private func handleTap(_ item: FavoriteItem) {
         switch item.itemType {
         case let .song(song):
@@ -97,68 +87,35 @@ struct FavoritesSection: View {
             return false
         }
 
-        // Calculate the proper destination index
         let destinationIndex = sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
         self.favoritesManager.move(from: IndexSet(integer: sourceIndex), to: destinationIndex)
         return true
     }
 
-    // MARK: - Context Menu
-
     @ViewBuilder
     private func contextMenu(for item: FavoriteItem) -> some View {
-        // Play button for songs
-        if case let .song(song) = item.itemType {
-            Button {
-                Task { await self.playerService.play(song: song) }
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
+        let client = self.playerService.ytMusicClient
 
-            Divider()
-        }
-
-        // View button for albums/playlists/artists/podcasts
         switch item.itemType {
-        case .album:
-            Button {
-                self.handleTap(item)
-            } label: {
-                Label(String(localized: "View Album"), systemImage: "square.stack")
+        case let .song(song):
+            SongContextMenu(song: song, client: client, play: { self.handleTap(item) }, navigate: self.onNavigate)
+        case let .album(album):
+            if let client {
+                AlbumContextMenu(album: album, client: client, navigate: self.onNavigate)
             }
-
-            Divider()
-        case .playlist:
-            Button {
-                self.handleTap(item)
-            } label: {
-                Label(String(localized: "View Playlist"), systemImage: "music.note.list")
+        case let .playlist(playlist):
+            if let client {
+                PlaylistContextMenu(playlist: playlist, client: client, navigate: self.onNavigate)
             }
-
-            Divider()
-        case .artist:
-            Button {
-                self.handleTap(item)
-            } label: {
-                Label(String(localized: "View Artist"), systemImage: "person")
-            }
-
-            Divider()
-        case .podcastShow:
-            Button {
-                self.handleTap(item)
-            } label: {
-                Label(String(localized: "View Podcast"), systemImage: "mic.fill")
-            }
-
-            Divider()
-        case .song:
-            // Songs don't need a "View" button, they play on tap
-            EmptyView()
+        case let .artist(artist):
+            ArtistContextMenu(artist: artist, navigate: self.onNavigate)
+        case let .podcastShow(show):
+            PodcastShowContextMenu(show: show, navigate: self.onNavigate)
         }
 
         if self.favoritesManager.canMutate {
-            // Reorder actions
+            Divider()
+
             Button {
                 self.favoritesManager.moveToTop(contentId: item.contentId)
             } label: {
@@ -170,69 +127,10 @@ struct FavoritesSection: View {
             } label: {
                 Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
             }
-
-            Divider()
-
-            // Remove action
-            Button(role: .destructive) {
-                self.favoritesManager.remove(contentId: item.contentId)
-            } label: {
-                Label(String(localized: "Remove from Favorites"), systemImage: "heart.slash")
-            }
-
-            Divider()
-        }
-
-        ShareContextMenu.menuItem(for: item)
-
-        // Add to Queue for songs
-        if case let .song(song) = item.itemType {
-            Divider()
-            AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-            if let client = self.playerService.ytMusicClient {
-                Divider()
-                AddToPlaylistContextMenu(song: song, client: client)
-            }
-        }
-
-        Divider()
-
-        // Navigation to related content
-        switch item.itemType {
-        case let .song(song):
-            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
-                Button {
-                    self.onNavigate?(artist)
-                } label: {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
-                }
-            }
-
-            if let album = song.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                Button {
-                    self.onNavigate?(playlist)
-                } label: {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
-        default:
-            EmptyView()
         }
     }
 }
 
-// MARK: - FavoriteItemCard
-
-/// A card view for a single Favorites item.
 private struct FavoriteItemCard: View {
     let item: FavoriteItem
     let onTap: () -> Void
@@ -277,7 +175,6 @@ private struct FavoriteItemCard: View {
         .frame(width: Self.cardWidth, height: Self.cardHeight)
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
-            // Play overlay on hover (for songs)
             if case .song = self.item.itemType, self.isHovering {
                 Circle()
                     .fill(.ultraThinMaterial)
@@ -347,12 +244,9 @@ private struct FavoriteItemCard: View {
     }
 }
 
-// MARK: - Preview
-
 #Preview {
     let manager = FavoritesManager(skipLoad: true)
     manager.setActiveAccountScopeID("preview")
-    // Add some sample items for preview
     let song = Song(
         id: "test",
         title: "Test Song",

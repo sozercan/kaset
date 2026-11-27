@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for SearchResponse and SearchResultItem.
 @Suite(.tags(.model))
 struct SearchResponseTests {
-    // MARK: - SearchResultItem ID Tests
-
     @Test(
         "Result item ID prefix",
         arguments: [
@@ -62,8 +59,6 @@ struct SearchResponseTests {
         )
     }
 
-    // MARK: - SearchResultItem Title Tests
-
     @Test("Song result item title")
     func songResultItemTitle() {
         let song = Song(id: "1", title: "My Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
@@ -92,8 +87,6 @@ struct SearchResponseTests {
         #expect(item.title == "My Playlist")
     }
 
-    // MARK: - SearchResultItem Subtitle Tests
-
     @Test("Song result item subtitle joins artists")
     func songResultItemSubtitle() {
         let artists = [Artist(id: "a1", name: "Artist A"), Artist(id: "a2", name: "Artist B")]
@@ -114,7 +107,6 @@ struct SearchResponseTests {
     func artistResultItemSubtitle() {
         let artist = Artist(id: "1", name: "Artist Name")
         let item = SearchResultItem.artist(artist)
-        // Artist subtitle is nil because resultType already shows "Artist"
         #expect(item.subtitle == nil)
     }
 
@@ -124,8 +116,6 @@ struct SearchResponseTests {
         let item = SearchResultItem.playlist(playlist)
         #expect(item.subtitle == "Playlist Author")
     }
-
-    // MARK: - SearchResultItem ThumbnailURL Tests
 
     @Test("Song result item thumbnail URL")
     func songResultItemThumbnailURL() {
@@ -159,8 +149,6 @@ struct SearchResponseTests {
         #expect(item.thumbnailURL == url)
     }
 
-    // MARK: - SearchResultItem ResultType Tests
-
     @Test("Result item result type")
     func resultItemResultType() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
@@ -175,8 +163,6 @@ struct SearchResponseTests {
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
         #expect(SearchResultItem.playlist(playlist).resultType == "Playlist")
     }
-
-    // MARK: - SearchResultItem VideoId Tests
 
     @Test("Song result item has video ID")
     func songResultItemVideoId() {
@@ -236,8 +222,6 @@ struct SearchResponseTests {
         #expect(episodeItem.songPayload == episode.playbackSong)
         #expect(episodeItem.subtitle == "Jul 19, 2026 • Show")
     }
-
-    // MARK: - SearchResponse Tests
 
     @Test("Audiobook results preserve semantic type and album-compatible metadata")
     func audiobookResultMetadata() {
@@ -318,7 +302,6 @@ struct SearchResponseTests {
         let allItems = response.allItems
         #expect(allItems.count == 4)
 
-        // Check that items are in expected order: songs, albums, artists, playlists
         #expect(allItems[0].id == "song-s1")
         #expect(allItems[1].id == "album-a1")
         #expect(allItems[2].id == "artist-ar1")

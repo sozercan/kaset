@@ -1,8 +1,6 @@
 import Testing
 @testable import Kaset
 
-// MARK: - PlaylistDetailLibraryMutationActivityTests
-
 @Suite(.tags(.viewModel))
 struct PlaylistDetailLibraryMutationActivityTests {
     @Test("An older operation cannot clear a newer operation's loading state")

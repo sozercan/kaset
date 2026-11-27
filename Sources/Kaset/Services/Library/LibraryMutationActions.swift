@@ -2,8 +2,6 @@
 
 import Foundation
 
-/// Orchestrates Library mutations that need optimistic UI updates, cache invalidation,
-/// and eventual-consistency reconciliation after YouTube Music accepts a change.
 @MainActor
 // swiftlint:disable:next type_body_length
 enum LibraryMutationActions {
@@ -281,7 +279,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Adds a song to a playlist.
     static func addSongToPlaylist(
         _ song: Song,
         playlist: AddToPlaylistOption,
@@ -308,8 +305,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Removes a song from the playlist currently loaded in `viewModel`. The row is removed
-    /// optimistically and restored if the server mutation fails.
     static func removeSongFromPlaylist(
         _ song: Song,
         from viewModel: PlaylistDetailViewModel,
@@ -364,7 +359,11 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Adds a playlist to the library.
+    static func isPlaylistMutationPending(playlistId: String) -> Bool {
+        let key = PlaylistMutationKey(identity: LibraryContentIdentity.playlistKey(for: playlistId))
+        return self.latestPlaylistMutationIDs[key] != nil
+    }
+
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -384,7 +383,6 @@ enum LibraryMutationActions {
                 LibraryMutationBroadcaster.shared.playlistAdded(playlist)
                 onMutationApplied()
 
-                // Library browse responses can lag briefly behind a successful add.
                 try await Task.sleep(for: reconciliationDelay)
                 try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
                 let reconciled = await LibraryMutationBroadcaster.shared.reconcileAddedPlaylist(
@@ -404,7 +402,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Removes a playlist from the library.
     static func removePlaylistFromLibrary(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -425,7 +422,6 @@ enum LibraryMutationActions {
                 LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
                 onMutationApplied()
 
-                // Library browse responses can lag briefly behind a successful removal.
                 try await Task.sleep(for: reconciliationDelay)
                 try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
                 let reconciled = await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(
@@ -508,7 +504,6 @@ enum LibraryMutationActions {
         return .viewModel(ObjectIdentifier(libraryViewModel))
     }
 
-    /// Adds an album to the library using its OLAK playlist target.
     static func addAlbumToLibrary(
         _ album: Album,
         targetPlaylistId: String,
@@ -574,7 +569,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Removes an album from the library using its OLAK playlist target.
     static func removeAlbumFromLibrary(
         _ album: Album,
         targetPlaylistId: String,
@@ -701,7 +695,6 @@ enum LibraryMutationActions {
         return .viewModel(ObjectIdentifier(libraryViewModel))
     }
 
-    /// Permanently deletes a playlist owned by the user.
     static func deletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -741,7 +734,6 @@ enum LibraryMutationActions {
                 libraryViewModel?.markNeedsReloadOnActivation()
                 DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
 
-                // Library browse responses can lag briefly behind a successful deletion.
                 try await Task.sleep(for: .milliseconds(500))
                 try self.checkAccountBoundary(boundaryGeneration)
                 guard isCurrent() else { throw CancellationError() }
@@ -798,7 +790,6 @@ enum LibraryMutationActions {
         try await task.value
     }
 
-    /// Subscribes to a podcast show (adds to library).
     static func subscribeToPodcast(
         _ show: PodcastShow,
         client: any YTMusicClientProtocol,
@@ -815,7 +806,6 @@ enum LibraryMutationActions {
                 if let libraryViewModel {
                     libraryViewModel.addToLibrary(podcast: show)
 
-                    // Library browse responses can lag briefly behind a successful subscribe.
                     try await Task.sleep(for: .milliseconds(500))
                     try self.checkAccountBoundary(boundaryGeneration)
                     await libraryViewModel.refresh()
@@ -837,7 +827,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Unsubscribes from a podcast show (removes from library).
     static func unsubscribeFromPodcast(
         _ show: PodcastShow,
         client: any YTMusicClientProtocol,
@@ -855,7 +844,6 @@ enum LibraryMutationActions {
                 if let libraryViewModel {
                     libraryViewModel.removeFromLibrary(podcastId: show.id)
 
-                    // Library browse responses can lag briefly behind a successful removal.
                     try await Task.sleep(for: .milliseconds(500))
                     try self.checkAccountBoundary(boundaryGeneration)
                     await libraryViewModel.refresh()
@@ -877,7 +865,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Subscribes to an artist (adds to library).
     static func subscribeToArtist(
         _ artist: Artist,
         channelId: String,
@@ -939,7 +926,6 @@ enum LibraryMutationActions {
         }
     }
 
-    /// Unsubscribes from an artist (removes from library).
     static func unsubscribeFromArtist(
         _ artist: Artist,
         channelId: String,
@@ -1002,7 +988,6 @@ enum LibraryMutationActions {
     }
 
     static func invalidateResponseCaches() {
-        // Library mutations can leave stale data in both the app-level cache and URL loading cache.
         APICache.shared.invalidate(matching: "browse:")
         APICache.shared.invalidate(matching: "playlist/get_add_to_playlist:")
         URLCache.shared.removeAllCachedResponses()

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarProgressLane
-
 struct PlayerBarProgressLane: View {
     let fraction: Double
     let accent: Color
@@ -62,14 +60,45 @@ struct PlayerBarProgressLane: View {
     }
 
     var body: some View {
+        if self.isLive {
+            self.liveIndicator
+        } else {
+            self.playbackTimeline
+        }
+    }
+
+    private var liveIndicator: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 5, height: 5)
+
+                Text("LIVE")
+                    .font(.system(size: 11))
+                    .lineLimit(1)
+            }
+            .frame(height: 12)
+
+            Capsule()
+                .fill(self.accent)
+                .frame(height: PlayerBarSliderVisuals.trackThickness)
+                .frame(height: 12, alignment: .top)
+        }
+        .frame(height: 30)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Live stream"))
+    }
+
+    private var playbackTimeline: some View {
         VStack(spacing: 6) {
             HStack(spacing: 8) {
-                Text(self.isLive ? String(localized: "LIVE") : self.elapsedText)
-                    .foregroundStyle(self.isLive ? .red : .secondary)
+                Text(self.elapsedText)
+                    .foregroundStyle(.secondary)
 
                 Spacer(minLength: 8)
 
-                Text(self.isLive ? "" : self.remainingText)
+                Text(self.remainingText)
                     .foregroundStyle(.secondary)
             }
             .font(.system(size: 11))
@@ -120,7 +149,6 @@ struct PlayerBarProgressLane: View {
                     )
                     .fill(fillColor)
                     .frame(width: fillWidth, height: PlayerBarSliderVisuals.trackThickness)
-                    .opacity(self.isLive ? 0 : 1)
                 } else {
                     self.segmentedTrack(width: width, fillColor: fillColor)
                 }
@@ -142,7 +170,7 @@ struct PlayerBarProgressLane: View {
                                 x: self.markerX(marker, trackWidth: width, isHighlighted: isHighlighted),
                                 y: -3
                             )
-                            .opacity(self.isLive || self.isLoading ? 0 : 1)
+                            .opacity(self.isLoading ? 0 : 1)
                             .accessibilityHidden(true)
                     }
                 }
@@ -156,7 +184,7 @@ struct PlayerBarProgressLane: View {
                     )
                     .opacity(self.canSeek ? 1 : 0)
 
-                if let segment = self.hoveredSegment, self.segments.contains(segment), !self.isLoading, !self.isLive {
+                if let segment = self.hoveredSegment, self.segments.contains(segment), !self.isLoading {
                     self.segmentTooltip(segment, trackWidth: width)
                         .onGeometryChange(for: CGSize.self) { $0.size } action: { self.tooltipSize = $0 }
                         .offset(
@@ -241,15 +269,10 @@ struct PlayerBarProgressLane: View {
         self.hoveredSegment = segment
     }
 
-    /// The segment whose `[start, end)` span contains the given progress fraction, or nil when the
-    /// fraction falls in a gap or outro past the last segment's end.
     private func segment(at fraction: Double) -> PlayerBarProgressSegment? {
         Self.segment(at: fraction, in: self.segments)
     }
 
-    // MARK: - Segmented Track
-
-    /// Gap between adjacent segment pieces, in points. Split across the shared edge.
     private static let segmentGap: CGFloat = 3
     private static let segmentTooltipHorizontalPadding: CGFloat = 11
 
@@ -342,7 +365,6 @@ struct PlayerBarProgressLane: View {
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(fillColor)
                         .frame(width: geometry.width * within, height: PlayerBarSliderVisuals.trackThickness)
-                        .opacity(self.isLive ? 0 : 1)
                 }
                 .frame(width: geometry.width, alignment: .leading)
                 .scaleEffect(y: isProminent ? 2.0 : 1, anchor: .center)
@@ -365,8 +387,6 @@ struct PlayerBarProgressLane: View {
         )
     }
 
-    // MARK: - Segment Tooltip
-
     private func segmentTooltip(_ segment: PlayerBarProgressSegment, trackWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(segment.title)
@@ -388,8 +408,6 @@ struct PlayerBarProgressLane: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: Self.segmentTooltipContentMaxWidth(trackWidth: trackWidth), alignment: .leading)
-        // Ask the capped frame for its intrinsic width instead of accepting the seek bar's full
-        // proposal. Long labels still stop at the frame's maxWidth and truncate via lineLimit(1).
         .fixedSize(horizontal: true, vertical: true)
         .padding(.horizontal, Self.segmentTooltipHorizontalPadding)
         .padding(.vertical, 7)
@@ -404,7 +422,6 @@ struct PlayerBarProgressLane: View {
         }
     }
 
-    /// Leading edge for the tooltip so its centre tracks the segment, clamped inside the track.
     private func tooltipLeadingX(_ segment: PlayerBarProgressSegment, width: CGFloat) -> CGFloat {
         let center = CGFloat((segment.start + segment.end) / 2) * width
         let leading = center - self.tooltipSize.width / 2
@@ -412,9 +429,6 @@ struct PlayerBarProgressLane: View {
     }
 
     private func markerX(_ marker: PlayerBarProgressMarker, trackWidth: CGFloat, isHighlighted: Bool) -> CGFloat {
-        // Marker and thumb offsets are inside the visual-track ZStack. Gesture
-        // locations subtract `hitOutset` because the gesture is attached after
-        // padding expands the hit target; visual offsets do not include it.
         let markerWidth = self.markerWidth(isHighlighted: isHighlighted)
         return min(
             max(0, trackWidth * CGFloat(marker.fraction) - markerWidth / 2),
@@ -517,8 +531,6 @@ struct PlayerBarProgressLane: View {
     }
 }
 
-// MARK: - PlayerBarProgressMarker
-
 struct PlayerBarProgressMarker: Identifiable, Hashable {
     let id: String
     let fraction: Double
@@ -533,18 +545,11 @@ struct PlayerBarProgressMarker: Identifiable, Hashable {
     }
 }
 
-// MARK: - PlayerBarProgressSegmentGeometry
-
 struct PlayerBarProgressSegmentGeometry: Equatable {
     let x: CGFloat
     let width: CGFloat
 }
 
-// MARK: - PlayerBarProgressSegment
-
-/// A contiguous span of the seek bar corresponding to one item, such as a mix track or video
-/// chapter. When a lane is given segments it renders a gapped track (one piece per segment) instead
-/// of the single continuous bar, and reveals the segment's label on hover.
 struct PlayerBarProgressSegment: Identifiable, Hashable {
     let id: String
     let start: Double
@@ -578,7 +583,6 @@ struct PlayerBarProgressSegment: Identifiable, Hashable {
         self.itemLabel = itemLabel
     }
 
-    /// Whether the given progress fraction falls within this segment.
     func contains(_ fraction: Double) -> Bool {
         fraction >= self.start && fraction < self.end
     }

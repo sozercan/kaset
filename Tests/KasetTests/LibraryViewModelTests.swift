@@ -3,9 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-// MARK: - LibraryViewModelTests
-
-/// Tests for LibraryViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct LibraryViewModelTests {
@@ -31,7 +28,6 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.libraryPlaylistIds.isEmpty)
         #expect(self.viewModel.libraryArtistIds.isEmpty)
         #expect(self.viewModel.libraryPodcastIds.isEmpty)
-        #expect(self.viewModel.selectedPlaylistDetail == nil)
     }
 
     @Test("Activating the first account scope preserves pending optimistic state")
@@ -197,7 +193,6 @@ struct LibraryViewModelTests {
         #expect(self.mockClient.getLibraryContentCalled == true)
         #expect(self.mockClient.getLibraryPlaylistsCalled == false)
         if case .error = self.viewModel.loadingState {
-            // Expected
         } else {
             Issue.record("Expected error state")
         }
@@ -224,34 +219,6 @@ struct LibraryViewModelTests {
         ))
 
         #expect(self.viewModel.albums.map(\.id) == ["MPRE-new"])
-    }
-
-    @Test("Load playlist success")
-    func loadPlaylistSuccess() async {
-        let playlist = TestFixtures.makePlaylist(id: "VL-test")
-        let playlistDetail = TestFixtures.makePlaylistDetail(playlist: playlist, trackCount: 5)
-        self.mockClient.playlistDetails["VL-test"] = playlistDetail
-
-        await self.viewModel.loadPlaylist(id: "VL-test")
-
-        #expect(self.mockClient.getPlaylistCalled == true)
-        #expect(self.mockClient.getPlaylistIds.first == "VL-test")
-        #expect(self.viewModel.playlistDetailLoadingState == .loaded)
-        #expect(self.viewModel.selectedPlaylistDetail != nil)
-        #expect(self.viewModel.selectedPlaylistDetail?.tracks.count == 5)
-    }
-
-    @Test("Clear selected playlist")
-    func clearSelectedPlaylist() async {
-        let playlist = TestFixtures.makePlaylist(id: "VL-test")
-        self.mockClient.playlistDetails["VL-test"] = TestFixtures.makePlaylistDetail(playlist: playlist)
-        await self.viewModel.loadPlaylist(id: "VL-test")
-        #expect(self.viewModel.selectedPlaylistDetail != nil)
-
-        self.viewModel.clearSelectedPlaylist()
-
-        #expect(self.viewModel.selectedPlaylistDetail == nil)
-        #expect(self.viewModel.playlistDetailLoadingState == .idle)
     }
 
     @Test("Refresh clears and reloads")
@@ -336,8 +303,6 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.playlists.map(\.id) == ["VL1"])
     }
-
-    // MARK: - Artist Library Tests
 
     @Test("isInLibrary normalizes MPLAUC artist IDs to channel IDs")
     func isInLibraryNormalizesArtistIds() async {
@@ -619,8 +584,6 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.artists.first?.profileKind == .profile)
     }
 
-    // MARK: - Playlist Library Tests
-
     @Test("addToLibrary inserts playlist at beginning and updates ID set")
     func addToLibraryInsertsPlaylist() {
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Playlist 1")
@@ -704,8 +667,6 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.playlists.isEmpty)
     }
 
-    // MARK: - Podcast Library Tests
-
     @Test("addToLibrary inserts podcast at beginning and updates ID set")
     func addToLibraryInsertsPodcast() {
         let podcast = TestFixtures.makePodcastShow(id: "MPSPPLXz2p9test123", title: "Test Podcast")
@@ -736,7 +697,6 @@ struct LibraryViewModelTests {
         self.viewModel.addToLibrary(podcast: podcast1)
         self.viewModel.addToLibrary(podcast: podcast2)
 
-        // Podcast B should be first (inserted at position 0)
         #expect(self.viewModel.podcastShows.first?.id == "MPSPPLB")
         #expect(self.viewModel.podcastShows[1].id == "MPSPPLA")
     }
@@ -756,7 +716,6 @@ struct LibraryViewModelTests {
 
     @Test("removeFromLibrary handles non-existent podcast gracefully")
     func removeFromLibraryNonExistent() {
-        // Should not crash when removing non-existent podcast
         self.viewModel.removeFromLibrary(podcastId: "nonexistent")
 
         #expect(self.viewModel.podcastShows.isEmpty)
@@ -776,8 +735,6 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.isInLibrary(podcastId: "MPSPPLXz2p9test123") == false)
     }
 }
-
-// MARK: - LibraryViewModelEnvironmentTests
 
 @Suite(.tags(.viewModel))
 @MainActor

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Settings view for general app preferences.
 struct GeneralSettingsView: View {
     @Environment(AuthService.self) private var authService
     @State private var settings = SettingsManager.shared
@@ -8,17 +7,13 @@ struct GeneralSettingsView: View {
     @State private var isClearing = false
     @State private var signOutFailurePresented = false
 
-    /// The updater service for managing app updates.
     var updaterService: UpdaterService
 
     var body: some View {
         @Bindable var updater = self.updaterService
 
         Form {
-            // MARK: - Account Section
-
             Section {
-                // Account status
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(localized: "Account"))
@@ -43,14 +38,21 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Account"))
             }
 
-            // MARK: - Behavior Section
+            Section {
+                Picker(String(localized: "App Appearance"), selection: self.$settings.appearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.displayName).tag(appearance)
+                    }
+                }
+                .help(String(localized: "Choose light or dark mode for Kaset, or match the macOS setting"))
+            } header: {
+                Text(String(localized: "Appearance"))
+            }
 
             Section {
-                // Haptic Feedback
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help(String(localized: "Provide tactile feedback for actions on Force Touch trackpads"))
 
-                // Default Launch Page
                 Picker(String(localized: "Default Page on Launch"), selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in
                         Text(page.displayName).tag(page)
@@ -60,10 +62,7 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Behavior"))
             }
 
-            // MARK: - Language Section
-
             Section {
-                // Content Language
                 Picker(String(localized: "Content Language"), selection: self.$settings.contentLanguage) {
                     ForEach(SettingsManager.ContentLanguage.allCases) { language in
                         Text(language.displayName).tag(language)
@@ -74,10 +73,7 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Language"))
             }
 
-            // MARK: - Storage Section
-
             Section {
-                // Image Cache
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(localized: "Image Cache"))
@@ -100,8 +96,6 @@ struct GeneralSettingsView: View {
 
             #if DEBUG
 
-                // MARK: - Debug Section
-
                 Section {
                     Toggle(String(localized: "Use Legacy macOS 15 UI"), isOn: self.$settings.useLegacyMacOS15UI)
                         .help(String(localized: "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging"))
@@ -113,8 +107,6 @@ struct GeneralSettingsView: View {
                     Text(String(localized: "Debug"))
                 }
             #endif
-
-            // MARK: - Updates Section
 
             Section {
                 Toggle("Automatically check for updates", isOn: $updater.automaticChecksEnabled)
@@ -142,8 +134,6 @@ struct GeneralSettingsView: View {
             } header: {
                 Text(String(localized: "Updates"))
             }
-
-            // MARK: - About Section
 
             Section {
                 HStack {
@@ -189,8 +179,6 @@ struct GeneralSettingsView: View {
         }
     }
 
-    // MARK: - Computed Properties
-
     private var accountStatusText: String {
         self.authService.state.isLoggedIn ? String(localized: "Signed in to YouTube") : String(localized: "Not signed in")
     }
@@ -200,8 +188,6 @@ struct GeneralSettingsView: View {
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return build.isEmpty ? version : "\(version) (\(build))"
     }
-
-    // MARK: - Actions
 
     private func updateCacheSize() async {
         let size = await ImageCache.shared.diskCacheSize()

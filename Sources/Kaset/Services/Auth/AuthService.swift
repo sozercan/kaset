@@ -2,11 +2,9 @@ import Foundation
 import Observation
 import os
 
-/// Manages authentication state for YouTube Music.
 @MainActor
 @Observable
 final class AuthService: AuthServiceProtocol {
-    /// Authentication states.
     enum State: Equatable {
         case initializing
         case loggedOut
@@ -25,41 +23,40 @@ final class AuthService: AuthServiceProtocol {
         }
     }
 
-    /// Current authentication state.
     private(set) var state: State
 
-    /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool = false
 
-    /// Whether a failed login cleanup must be retried before another sign-in.
     private(set) var loginCleanupRequired = false
 
-    /// Whether failed-login cleanup still owns the account boundary.
+    var loginCleanupAttemptID: LoginAttemptID? {
+        guard self.loginCleanupRequired else { return nil }
+        return self.activeLoginAttemptID ?? LoginAttemptID(rawValue: self.nextLoginAttemptID)
+    }
+
+    private(set) var isCookieRestoreUnavailable = false
+
+    var startupState: State? {
+        guard !self.isCookieRestoreUnavailable, self.loginCheckTask == nil else { return nil }
+        return self.state
+    }
+
     private(set) var isLoginCleanupInProgress = false
 
-    /// Whether pending cleanup originated from a guest/logged-out login attempt.
     private var loginCleanupPersistsGuestPlaybackState = false
 
-    /// Changes synchronously whenever an explicit sign-out begins.
     private(set) var signOutSequence: UInt64 = 0
 
-    /// Changes whenever the authenticated Google-user identity must be treated as unverified.
     private(set) var accountIdentityGeneration: UInt64 = 0
 
-    /// Whether a signed-in user is temporarily browsing as a guest.
-    /// Cookies/accounts stay available so the user can switch back without signing in again.
     private(set) var isGuestModeEnabled = false
 
-    /// Whether account-backed UI/actions/API requests should use the personal account.
     var hasPersonalAccount: Bool {
         self.state.isLoggedIn && !self.isGuestModeEnabled
     }
 
-    /// Whether playback WebViews should use a cookie-free data store.
-    /// Reauth prompts keep the existing account-cookie playback store so active
-    /// playback is not torn down while the user re-authenticates.
     var shouldUseCookieFreePlaybackDataStore: Bool {
-        if self.loginCleanupRequired {
+        if self.loginCleanupRequired || self.isCookieRestoreUnavailable {
             return true
         }
         if self.isGuestModeEnabled {
@@ -74,9 +71,6 @@ final class AuthService: AuthServiceProtocol {
         return false
     }
 
-    /// Whether account-scoped playback persistence should be tagged as guest-owned.
-    /// A signed-out user can temporarily be `.loggingIn` while the login sheet is
-    /// open; that flow should still preserve guest-owned queues if cancelled.
     var shouldPersistGuestPlaybackState: Bool {
         if self.loginCleanupRequired {
             return self.loginCleanupPersistsGuestPlaybackState
@@ -112,8 +106,6 @@ final class AuthService: AuthServiceProtocol {
 
     init(webKitManager: WebKitManagerProtocol = WebKitManager.shared) {
         self.webKitManager = webKitManager
-        // In UI test mode with skip auth, start in logged-in state immediately
-        // This avoids async delays that can cause UI test flakiness
         let isUITest = UITestConfig.isUITestMode
         let skipAuth = UITestConfig.shouldSkipAuth
         let forceLoggedOut = UITestConfig.environmentValue(for: UITestConfig.mockLoggedOutKey) == "true"
@@ -136,7 +128,6 @@ final class AuthService: AuthServiceProtocol {
         )
     }
 
-    /// Temporarily uses public guest mode while preserving the signed-in session.
     func enterGuestMode() async {
         guard self.state.isLoggedIn else { return }
         guard !self.isGuestModeEnabled else { return }
@@ -160,7 +151,6 @@ final class AuthService: AuthServiceProtocol {
         self.isGuestModeEnabled = true
     }
 
-    /// Leaves guest mode and resumes the signed-in personal account.
     func exitGuestMode(activeAccountID: String? = nil) async {
         guard self.isGuestModeEnabled else { return }
         self.guestModeTransitionGeneration &+= 1
@@ -186,9 +176,8 @@ final class AuthService: AuthServiceProtocol {
         self.isGuestModeEnabled = false
     }
 
-    /// Starts the login flow by presenting the login sheet.
     func startLogin() {
-        self.logger.info("Starting login flow")
+        self.logger.notice("Starting login flow")
         guard self.signOutTask == nil else {
             self.logger.info("Ignoring login request while sign-out is in progress")
             return
@@ -209,8 +198,12 @@ final class AuthService: AuthServiceProtocol {
         self.state = .loggingIn
     }
 
-    /// Cancels an in-progress login presentation without changing an already
-    /// completed authenticated session.
+    func deferLoginForCookieRestore(expectedAttemptID: LoginAttemptID) {
+        guard self.activeLoginAttemptID == expectedAttemptID else { return }
+        self.isCookieRestoreUnavailable = true
+        self.sessionExpired()
+    }
+
     func cancelLoginIfNeeded(expectedAttemptID: LoginAttemptID? = nil) {
         guard self.beginLoginCancellation(expectedAttemptID: expectedAttemptID) else { return }
         self.finishLoginCancellation()
@@ -239,16 +232,19 @@ final class AuthService: AuthServiceProtocol {
         self.cancellingLoginAttemptID = nil
         self.state = self.stateBeforeLogin ?? .loggedOut
         self.stateBeforeLogin = nil
-        self.logger.info("Login flow cancelled")
+        self.logger.notice("Login flow cancelled")
+        if self.state.isInitializing {
+            Task { @MainActor [weak self] in
+                guard let self, self.state.isInitializing else { return }
+                await self.checkLoginStatus()
+            }
+        }
     }
 
-    /// Registers account-owned WebKit mutation cleanup that every sign-out must await.
     func setSignOutPreparation(_ preparation: @escaping @MainActor @Sendable () async -> Void) {
         self.signOutPreparation = preparation
     }
 
-    /// Registers synchronous cancellation for account-scoped work before cookies,
-    /// guest mode, or authenticated identity can change.
     func setAccountBoundaryHandlers(
         willBegin: @escaping @MainActor @Sendable () -> Void,
         didEnd: @escaping @MainActor @Sendable () -> Void,
@@ -259,9 +255,8 @@ final class AuthService: AuthServiceProtocol {
         self.accountBoundaryDrain = drain
     }
 
-    /// Checks if the user is logged in based on existing cookies.
-    /// Waits for the initial Keychain restore before reading WebKit cookies.
     func checkLoginStatus() async {
+        guard !Task.isCancelled else { return }
         if let signOutTask = self.signOutTask {
             _ = await signOutTask.value
             if self.signOutTask == signOutTask {
@@ -286,19 +281,16 @@ final class AuthService: AuthServiceProtocol {
         let checkGeneration = self.loginCheckGeneration
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
-            let resolvedState = await self.resolveLoginState()
+            let (resolvedState, restoreResult) = await self.resolveLoginState()
             guard !Task.isCancelled,
                   checkGeneration == self.loginCheckGeneration
             else { return }
 
-            guard await self.transitionToResolvedState(
+            _ = await self.transitionToResolvedState(
                 resolvedState,
+                restoreResult: restoreResult,
                 expectedLoginCheckGeneration: checkGeneration
-            ) else { return }
-            if resolvedState.isLoggedIn {
-                self.needsReauth = false
-                self.updateLoginCleanupRequirement(false, requiresReauthentication: false)
-            }
+            )
         }
         self.loginCheckTask = task
         await task.value
@@ -306,7 +298,25 @@ final class AuthService: AuthServiceProtocol {
         self.loginCheckTask = nil
     }
 
-    /// Called when a session expires (e.g., 401/403 from API).
+    func cancelLoginStatusCheck() {
+        self.invalidateLoginCheck()
+    }
+
+    func checkLoginStatusForStartup(expectedState: State) async -> Bool {
+        guard !Task.isCancelled, self.startupState == expectedState else { return false }
+        switch expectedState {
+        case .initializing:
+            await self.checkLoginStatus()
+            return false
+        case .loggingIn:
+            return false
+        case .loggedOut:
+            return true
+        case .loggedIn:
+            return self.signOutTask == nil
+        }
+    }
+
     func sessionExpired() {
         self.cancelPendingGuestModeTransition()
         self.accountBoundaryWillBegin?()
@@ -314,19 +324,18 @@ final class AuthService: AuthServiceProtocol {
         self.applySessionExpiration()
     }
 
-    /// Expires only the authentication identity that originated an async request.
     func sessionExpired(ifIdentityGenerationMatches generation: UInt64) {
         guard generation == self.accountIdentityGeneration else { return }
         self.sessionExpired()
     }
 
-    /// Signs out the user by draining account-owned WebKit mutations, then clearing all data.
     @discardableResult
     func signOut() async -> Bool {
         if let signOutTask = self.signOutTask {
             return await signOutTask.value
         }
-        self.logger.info("Signing out user")
+        self.logger.notice("Signing out user")
+        self.invalidateLoginCheck()
         guard self.webKitManager.invalidateAuthCookieRestoration() else {
             self.logger.error("Could not persist sign-out intent before account drain")
             return false
@@ -335,8 +344,6 @@ final class AuthService: AuthServiceProtocol {
         self.cancelPendingGuestModeTransition()
         self.accountBoundaryWillBegin?()
 
-        // Fence authenticated work synchronously before the first suspension.
-        self.invalidateLoginCheck()
         self.activeLoginAttemptID = nil
         self.cancellingLoginAttemptID = nil
         self.advanceAccountIdentityGeneration()
@@ -344,6 +351,7 @@ final class AuthService: AuthServiceProtocol {
         self.state = .loggedOut
         self.isGuestModeEnabled = false
         self.needsReauth = false
+        self.isCookieRestoreUnavailable = false
         self.stateBeforeLogin = nil
 
         let preparation = self.signOutPreparation
@@ -378,7 +386,6 @@ final class AuthService: AuthServiceProtocol {
         URLCache.shared.removeAllCachedResponses()
     }
 
-    /// Commits a detected login only if its attempt remains current while account work drains.
     func completeLoginAfterDraining(
         expectedAttemptID: LoginAttemptID,
         persistBeforeCommit: @escaping @MainActor @Sendable () async -> String?,
@@ -583,14 +590,10 @@ final class AuthService: AuthServiceProtocol {
         SongLikeStatusManager.shared.clearCache()
         self.state = .loggedOut
         self.stateBeforeLogin = nil
-        // Drop cached personalized responses so a later login in the same
-        // session can't be served the previous user's data (incl. the
-        // account-unknown "pending" cache scope) before its TTL expires.
         self.clearAPIResponseCaches()
     }
 
     #if DEBUG
-        /// Test-only fast path for isolated AuthService instances with no account-boundary wiring.
         func completeLogin(sapisid: String) {
             precondition(
                 self.accountBoundaryWillBegin == nil
@@ -615,13 +618,11 @@ final class AuthService: AuthServiceProtocol {
         if self.isGuestModeEnabled {
             self.applyPersonalMode(activeAccountID: nil)
         }
-        // Login completion is an explicit identity boundary even when Google
-        // reuses the same SAPISID across multi-login accounts. Fence every older
-        // authenticated request before publishing the resolved session.
         self.advanceAccountIdentityGeneration()
         self.clearAPIResponseCaches()
         self.state = .loggedIn(sapisid: sapisid)
         self.needsReauth = false
+        self.isCookieRestoreUnavailable = false
         self.updateLoginCleanupRequirement(false, requiresReauthentication: false)
         self.stateBeforeLogin = nil
     }
@@ -632,6 +633,7 @@ final class AuthService: AuthServiceProtocol {
 
     private func transitionToResolvedState(
         _ newState: State,
+        restoreResult: CookieRestoreResult,
         expectedLoginCheckGeneration: UInt64
     ) async -> Bool {
         let previousIdentity = self.activeAuthenticationIdentity
@@ -662,9 +664,25 @@ final class AuthService: AuthServiceProtocol {
             self.advanceAccountIdentityGeneration()
             self.clearAPIResponseCaches()
         }
+        let wasCookieRestoreUnavailable = self.isCookieRestoreUnavailable
         self.state = newState
         self.activeLoginAttemptID = nil
         self.cancellingLoginAttemptID = nil
+        self.isCookieRestoreUnavailable = restoreResult == .unavailable
+        switch restoreResult {
+        case .ready:
+            if wasCookieRestoreUnavailable || newState.isLoggedIn {
+                self.needsReauth = false
+            }
+            if newState.isLoggedIn {
+                self.updateLoginCleanupRequirement(false, requiresReauthentication: false)
+            }
+        case .unavailable:
+            self.needsReauth = true
+        case .failed:
+            self.updateLoginCleanupRequirement(true, requiresReauthentication: true)
+            self.needsReauth = true
+        }
         return true
     }
 
@@ -686,47 +704,51 @@ final class AuthService: AuthServiceProtocol {
         self.loginCheckTask = nil
     }
 
-    private func resolveLoginState() async -> State {
+    private func resolveLoginState() async -> (State, CookieRestoreResult) {
         if UITestConfig.isUITestMode,
            UITestConfig.environmentValue(for: UITestConfig.mockLoggedOutKey) == "true"
         {
             self.logger.info("UI Test mode: forcing logged out state")
-            return .loggedOut
+            return (.loggedOut, .ready)
         }
 
         if UITestConfig.isUITestMode, UITestConfig.shouldSkipAuth {
             self.logger.info("UI Test mode: skipping auth check, assuming logged in")
-            return .loggedIn(sapisid: "mock-sapisid-for-ui-tests")
+            return (.loggedIn(sapisid: "mock-sapisid-for-ui-tests"), .ready)
         }
 
         guard !self.loginCleanupRequired else {
             self.logger.error("Cookie cleanup is pending; resolving authentication as logged out")
-            return .loggedOut
+            return (.loggedOut, .failed)
         }
 
         self.logger.debug("Checking login status from cookies")
-        let canEvaluateAuthentication = await self.webKitManager.waitForInitialCookieRestore()
-        guard !Task.isCancelled else { return self.state }
-        guard !self.loginCleanupRequired else { return .loggedOut }
-        guard canEvaluateAuthentication else {
+        let restoreResult = await self.webKitManager.waitForInitialCookieRestore()
+        guard !Task.isCancelled else { return (self.state, restoreResult) }
+        guard !self.loginCleanupRequired else { return (.loggedOut, .failed) }
+        switch restoreResult {
+        case .ready:
+            break
+        case .unavailable:
+            self.logger.error("Saved sign-in data is unavailable; preserving the session for retry")
+            return (.loggedOut, .unavailable)
+        case .failed:
             self.logger.error("Initial cookie cleanup failed; refusing to evaluate authentication cookies")
-            self.updateLoginCleanupRequirement(true, requiresReauthentication: true)
-            self.needsReauth = true
-            return .loggedOut
+            return (.loggedOut, .failed)
         }
         self.logger.debug("Initial cookie restore completed, checking auth cookies")
 
         #if DEBUG
             await self.webKitManager.logAuthCookies()
-            guard !Task.isCancelled else { return self.state }
+            guard !Task.isCancelled else { return (self.state, .ready) }
         #endif
 
         if let sapisid = await self.webKitManager.getSAPISID() {
             self.logger.info("Found SAPISID cookie after initial restore, user is logged in")
-            return .loggedIn(sapisid: sapisid)
+            return (.loggedIn(sapisid: sapisid), .ready)
         }
 
         self.logger.info("No SAPISID cookie found after initial restore, user is logged out")
-        return .loggedOut
+        return (.loggedOut, .ready)
     }
 }

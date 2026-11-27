@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for ExploreViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct ExploreViewModelTests {
@@ -22,7 +21,6 @@ struct ExploreViewModelTests {
 
     @Test("Load success filters out Charts section")
     func loadSuccess() async {
-        // "Charts" section is filtered out by ExploreViewModel since it's in the sidebar
         let expectedSections = [
             TestFixtures.makeHomeSection(title: "New releases"),
             TestFixtures.makeHomeSection(title: "Charts"),
@@ -34,7 +32,6 @@ struct ExploreViewModelTests {
 
         #expect(self.mockClient.getExploreCalled == true)
         #expect(self.viewModel.loadingState == .loaded)
-        // "Charts" section is filtered out, so we expect 2 sections
         #expect(self.viewModel.sections.count == 2)
         #expect(self.viewModel.sections[0].title == "New releases")
         #expect(self.viewModel.sections[1].title == "Moods & genres")
@@ -101,7 +98,6 @@ struct ExploreViewModelTests {
 
         #expect(self.mockClient.getExploreCalled == true)
         if case .error = self.viewModel.loadingState {
-            // Expected
         } else {
             Issue.record("Expected error state")
         }

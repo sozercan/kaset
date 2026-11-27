@@ -3,10 +3,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the PlaylistParser.
 @Suite(.tags(.parser))
 struct PlaylistParserTests { // swiftlint:disable:this type_body_length
-    // MARK: - Library Playlists
 
     @Test("Parse empty library playlists response")
     func parseLibraryPlaylistsEmpty() {
@@ -622,8 +620,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(artists.map(\.name) == ["Duplicate Artist"])
     }
 
-    // MARK: - Playlist Detail
-
     @Test("Parse playlist detail with header")
     func parsePlaylistDetailWithMusicDetailHeader() {
         let data = self.makePlaylistDetailData(
@@ -1060,15 +1056,13 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(response.hasMore == true)
     }
 
-    // MARK: - Album Detection
-
     @Test(
         "Album detection based on ID prefix",
         arguments: [
-            ("MPRE12345", true), // Album prefix
-            ("VL12345", false), // Playlist prefix
-            ("OLAK12345", true), // Another album prefix
-            ("RDCLAK", false), // Radio prefix
+            ("MPRE12345", true),
+            ("VL12345", false),
+            ("OLAK12345", true),
+            ("RDCLAK", false),
         ]
     )
     func isAlbumDetection(playlistId: String, expectedIsAlbum: Bool) {
@@ -1077,11 +1071,8 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(detail.isAlbum == expectedIsAlbum)
     }
 
-    // MARK: - Continuation Parsing
-
     @Test("Parse 2025 continuation format with onResponseReceivedActions")
     func parsePlaylistContinuation2025Format() {
-        // Create mock 2025 continuation response format
         var continuationItems: [[String: Any]] = []
 
         for i in 0 ..< 5 {
@@ -1099,7 +1090,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
             ])
         }
 
-        // Add continuation token at the end (for next page)
         continuationItems.append([
             "continuationItemRenderer": [
                 "continuationEndpoint": [
@@ -1146,8 +1136,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
             ])
         }
 
-        // No continuationItemRenderer at the end - this is the last page
-
         let data: [String: Any] = [
             "onResponseReceivedActions": [[
                 "appendContinuationItemsAction": [
@@ -1162,8 +1150,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(response.hasMore == false)
         #expect(response.continuationToken == nil)
     }
-
-    // MARK: - Add to Playlist
 
     @Test("Parse add-to-playlist menu from known option renderers")
     func parseAddToPlaylistMenuKnownOptionRenderers() {
@@ -1363,8 +1349,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(menu.options.map(\.isSelected) == [true, true, true])
     }
 
-    // MARK: - Created Playlist
-
     @Test("Parse created playlist ID from top-level field")
     func parseCreatedPlaylistIdTopLevel() {
         let data: [String: Any] = [
@@ -1472,8 +1456,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
 
         #expect(playlistId == nil)
     }
-
-    // MARK: - Helpers
 
     private func makeAddToPlaylistOptionData(id: String, title: String, checkStatus: String) -> [String: Any] {
         [

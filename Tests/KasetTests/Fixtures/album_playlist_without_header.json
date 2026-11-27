@@ -1,0 +1,595 @@
+{
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "content": {
+              "sectionListRenderer": {
+                "targetId": "VLOLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4_header"
+              }
+            }
+          }
+        }
+      ],
+      "secondaryContents": {
+        "sectionListRenderer": {
+          "targetId": "VLOLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+          "contents": [
+            {
+              "musicPlaylistShelfRenderer": {
+                "collapsedItemCount": 40,
+                "contents": [
+                  {
+                    "musicResponsiveListItemRenderer": {
+                      "thumbnail": {
+                        "musicThumbnailRenderer": {
+                          "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT",
+                          "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://yt3.googleusercontent.com/g8bzAg2zxvdnm7ismLMYLA9-9azb4y6VP2uOF56A2G2rpsqLHT6mrJWXRKq_VttXQZ-o-jmVgTFIVgdj=w60-h60-l90-rj",
+                                "width": 60,
+                                "height": 60
+                              },
+                              {
+                                "url": "https://yt3.googleusercontent.com/g8bzAg2zxvdnm7ismLMYLA9-9azb4y6VP2uOF56A2G2rpsqLHT6mrJWXRKq_VttXQZ-o-jmVgTFIVgdj=w120-h120-l90-rj",
+                                "width": 120,
+                                "height": 120
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "playlistItemData": {
+                        "playlistSetVideoId": "835B8DB79B112462",
+                        "videoId": "wqaKHHxQFZc",
+                        "voteSortValue": 1784341764
+                      },
+                      "flexColumns": [
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "watchEndpoint": {
+                                      "playlistId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                                      "videoId": "wqaKHHxQFZc",
+                                      "watchEndpointMusicSupportedConfigs": {
+                                        "watchEndpointMusicConfig": {
+                                          "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "Come Together (2019 Mix)"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UC2XdaAVUannpujzv32jcouQ",
+                                      "browseEndpointContextSupportedConfigs": {
+                                        "browseEndpointContextMusicConfig": {
+                                          "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "The Beatles"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "MPREb_tQfaWH32ovE",
+                                      "browseEndpointContextSupportedConfigs": {
+                                        "browseEndpointContextMusicConfig": {
+                                          "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "Abbey Road (Super Deluxe Edition)"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "overlay": {
+                        "musicItemThumbnailOverlayRenderer": {
+                          "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                          "content": {
+                            "musicPlayButtonRenderer": {
+                              "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                              "iconColor": 4294967295,
+                              "backgroundColor": 0,
+                              "iconLoadingColor": 0,
+                              "pauseIcon": {
+                                "iconType": "PAUSE"
+                              },
+                              "activeScaleFactor": 1,
+                              "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                              "playNavigationEndpoint": {
+                                "watchEndpoint": {
+                                  "playlistId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                                  "playlistSetVideoId": "835B8DB79B112462",
+                                  "videoId": "wqaKHHxQFZc",
+                                  "playerParams": "ygYQODM1QjhEQjc5QjExMjQ2Mg%3D%3D",
+                                  "watchEndpointMusicSupportedConfigs": {
+                                    "watchEndpointMusicConfig": {
+                                      "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                    }
+                                  }
+                                }
+                              },
+                              "loadingIndicatorColor": 14745645,
+                              "playIcon": {
+                                "iconType": "PLAY_ARROW"
+                              },
+                              "activeBackgroundColor": 0,
+                              "accessibilityPlayData": {
+                                "accessibilityData": {
+                                  "label": "Play Come Together (2019 Mix) - The Beatles - 4 minutes, 21 seconds"
+                                }
+                              },
+                              "playingIcon": {
+                                "iconType": "VOLUME_UP"
+                              },
+                              "accessibilityPauseData": {
+                                "accessibilityData": {
+                                  "label": "Pause Come Together (2019 Mix) - The Beatles - 4 minutes, 21 seconds"
+                                }
+                              }
+                            }
+                          },
+                          "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT",
+                          "background": {
+                            "verticalGradient": {
+                              "gradientLayerColors": [
+                                "3422552064",
+                                "3422552064"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "fixedColumns": [
+                        {
+                          "musicResponsiveListItemFixedColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "4:21"
+                                }
+                              ],
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "4 minutes, 21 seconds"
+                                }
+                              }
+                            },
+                            "size": "MUSIC_RESPONSIVE_LIST_ITEM_FIXED_COLUMN_SIZE_SMALL"
+                          }
+                        }
+                      ],
+                      "multiSelectCheckbox": {
+                        "checkboxRenderer": {
+                          "onSelectionChangeCommand": {
+                            "updateMultiSelectStateCommand": {
+                              "multiSelectParams": "CAISKU9MQUs1dXlfbHFjRlpUT1BIR3djblAwbllNek51WTBJRVMwZmw3RmU0",
+                              "multiSelectItem": "Ch8KC3dxYUtISHhRRlpjEhA4MzVCOERCNzlCMTEyNDYy"
+                            }
+                          },
+                          "checkedState": "CHECKBOX_CHECKED_STATE_UNCHECKED"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "musicResponsiveListItemRenderer": {
+                      "thumbnail": {
+                        "musicThumbnailRenderer": {
+                          "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT",
+                          "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://yt3.googleusercontent.com/g8bzAg2zxvdnm7ismLMYLA9-9azb4y6VP2uOF56A2G2rpsqLHT6mrJWXRKq_VttXQZ-o-jmVgTFIVgdj=w60-h60-l90-rj",
+                                "width": 60,
+                                "height": 60
+                              },
+                              {
+                                "url": "https://yt3.googleusercontent.com/g8bzAg2zxvdnm7ismLMYLA9-9azb4y6VP2uOF56A2G2rpsqLHT6mrJWXRKq_VttXQZ-o-jmVgTFIVgdj=w120-h120-l90-rj",
+                                "width": 120,
+                                "height": 120
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "playlistItemData": {
+                        "playlistSetVideoId": "D112E673101DC65E",
+                        "videoId": "cNavPZ8GA6I",
+                        "voteSortValue": 1784341764
+                      },
+                      "flexColumns": [
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "watchEndpoint": {
+                                      "playlistId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                                      "videoId": "cNavPZ8GA6I",
+                                      "playerParams": "0gcJCTMC0OBS9m0t",
+                                      "watchEndpointMusicSupportedConfigs": {
+                                        "watchEndpointMusicConfig": {
+                                          "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "Something (2019 Mix)"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UC2XdaAVUannpujzv32jcouQ",
+                                      "browseEndpointContextSupportedConfigs": {
+                                        "browseEndpointContextMusicConfig": {
+                                          "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "The Beatles"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "MPREb_tQfaWH32ovE",
+                                      "browseEndpointContextSupportedConfigs": {
+                                        "browseEndpointContextMusicConfig": {
+                                          "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "Abbey Road (Super Deluxe Edition)"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "overlay": {
+                        "musicItemThumbnailOverlayRenderer": {
+                          "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                          "content": {
+                            "musicPlayButtonRenderer": {
+                              "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                              "iconColor": 4294967295,
+                              "backgroundColor": 0,
+                              "iconLoadingColor": 0,
+                              "pauseIcon": {
+                                "iconType": "PAUSE"
+                              },
+                              "activeScaleFactor": 1,
+                              "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                              "playNavigationEndpoint": {
+                                "watchEndpoint": {
+                                  "playlistId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                                  "playlistSetVideoId": "D112E673101DC65E",
+                                  "videoId": "cNavPZ8GA6I",
+                                  "playerParams": "ygYQRDExMkU2NzMxMDFEQzY1RQ%3D%3D",
+                                  "watchEndpointMusicSupportedConfigs": {
+                                    "watchEndpointMusicConfig": {
+                                      "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                    }
+                                  }
+                                }
+                              },
+                              "loadingIndicatorColor": 14745645,
+                              "playIcon": {
+                                "iconType": "PLAY_ARROW"
+                              },
+                              "activeBackgroundColor": 0,
+                              "accessibilityPlayData": {
+                                "accessibilityData": {
+                                  "label": "Play Something (2019 Mix) - The Beatles - 3 minutes, 3 seconds"
+                                }
+                              },
+                              "playingIcon": {
+                                "iconType": "VOLUME_UP"
+                              },
+                              "accessibilityPauseData": {
+                                "accessibilityData": {
+                                  "label": "Pause Something (2019 Mix) - The Beatles - 3 minutes, 3 seconds"
+                                }
+                              }
+                            }
+                          },
+                          "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT",
+                          "background": {
+                            "verticalGradient": {
+                              "gradientLayerColors": [
+                                "3422552064",
+                                "3422552064"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "fixedColumns": [
+                        {
+                          "musicResponsiveListItemFixedColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "3:03"
+                                }
+                              ],
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "3 minutes, 3 seconds"
+                                }
+                              }
+                            },
+                            "size": "MUSIC_RESPONSIVE_LIST_ITEM_FIXED_COLUMN_SIZE_SMALL"
+                          }
+                        }
+                      ],
+                      "multiSelectCheckbox": {
+                        "checkboxRenderer": {
+                          "onSelectionChangeCommand": {
+                            "updateMultiSelectStateCommand": {
+                              "multiSelectParams": "CAISKU9MQUs1dXlfbHFjRlpUT1BIR3djblAwbllNek51WTBJRVMwZmw3RmU0",
+                              "multiSelectItem": "Ch8KC2NOYXZQWjhHQTZJEhBEMTEyRTY3MzEwMURDNjVF"
+                            }
+                          },
+                          "checkedState": "CHECKBOX_CHECKED_STATE_UNCHECKED"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "musicResponsiveListItemRenderer": {
+                      "thumbnail": {
+                        "musicThumbnailRenderer": {
+                          "thumbnailScale": "MUSIC_THUMBNAIL_SCALE_ASPECT_FIT",
+                          "thumbnailCrop": "MUSIC_THUMBNAIL_CROP_UNSPECIFIED",
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://yt3.googleusercontent.com/g8bzAg2zxvdnm7ismLMYLA9-9azb4y6VP2uOF56A2G2rpsqLHT6mrJWXRKq_VttXQZ-o-jmVgTFIVgdj=w60-h60-l90-rj",
+                                "width": 60,
+                                "height": 60
+                              },
+                              {
+                                "url": "https://yt3.googleusercontent.com/g8bzAg2zxvdnm7ismLMYLA9-9azb4y6VP2uOF56A2G2rpsqLHT6mrJWXRKq_VttXQZ-o-jmVgTFIVgdj=w120-h120-l90-rj",
+                                "width": 120,
+                                "height": 120
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "playlistItemData": {
+                        "playlistSetVideoId": "169D29B0A69DDAFB",
+                        "videoId": "3HuXFfq79I8",
+                        "voteSortValue": 1784341764
+                      },
+                      "flexColumns": [
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "watchEndpoint": {
+                                      "playlistId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                                      "videoId": "3HuXFfq79I8",
+                                      "watchEndpointMusicSupportedConfigs": {
+                                        "watchEndpointMusicConfig": {
+                                          "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "Maxwell's Silver Hammer (2019 Mix)"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "UC2XdaAVUannpujzv32jcouQ",
+                                      "browseEndpointContextSupportedConfigs": {
+                                        "browseEndpointContextMusicConfig": {
+                                          "pageType": "MUSIC_PAGE_TYPE_ARTIST"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "The Beatles"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "musicResponsiveListItemFlexColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_MEDIUM",
+                            "text": {
+                              "runs": [
+                                {
+                                  "navigationEndpoint": {
+                                    "browseEndpoint": {
+                                      "browseId": "MPREb_tQfaWH32ovE",
+                                      "browseEndpointContextSupportedConfigs": {
+                                        "browseEndpointContextMusicConfig": {
+                                          "pageType": "MUSIC_PAGE_TYPE_ALBUM"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": "Abbey Road (Super Deluxe Edition)"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "overlay": {
+                        "musicItemThumbnailOverlayRenderer": {
+                          "contentPosition": "MUSIC_ITEM_THUMBNAIL_OVERLAY_CONTENT_POSITION_CENTERED",
+                          "content": {
+                            "musicPlayButtonRenderer": {
+                              "rippleTarget": "MUSIC_PLAY_BUTTON_RIPPLE_TARGET_SELF",
+                              "iconColor": 4294967295,
+                              "backgroundColor": 0,
+                              "iconLoadingColor": 0,
+                              "pauseIcon": {
+                                "iconType": "PAUSE"
+                              },
+                              "activeScaleFactor": 1,
+                              "buttonSize": "MUSIC_PLAY_BUTTON_SIZE_SMALL",
+                              "playNavigationEndpoint": {
+                                "watchEndpoint": {
+                                  "playlistId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                                  "playlistSetVideoId": "169D29B0A69DDAFB",
+                                  "videoId": "3HuXFfq79I8",
+                                  "playerParams": "ygYQMTY5RDI5QjBBNjlEREFGQg%3D%3D",
+                                  "watchEndpointMusicSupportedConfigs": {
+                                    "watchEndpointMusicConfig": {
+                                      "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                    }
+                                  }
+                                }
+                              },
+                              "loadingIndicatorColor": 14745645,
+                              "playIcon": {
+                                "iconType": "PLAY_ARROW"
+                              },
+                              "activeBackgroundColor": 0,
+                              "accessibilityPlayData": {
+                                "accessibilityData": {
+                                  "label": "Play Maxwell's Silver Hammer (2019 Mix) - The Beatles - 3 minutes, 28 seconds"
+                                }
+                              },
+                              "playingIcon": {
+                                "iconType": "VOLUME_UP"
+                              },
+                              "accessibilityPauseData": {
+                                "accessibilityData": {
+                                  "label": "Pause Maxwell's Silver Hammer (2019 Mix) - The Beatles - 3 minutes, 28 seconds"
+                                }
+                              }
+                            }
+                          },
+                          "displayStyle": "MUSIC_ITEM_THUMBNAIL_OVERLAY_DISPLAY_STYLE_PERSISTENT",
+                          "background": {
+                            "verticalGradient": {
+                              "gradientLayerColors": [
+                                "3422552064",
+                                "3422552064"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "fixedColumns": [
+                        {
+                          "musicResponsiveListItemFixedColumnRenderer": {
+                            "displayPriority": "MUSIC_RESPONSIVE_LIST_ITEM_COLUMN_DISPLAY_PRIORITY_HIGH",
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "3:28"
+                                }
+                              ],
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "3 minutes, 28 seconds"
+                                }
+                              }
+                            },
+                            "size": "MUSIC_RESPONSIVE_LIST_ITEM_FIXED_COLUMN_SIZE_SMALL"
+                          }
+                        }
+                      ],
+                      "multiSelectCheckbox": {
+                        "checkboxRenderer": {
+                          "onSelectionChangeCommand": {
+                            "updateMultiSelectStateCommand": {
+                              "multiSelectParams": "CAISKU9MQUs1dXlfbHFjRlpUT1BIR3djblAwbllNek51WTBJRVMwZmw3RmU0",
+                              "multiSelectItem": "Ch8KCzNIdVhGZnE3OUk4EhAxNjlEMjlCMEE2OUREQUZC"
+                            }
+                          },
+                          "checkedState": "CHECKBOX_CHECKED_STATE_UNCHECKED"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "targetId": "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4",
+                "contentsMultiSelectable": true
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

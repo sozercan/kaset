@@ -1,6 +1,5 @@
 import Foundation
 
-/// Prepares song metadata before inserting tracks into the native queue.
 enum QueueSongMetadata {
     enum AlbumSongPurpose {
         case queue
@@ -150,7 +149,9 @@ enum QueueSongMetadata {
             likeStatus: song.likeStatus,
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
-            isExplicit: song.isExplicit
+            isExplicit: song.isExplicit,
+            playlistSetVideoId: song.playlistSetVideoId,
+            audioTrackVideoId: song.audioTrackVideoId
         )
     }
 }

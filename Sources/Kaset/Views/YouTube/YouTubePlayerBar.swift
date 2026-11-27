@@ -1,28 +1,15 @@
 import SwiftUI
 
-// MARK: - YouTubePlayerBar
-
-/// The Liquid Glass player bar, adapted for YouTube video playback.
-///
-/// Shares the music `PlayerBar` layout and appears when a YouTube video is loaded.
-/// Differences per the YouTube content model:
-/// - No shuffle/repeat — left/right transport controls seek 30 seconds
-///   back/forward within the current video.
-/// - Center shows the video thumbnail, title, and channel · views.
-/// - No lyrics/queue buttons; chapter breaks appear in the progress bar when
-///   the watch page response exposes chapters.
-/// - The minimize button drives the video pop-out (picture in picture);
-///   the TV button toggles fullscreen on the popped-out window.
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
     private static let baseYouTubeOptionsWidth: CGFloat = 210
-    private static let floatOnTopOptionsWidthIncrement: CGFloat = 28 + 6
+    private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
-    /// Below this the details block would collide with the transport controls.
-    /// Only the resizable detached window reaches this narrow layout.
     private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
+
+    private static let hiddenDetailsLeadingInset: CGFloat = 16
 
     private struct ChapterProgressSpan {
         let chapter: YouTubeChapter
@@ -39,17 +26,14 @@ struct YouTubePlayerBar: View {
     private let isDetachedWindow: Bool
     private let onVolumeOverlayChange: (Bool) -> Void
 
-    /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
 
     @State private var settings = SettingsManager.shared
-    @State private var seekValue: Double = 0
-    @State private var isSeeking = false
-    @State private var seekHold = PlayerBarSeekHold()
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
     @State private var showsVolumeOverlay = false
     @State private var chapterPreviewMarker: PlayerBarProgressMarker?
+    @State private var airPlayAnchor = AirPlayPickerAnchor()
 
     init(isDetachedWindow: Bool, onVolumeOverlayChange: @escaping (Bool) -> Void = { _ in }) {
         self.isDetachedWindow = isDetachedWindow
@@ -74,6 +58,7 @@ struct YouTubePlayerBar: View {
                     }
 
                     self.youtubeProgressSection
+                        .padding(.leading, hidesDetails ? Self.hiddenDetailsLeadingInset : 0)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
 
@@ -91,24 +76,10 @@ struct YouTubePlayerBar: View {
         .background(alignment: .bottom) {
             self.playerAreaFade
         }
-        .onChange(of: self.youtubePlayer.progress) { _, newValue in
-            self.seekHold.reconcile(observedProgress: newValue)
-            if !self.isSeeking, !self.seekHold.isActive, self.youtubePlayer.duration > 0 {
-                self.seekValue = self.displayedPlaybackProgress / self.youtubePlayer.duration
-            }
-        }
-        .onChange(of: self.youtubePlayer.duration) { _, newValue in
-            self.seekHold.reconcile(observedProgress: self.youtubePlayer.progress)
-            if !self.isSeeking, !self.seekHold.isActive, newValue > 0 {
-                self.seekValue = self.displayedPlaybackProgress / newValue
-            }
-        }
         .onChange(of: self.currentSeekIdentity) { _, _ in
-            self.clearSeekHold()
             self.chapterPreviewMarker = nil
         }
-        .onChange(of: self.youtubePlayer.isShowingAd) { _, _ in
-            self.clearSeekHold()
+        .onChange(of: self.canSeek) { _, _ in
             self.chapterPreviewMarker = nil
         }
         .onChange(of: self.youtubePlayer.volume) { _, newValue in
@@ -119,9 +90,6 @@ struct YouTubePlayerBar: View {
         .onChange(of: self.showsVolumeOverlay) { _, isPresented in self.onVolumeOverlayChange(isPresented) }
         .onAppear {
             self.volumeValue = self.youtubePlayer.volume
-            if self.youtubePlayer.duration > 0 {
-                self.seekValue = self.youtubePlayer.progress / self.youtubePlayer.duration
-            }
         }
     }
 
@@ -140,8 +108,6 @@ struct YouTubePlayerBar: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
-
-    // MARK: - Updated Player Layout
 
     private func videoDetailsSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
@@ -179,8 +145,8 @@ struct YouTubePlayerBar: View {
                 VStack(alignment: .leading, spacing: 4) {
                     PlayerBarMarqueeText(
                         text: self.videoDetailsTitle,
-                        font: .system(size: 13),
-                        color: .primary,
+                        font: .systemFont(ofSize: 13),
+                        color: .labelColor,
                         height: 13,
                         reduceMotion: self.reduceMotion
                     )
@@ -265,14 +231,6 @@ struct YouTubePlayerBar: View {
         URL(string: "https://i.ytimg.com/vi/\(videoId)/mqdefault.jpg")
     }
 
-    private func uniqueURLs(_ urls: [URL?]) -> [URL] {
-        var seen = Set<URL>()
-        return urls.compactMap { url in
-            guard let url, seen.insert(url).inserted else { return nil }
-            return url
-        }
-    }
-
     private var currentTitleIdentity: String {
         [
             self.youtubePlayer.currentVideo?.id ?? "none",
@@ -301,28 +259,17 @@ struct YouTubePlayerBar: View {
                 if self.youtubePlayer.isShowingAd {
                     PlayerBarAdIndicator()
                 } else {
-                    PlayerBarProgressLane(
-                        fraction: self.displayFraction,
+                    YouTubePlayerBarTimelineLane(
                         accent: Self.brandAccent,
-                        elapsedText: Self.formatTime(self.progressTextValue),
-                        remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
                         markers: self.chapterProgressMarkers,
                         segments: self.chapterProgressSegments,
-                        isLive: false,
+                        isLive: self.isLive,
                         canSeek: self.canSeek,
-                        isLoading: self.isProgressLoading,
-                        onScrub: { fraction in
-                            self.isSeeking = true
-                            self.seekValue = fraction
-                        },
-                        onCommit: self.performSeek,
                         onMarkerPreviewChange: { self.chapterPreviewMarker = $0 }
                     )
                 }
             }
             .padding(.top, 18)
-            // Match the music player's segmented lane layering so chapter tooltips stay above
-            // transport controls without intercepting their clicks.
             .zIndex(1)
 
             self.youtubeTransportControls
@@ -333,20 +280,9 @@ struct YouTubePlayerBar: View {
 
     private var youtubeTransportControls: some View {
         HStack(spacing: 6) {
-            PlayerBarIconButton(
-                action: {
-                    HapticService.playback()
-                    self.youtubePlayer.seekBackward()
-                },
-                accessibilityLabel: String(localized: "Back 30 seconds"),
-                icon: {
-                    Image(systemName: "gobackward.30")
-                        .font(.system(size: 16, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.primary)
-                }
-            )
-            .disabled(!self.canSeek)
+            if !self.isLive {
+                self.youtubeSeekButton(isForward: false)
+            }
 
             PlayerBarIconButton(
                 action: {
@@ -366,20 +302,9 @@ struct YouTubePlayerBar: View {
             .compatGlassID("youtubePlayPause", in: self.playerNamespace)
             .disabled(self.youtubePlayer.currentVideo == nil)
 
-            PlayerBarIconButton(
-                action: {
-                    HapticService.playback()
-                    self.youtubePlayer.seekForward()
-                },
-                accessibilityLabel: String(localized: "Forward 30 seconds"),
-                icon: {
-                    Image(systemName: "goforward.30")
-                        .font(.system(size: 16, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.primary)
-                }
-            )
-            .disabled(!self.canSeek)
+            if !self.isLive {
+                self.youtubeSeekButton(isForward: true)
+            }
 
             PlayerBarIconButton(
                 action: self.toggleYouTubeVolumeOverlay,
@@ -397,6 +322,27 @@ struct YouTubePlayerBar: View {
                 self.youtubeVolumeOverlay
             }
         }
+    }
+
+    private func youtubeSeekButton(isForward: Bool) -> some View {
+        PlayerBarIconButton(
+            action: {
+                HapticService.playback()
+                if isForward {
+                    self.youtubePlayer.seekForward()
+                } else {
+                    self.youtubePlayer.seekBackward()
+                }
+            },
+            accessibilityLabel: isForward ? String(localized: "Forward 30 seconds") : String(localized: "Back 30 seconds"),
+            icon: {
+                Image(systemName: isForward ? "goforward.30" : "gobackward.30")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(.primary)
+            }
+        )
+        .disabled(!self.canSeek)
     }
 
     private var youtubeOptionsSection: some View {
@@ -439,7 +385,7 @@ struct YouTubePlayerBar: View {
             PlayerBarIconButton(
                 action: {
                     HapticService.toggle()
-                    self.youtubePlayer.showAirPlayPicker()
+                    self.youtubePlayer.showAirPlayPicker(at: self.airPlayAnchor.screenPoint)
                 },
                 accessibilityLabel: String(localized: "AirPlay"),
                 icon: {
@@ -449,6 +395,11 @@ struct YouTubePlayerBar: View {
                         .foregroundStyle(.primary)
                 }
             )
+            .background {
+                AirPlayPickerAnchorView(anchor: self.airPlayAnchor)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
             .disabled(self.youtubePlayer.currentVideo == nil)
 
             self.compactCaptionsMenu
@@ -484,27 +435,16 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.captionsButton,
             accessibilityLabel: String(localized: "Closed captions")
         ) {
-            Button {
-                self.youtubePlayer.selectCaptionTrack(languageCode: nil)
-            } label: {
-                if self.youtubePlayer.activeCaptionLanguageCode == nil {
-                    Label(String(localized: "Off"), systemImage: "checkmark")
-                } else {
-                    Text("Off", comment: "Captions off menu item")
+            Picker(String(localized: "Closed captions"), selection: self.captionSelection) {
+                Text("Off", comment: "Captions off menu item")
+                    .tag(String?.none)
+                ForEach(self.youtubePlayer.captionTracks) { track in
+                    Text(track.displayName)
+                        .tag(String?.some(track.languageCode))
                 }
             }
-
-            ForEach(self.youtubePlayer.captionTracks) { track in
-                Button {
-                    self.youtubePlayer.selectCaptionTrack(languageCode: track.languageCode)
-                } label: {
-                    if self.youtubePlayer.activeCaptionLanguageCode == track.languageCode {
-                        Label(track.displayName, systemImage: "checkmark")
-                    } else {
-                        Text(track.displayName)
-                    }
-                }
-            }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: self.youtubePlayer.activeCaptionLanguageCode == nil ? "captions.bubble" : "captions.bubble.fill")
                 .font(.system(size: 16, weight: .regular))
@@ -519,17 +459,14 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.qualityButton,
             accessibilityLabel: String(localized: "Video quality")
         ) {
-            ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
-                Button {
-                    self.youtubePlayer.selectQuality(level)
-                } label: {
-                    if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
-                        Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
-                    } else {
-                        Text(YouTubeQuality.displayName(for: level))
-                    }
+            Picker(String(localized: "Video quality"), selection: self.qualitySelection) {
+                ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
+                    Text(YouTubeQuality.displayName(for: level))
+                        .tag(level)
                 }
             }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: "gearshape")
                 .font(.system(size: 16, weight: .regular))
@@ -537,6 +474,20 @@ struct YouTubePlayerBar: View {
                 .foregroundStyle(.primary)
         }
         .disabled(self.youtubePlayer.qualityLevels.isEmpty)
+    }
+
+    private var captionSelection: Binding<String?> {
+        Binding(
+            get: { self.youtubePlayer.activeCaptionLanguageCode },
+            set: { self.youtubePlayer.selectCaptionTrack(languageCode: $0) }
+        )
+    }
+
+    private var qualitySelection: Binding<String> {
+        Binding(
+            get: { self.youtubePlayer.userPinnedQuality ?? "auto" },
+            set: { self.youtubePlayer.selectQuality($0) }
+        )
     }
 
     private var youtubeVolumeOverlay: some View {
@@ -592,29 +543,12 @@ struct YouTubePlayerBar: View {
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
     }
 
-    /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
-    private var displayFraction: Double {
-        if self.isSeeking {
-            return min(max(0, self.seekValue), 1)
-        }
-        guard self.youtubePlayer.duration > 0 else { return 0 }
-        return min(max(0, self.displayedPlaybackProgress / self.youtubePlayer.duration), 1)
-    }
-
-    private var progressTextValue: TimeInterval {
-        self.isSeeking ? self.seekValue * self.youtubePlayer.duration : self.displayedPlaybackProgress
-    }
-
-    private var displayedPlaybackProgress: TimeInterval {
-        self.seekHold.displayProgress(observedProgress: self.youtubePlayer.progress)
-    }
-
     private var currentSeekIdentity: String {
         self.youtubePlayer.currentVideo?.videoId ?? "none"
     }
 
     private var chapterProgressMarkers: [PlayerBarProgressMarker] {
-        guard self.youtubePlayer.duration > 0, !self.youtubePlayer.isShowingAd else { return [] }
+        guard self.canSeek else { return [] }
         return self.youtubePlayer.chapters.compactMap { chapter in
             guard chapter.startTime > 0, chapter.startTime < self.youtubePlayer.duration else { return nil }
             return PlayerBarProgressMarker(
@@ -627,16 +561,13 @@ struct YouTubePlayerBar: View {
     }
 
     private var chapterProgressSegments: [PlayerBarProgressSegment] {
-        guard !self.youtubePlayer.isShowingAd else { return [] }
+        guard self.canSeek else { return [] }
         return Self.chapterProgressSegments(
             chapters: self.youtubePlayer.chapters,
             duration: self.youtubePlayer.duration
         )
     }
 
-    /// Converts YouTube's chapter starts and optional bounds into the same normalized spans used by
-    /// the music player's segmented mix seek bar. Marker data remains separate so chapter snapping
-    /// and the existing metadata preview continue to work while segment visuals are active.
     static func chapterProgressSegments(
         chapters: [YouTubeChapter],
         duration: TimeInterval
@@ -690,13 +621,12 @@ struct YouTubePlayerBar: View {
         }
     }
 
-    /// Seeking is unavailable during ads or before a duration is known.
-    private var canSeek: Bool {
-        self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd
+    private var isLive: Bool {
+        self.youtubePlayer.currentVideo?.isLive == true
     }
 
-    private var isProgressLoading: Bool {
-        self.youtubePlayer.isPlaybackLoading
+    private var canSeek: Bool {
+        self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd && !self.isLive
     }
 
     private var canNavigateToCurrentChannel: Bool {
@@ -713,35 +643,6 @@ struct YouTubePlayerBar: View {
     private func openCurrentChannel() {
         guard let channelId = self.currentChannelId else { return }
         self.youtubeStore?.navigationPath.append(YouTubeRoute.channel(channelId: channelId))
-    }
-
-    private func performSeek() {
-        guard self.isSeeking, self.canSeek else { return }
-        let seekTime = self.seekValue * self.youtubePlayer.duration
-        let holdID = self.seekHold.begin(target: seekTime)
-        self.isSeeking = false
-        self.youtubePlayer.seek(to: seekTime)
-
-        Task { @MainActor in
-            try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdID) {
-                self.syncSeekValueFromDisplayedProgress()
-            }
-        }
-    }
-
-    private func clearSeekHold() {
-        self.seekHold.clear()
-        self.isSeeking = false
-        self.syncSeekValueFromDisplayedProgress()
-    }
-
-    private func syncSeekValueFromDisplayedProgress() {
-        if self.youtubePlayer.duration > 0 {
-            self.seekValue = self.displayedPlaybackProgress / self.youtubePlayer.duration
-        } else {
-            self.seekValue = 0
-        }
     }
 
     private var volumeIcon: String {
@@ -804,11 +705,25 @@ extension YouTubePlayerBar {
 
     static func hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: Bool) -> CGFloat {
         self.baseHiddenVideoDetailsBreakpoint
-            + (showsFloatOnTopControl ? self.floatOnTopOptionsWidthIncrement : 0)
+            + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
+    }
+
+    static func optionsWidth(showsFloatOnTopControl: Bool, showsWatchLaterControl: Bool) -> CGFloat {
+        self.baseYouTubeOptionsWidth
+            + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
+            - (showsWatchLaterControl ? 0 : self.optionButtonSlotWidth)
     }
 }
 
 private extension YouTubePlayerBar {
+    func uniqueURLs(_ urls: [URL?]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.compactMap { url in
+            guard let url, seen.insert(url).inserted else { return nil }
+            return url
+        }
+    }
+
     static func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let total = Int(seconds)
@@ -848,8 +763,10 @@ private extension YouTubePlayerBar {
     }
 
     var youtubeOptionsWidth: CGFloat {
-        Self.baseYouTubeOptionsWidth
-            + (self.showsFloatOnTopControl ? Self.floatOnTopOptionsWidthIncrement : 0)
+        Self.optionsWidth(
+            showsFloatOnTopControl: self.showsFloatOnTopControl,
+            showsWatchLaterControl: self.hasPersonalAccount
+        )
     }
 
     var showsFloatOnTopControl: Bool {
@@ -869,24 +786,6 @@ private extension YouTubePlayerBar {
         self.settings.keepYouTubeVideoOnTop.toggle()
     }
 }
-
-// MARK: - Per-View Inset
-
-extension View {
-    /// Attaches the YouTube player bar to the bottom of a navigable view.
-    ///
-    /// Applied to EVERY YouTube view (roots and pushed destinations) —
-    /// views pushed onto a `NavigationStack` do not inherit a parent's
-    /// `safeAreaInset`, the same rule the music side follows with
-    /// `PlayerBar` (see docs/architecture.md).
-    func youtubePlayerBarInset() -> some View {
-        safeAreaInset(edge: .bottom, spacing: 0) {
-            YouTubePlayerBar(isDetachedWindow: false)
-        }
-    }
-}
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let watchPlayPause = "youtubeContent.watchPlayPause"

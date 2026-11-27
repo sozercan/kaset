@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MusicPlaybackRequestDedupTests
-
 @Suite("Music playback request deduplication", .serialized, .tags(.service))
 @MainActor
 struct MusicPlaybackRequestDedupTests {
@@ -306,6 +304,46 @@ struct MusicPlaybackRequestDedupTests {
         #expect(playerService.currentTimeMs == 17000)
     }
 
+    @Test("Same-video recovery bypasses a pending duplicate load", arguments: [
+        SingletonPlayerWebView.VideoLoadStrategy.forceFullPageWhenSameVideoId,
+        .preferRouterWhenSameVideoId,
+    ])
+    func forcedSameVideoRecoveryBypassesPendingDuplicateLoad(strategy: SingletonPlayerWebView.VideoLoadStrategy) async {
+        let videoId = "forced-recovery-video"
+        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: videoId)
+        _ = webKitManager
+        defer { SingletonPlayerWebView.shared.tearDown() }
+        let entryID = UUID()
+        let song = Song(
+            id: "forced-recovery-song",
+            title: "Forced Recovery",
+            artists: [],
+            duration: 180,
+            videoId: videoId
+        )
+        playerService.setQueue(entries: [QueueEntry(id: entryID, song: song)])
+        playerService.currentIndex = 0
+        playerService.currentTrack = song
+        playerService.activePlaybackQueueEntryID = entryID
+        playerService.pendingPlayVideoId = videoId
+        playerService.state = .loading
+        playerService.isAwaitingPlaybackConfirmation = true
+        var navigationRequests: [String] = []
+        playerService.onMusicPlaybackNavigationRequested = { requestedVideoId, _ in
+            navigationRequests.append(requestedVideoId)
+        }
+
+        await playerService.play(
+            song: song,
+            webLoadStrategy: strategy,
+            isQueueNavigationRecovery: true
+        )
+
+        #expect(navigationRequests == [videoId])
+        #expect(playerService.currentTrack?.videoId == videoId)
+        #expect(playerService.activePlaybackQueueEntryID == entryID)
+    }
+
     @Test("Fresh same-video occurrence forces navigation while an ad is active")
     func sameVideoOccurrenceUsesFullNavigationDuringAd() {
         #expect(SingletonPlayerWebView.freshSameIDPlaybackStrategy(isShowingAd: true)
@@ -451,8 +489,6 @@ struct MusicPlaybackRequestDedupTests {
         playerService.isShowingAd = true
     }
 }
-
-// MARK: - PlaybackRequestCounter
 
 private actor PlaybackRequestCounter {
     private var count = 0

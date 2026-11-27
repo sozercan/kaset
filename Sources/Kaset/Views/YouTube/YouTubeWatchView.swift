@@ -1,13 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeWatchView
-
-/// Watch page for a YouTube video: the extracted video surface with native
-/// controls, metadata, and the related list.
-///
-/// The surface is the singleton `YouTubeWatchWebView`, docked here while
-/// this view owns it. Navigating away while playing hands the surface off
-/// to the floating window (`YouTubeVideoWindowController`).
 struct YouTubeWatchView: View {
     fileprivate static let brandAccent = PackageResourceLookup.brandAccent
 
@@ -27,16 +19,12 @@ struct YouTubeWatchView: View {
 
     @State private var commentDraft = ""
     @State private var settings = SettingsManager.shared
+    @State private var isVideoControlsRegionOnScreen = true
 
-    /// The ambient backdrop style to render: the user's chosen style, or `.off`
-    /// when they've disabled the feature in Settings → YouTube.
     private var ambientStyle: AmbientBackdropStyle {
         self.settings.resolvedAmbientStyle
     }
 
-    /// 0…1 playback position, only while THIS view's video is the one playing,
-    /// for the `.live` storyboard crossfade. `nil` otherwise (guards NaN when
-    /// duration is still 0 at cold load).
     private var ambientLiveFraction: Double? {
         guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId,
               self.youtubePlayer.duration > 0
@@ -44,9 +32,6 @@ struct YouTubeWatchView: View {
         return min(max(self.youtubePlayer.progress / self.youtubePlayer.duration, 0), 1)
     }
 
-    /// Storyboard spec for the fine-grained `.live` color, but only while THIS
-    /// view's video is the one playing — so a previous video's sheets never
-    /// tint a newly-opened watch page.
     private var ambientStoryboardSpec: String? {
         guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else {
             return nil
@@ -68,9 +53,16 @@ struct YouTubeWatchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 self.videoSurface
+                    .onGeometryChange(for: Bool.self) { [bottomInset = self.bottomPlayerBarHeight] proxy in
+                        YouTubeInlineControlsVisibility.isControlsRegionVisible(
+                            videoSize: proxy.size,
+                            visibleBounds: proxy.bounds(of: .scrollView),
+                            bottomInset: bottomInset
+                        )
+                    } action: { isVisible in
+                        self.isVideoControlsRegionOnScreen = isVisible
+                    }
 
-                // Below the video: title/metadata + chapters/comments down the
-                // left, the related rail down the right.
                 HStack(alignment: .top, spacing: 24) {
                     VStack(alignment: .leading, spacing: 16) {
                         self.metadataSection
@@ -95,9 +87,6 @@ struct YouTubeWatchView: View {
             .padding(.vertical, 20)
         }
         .disabled(self.viewModel.ask.isExpanded)
-        // PROTOTYPE: full-bleed ambient color behind the page. `.ignoresSafeArea`
-        // (inside the modifier) lets it bleed under the bottom player-bar inset,
-        // so the bar's Liquid Glass capsule refracts the live color.
         .ambientVideoBackdrop(
             videoId: self.video.videoId,
             thumbnailURL: self.video.thumbnailURL,
@@ -105,9 +94,7 @@ struct YouTubeWatchView: View {
             liveFraction: self.ambientLiveFraction,
             storyboardSpec: self.ambientStoryboardSpec
         )
-        // The in-page metadata shows the title; keep the bar clean.
         .navigationTitle(String(localized: ""))
-        // Let the ambient reach under the nav bar, like the other accent pages.
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .toolbar {
             if self.viewModel.ask.isAvailable {
@@ -123,27 +110,24 @@ struct YouTubeWatchView: View {
             )
         }
         .youtubeAskAccessibilityAnnouncements(viewModel: self.viewModel.ask)
-        #if DEBUG
-            .toolbar {
-                self.ambientStylePicker
-            }
-        #endif
-            .task {
-                self.startOrAdoptPlayback()
-            }
-            .task(id: self.askAccountScope) {
-                let accountScope = self.askAccountScope
-                await self.viewModel.load(accountScope: accountScope)
-                YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
-                    videoId: self.video.videoId,
-                    player: self.youtubePlayer,
-                    data: self.viewModel.data
-                )
-            }
-            .onDisappear {
-                self.viewModel.cancel()
-                self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
-            }
+        .task {
+            self.startOrAdoptPlayback()
+        }
+        .task(id: self.askAccountScope) {
+            let accountScope = self.askAccountScope
+            await self.viewModel.load(accountScope: accountScope)
+            YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
+                videoId: self.video.videoId,
+                player: self.youtubePlayer,
+                data: self.viewModel.data
+            )
+        }
+        .onDisappear {
+            self.viewModel.cancel()
+            self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .youtubePlayerBarInset(isHidden: self.showsControlsOnVideo)
     }
 
     private var askPlayerOffsetMilliseconds: Int64 {
@@ -153,41 +137,22 @@ struct YouTubeWatchView: View {
         return YouTubeAskPlayerOffset.milliseconds(for: self.youtubePlayer.progress)
     }
 
-    // MARK: - Ambient Style Picker (PROTOTYPE)
-
-    #if DEBUG
-        /// DEBUG-only toolbar control to switch ambient styles live on-device.
-        /// Binds to the same `SettingsManager` value as the Settings → YouTube
-        /// tab, so there is a single source of truth. The whole property is
-        /// compiled out of release builds (an empty `@ToolbarContentBuilder`
-        /// body would otherwise be invalid).
-        @ToolbarContentBuilder
-        private var ambientStylePicker: some ToolbarContent {
-            ToolbarItem(placement: .automatic) {
-                Menu {
-                    Picker(String(localized: "Ambient"), selection: self.$settings.ambientBackdropStyle) {
-                        ForEach(AmbientBackdropStyle.allCases) { style in
-                            Text(style.debugLabel).tag(style)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                } label: {
-                    Image(systemName: "paintpalette")
-                }
-                .help(String(localized: "Ambient backdrop style (developer)"))
-            }
-        }
-    #endif
-
-    // MARK: - Video Surface
-
-    /// Whether this view currently presents the live playback surface.
     private var presentsLiveSurface: Bool {
         self.youtubePlayer.currentVideo?.videoId == self.video.videoId
             && self.youtubePlayer.surfaceLocation == .inline
     }
 
-    /// Whether this view's video is currently playing in the floating window.
+    private var showsControlsOnVideo: Bool {
+        self.settings.showYouTubeControlsOnVideo
+            && self.presentsLiveSurface
+            && self.isVideoControlsRegionOnScreen
+            && !self.viewModel.ask.isExpanded
+    }
+
+    private var bottomPlayerBarHeight: CGFloat {
+        self.showsControlsOnVideo ? 0 : YouTubeInlineControlsVisibility.controlsRegionHeight
+    }
+
     private var playsInFloatingWindow: Bool {
         self.youtubePlayer.currentVideo?.videoId == self.video.videoId
             && self.youtubePlayer.surfaceLocation == .floating
@@ -196,15 +161,12 @@ struct YouTubeWatchView: View {
     @ViewBuilder
     private var videoSurface: some View {
         if self.presentsLiveSurface {
-            // Clean video surface — playback is controlled from the
-            // Liquid Glass player bar at the bottom of the window.
             YouTubeWatchSurfaceView()
-                .aspectRatio(16 / 9, contentMode: .fit)
-                .clipShape(.rect(cornerRadius: 12))
                 .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .youtubeInlineVideoControls(isEnabled: self.showsControlsOnVideo)
+                .clipShape(.rect(cornerRadius: 12))
         } else if self.playsInFloatingWindow {
-            // Native PiP-style placeholder while the video plays in the
-            // pop-out window.
             Rectangle()
                 .fill(.black)
                 .aspectRatio(16 / 9, contentMode: .fit)
@@ -260,8 +222,6 @@ struct YouTubeWatchView: View {
         }
     }
 
-    /// Starts playback of this view's video, or adopts the surface if this
-    /// video is already playing (e.g. docking back from the floating window).
     private func startOrAdoptPlayback(startAt: Double? = nil) {
         YouTubeWatchPlaybackLifecycle.presentSurface(
             video: self.video,
@@ -271,8 +231,6 @@ struct YouTubeWatchView: View {
             data: self.viewModel.data
         )
     }
-
-    // MARK: - Metadata
 
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -346,7 +304,6 @@ struct YouTubeWatchView: View {
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(self.viewModel.isSubscribed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
             .padding(.horizontal, 16)
-            // Same height as the avatar / name + subscriber-count block.
             .frame(height: 36)
             .compatGlass(
                 interactive: true,
@@ -359,38 +316,13 @@ struct YouTubeWatchView: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
     }
 
-    // MARK: - Chapters
-
     private var chaptersSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Chapters", comment: "Video chapters section header")
-                .font(.title3.bold())
-
-            CarouselShelf(
-                accessibilityLabel: String(localized: "Video chapters"),
-                pageFraction: 0.82,
-                showsControls: true,
-                controlVerticalAlignment: .center,
-                contentInset: 0
-            ) {
-                LazyHStack(alignment: .top, spacing: 10) {
-                    ForEach(self.viewModel.data.chapters) { chapter in
-                        Button {
-                            self.seekToChapter(chapter)
-                        } label: {
-                            ChapterCard(chapter: chapter, isActive: self.isActiveChapter(chapter))
-                        }
-                        .buttonStyle(.interactiveRow)
-                        .accessibilityLabel(
-                            String(localized: "Jump to chapter: \(chapter.title)")
-                        )
-                        .disabled(!self.canSeekToChapter(chapter))
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .accessibilityIdentifier(AccessibilityID.YouTubeContent.chaptersSection)
+        YouTubeChaptersSection(
+            chapters: self.viewModel.data.chapters,
+            isActiveChapter: self.isActiveChapter,
+            canSeekToChapter: self.canSeekToChapter,
+            seekToChapter: self.seekToChapter
+        )
     }
 
     private func seekToChapter(_ chapter: YouTubeChapter) {
@@ -429,8 +361,6 @@ struct YouTubeWatchView: View {
         return currentTime < self.viewModel.data.chapters[nextIndex].startTime
     }
 
-    // MARK: - Related Column
-
     private var relatedColumn: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Related", comment: "Related videos section header")
@@ -467,8 +397,6 @@ struct YouTubeWatchView: View {
             }
         }
     }
-
-    // MARK: - Comments
 
     private var commentsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -568,7 +496,6 @@ struct YouTubeWatchView: View {
         self.authService.hasPersonalAccount
     }
 
-    /// Whether the composer holds postable text (drives the send accent).
     private var hasCommentDraft: Bool {
         !self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -583,10 +510,6 @@ struct YouTubeWatchView: View {
     }
 }
 
-// MARK: - CommentThread
-
-/// A comment with its action row (like/dislike, replies) and, when
-/// expanded, its indented reply thread.
 private struct CommentThread: View {
     let comment: YouTubeComment
     let viewModel: YouTubeWatchViewModel
@@ -668,10 +591,6 @@ private struct CommentThread: View {
     }
 }
 
-// MARK: - CommentRow
-
-/// One comment: avatar, author + time, text, and working like/dislike.
-/// The author (avatar/name) navigates to their channel.
 private struct CommentRow: View {
     let comment: YouTubeComment
     let isLiked: Bool
@@ -738,7 +657,6 @@ private struct CommentRow: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// Wraps content in a channel link when the author's channel is known.
     @ViewBuilder
     private func authorLink(@ViewBuilder content: () -> some View) -> some View {
         if let channelId = self.comment.authorChannelId {
@@ -774,7 +692,78 @@ private struct CommentRow: View {
     }
 }
 
-// MARK: - ChapterCard
+struct YouTubeChaptersSection: View {
+    let chapters: [YouTubeChapter]
+    let isActiveChapter: (YouTubeChapter) -> Bool
+    let canSeekToChapter: (YouTubeChapter) -> Bool
+    let seekToChapter: (YouTubeChapter) -> Void
+
+    @State private var isExpanded: Bool
+
+    init(
+        chapters: [YouTubeChapter],
+        isActiveChapter: @escaping (YouTubeChapter) -> Bool,
+        canSeekToChapter: @escaping (YouTubeChapter) -> Bool,
+        seekToChapter: @escaping (YouTubeChapter) -> Void,
+        initiallyExpanded: Bool = true
+    ) {
+        self.chapters = chapters
+        self.isActiveChapter = isActiveChapter
+        self.canSeekToChapter = canSeekToChapter
+        self.seekToChapter = seekToChapter
+        self._isExpanded = State(initialValue: initiallyExpanded)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                self.isExpanded.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Text("Chapters", comment: "Video chapters section header")
+                        .font(.title3.bold())
+
+                    Image(systemName: self.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(
+                self.isExpanded ? String(localized: "Showing") : String(localized: "Hidden")
+            )
+
+            if self.isExpanded {
+                CarouselShelf(
+                    accessibilityLabel: String(localized: "Video chapters"),
+                    pageFraction: 0.82,
+                    showsControls: true,
+                    controlVerticalAlignment: .center,
+                    contentInset: 0
+                ) {
+                    LazyHStack(alignment: .top, spacing: 10) {
+                        ForEach(self.chapters) { chapter in
+                            Button {
+                                self.seekToChapter(chapter)
+                            } label: {
+                                ChapterCard(chapter: chapter, isActive: self.isActiveChapter(chapter))
+                            }
+                            .buttonStyle(.interactiveRow)
+                            .accessibilityLabel(
+                                String(localized: "Jump to chapter: \(chapter.title)")
+                            )
+                            .disabled(!self.canSeekToChapter(chapter))
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.chaptersSection)
+    }
+}
 
 private struct ChapterCard: View {
     let chapter: YouTubeChapter
@@ -790,7 +779,7 @@ private struct ChapterCard: View {
                 Text(self.chapter.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(2)
+                    .lineLimit(2, reservesSpace: true)
                     .multilineTextAlignment(.leading)
 
                 Text(self.chapter.timeText ?? Self.formatTime(self.chapter.startTime))
@@ -836,9 +825,6 @@ private struct ChapterCard: View {
     }
 }
 
-// MARK: - RelatedVideoRow
-
-/// Compact related-rail row sized for the right column.
 private struct RelatedVideoRow: View {
     let video: YouTubeVideo
 
@@ -875,8 +861,6 @@ private struct RelatedVideoRow: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"

@@ -1,9 +1,7 @@
 import Foundation
 
-/// Queue and playback actions for album-backed tracks.
 @MainActor
 enum AlbumPlaybackActions {
-    /// Adds an album's songs to play next (immediately after current track).
     @discardableResult
     static func addAlbumToQueueNext(
         _ album: Album,
@@ -25,7 +23,6 @@ enum AlbumPlaybackActions {
         }
     }
 
-    /// Adds an album's songs to the end of the queue.
     @discardableResult
     static func addAlbumToQueueLast(
         _ album: Album,
@@ -47,31 +44,42 @@ enum AlbumPlaybackActions {
         }
     }
 
-    /// Plays an album immediately, replacing the current queue.
     @discardableResult
     @MainActor
     static func playAlbum(
         _ album: Album,
         client: any YTMusicClientProtocol,
-        playerService: PlayerService
+        playerService: PlayerService,
+        onStart: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
         return Task { @MainActor in
+            var didStart = false
+            defer {
+                if !didStart {
+                    onStart(false)
+                }
+            }
             do {
                 let response = try await client.getPlaylist(id: album.id)
-                guard playerService.acceptsMusicPlaybackIntent(intent) else { return }
+                guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                    DiagnosticsLogger.ui.info("Discarding stale album playback request after newer playback intent")
+                    return
+                }
                 let songs = QueueSongMetadata.albumSongs(
                     response.detail.tracks,
                     album: album,
                     purpose: .playback(trackCount: response.detail.tracks.count)
                 )
-                guard !songs.isEmpty else { return }
+                guard let startIndex = songs.firstIndex(where: \.isPlayable) else { return }
                 await playerService.playQueue(
                     songs,
-                    startingAt: 0,
+                    startingAt: startIndex,
                     deferringSmartShuffleFill: false,
                     intent: intent
                 )
+                didStart = true
+                onStart(true)
                 DiagnosticsLogger.ui.info("Playing album '\(album.title)' (\(songs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play album: \(error.localizedDescription)")

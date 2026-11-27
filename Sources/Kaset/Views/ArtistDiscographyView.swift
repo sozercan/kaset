@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// View displaying an artist's full discography behind an Albums-shelf "See all".
 struct ArtistDiscographyView: View {
     @State var viewModel: ArtistDiscographyViewModel
 
@@ -47,6 +46,9 @@ struct ArtistDiscographyView: View {
                         self.albumCard(album)
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        AlbumContextMenu(album: album, client: self.viewModel.client)
+                    }
                 }
             }
             .padding(24)

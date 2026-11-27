@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for APICache.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct APICacheTests {
@@ -36,7 +35,6 @@ struct APICacheTests {
         self.cache.setData(key: "raw_key", data: bytes, ttl: 60)
 
         #expect(self.cache.getData(key: "raw_key") == bytes)
-        // Missing key is nil, and a dict-typed entry is not mistaken for data.
         #expect(self.cache.getData(key: "nonexistent_raw") == nil)
         self.cache.set(key: "dict_key", data: ["k": 1], ttl: 60)
         #expect(self.cache.getData(key: "dict_key") == nil)
@@ -44,9 +42,6 @@ struct APICacheTests {
 
     @Test("invalidateAll bumps the generation counter")
     func invalidateAllBumpsGeneration() {
-        // Callers capture the generation before an async fetch and refuse to
-        // write a stale response if it changed (account switch / sign-out /
-        // session expiry), even when the cache-scope key is unchanged.
         let before = self.cache.generation
         self.cache.invalidateAll()
         #expect(self.cache.generation == before + 1)
@@ -216,13 +211,13 @@ struct APICacheTests {
 
     @Test("Cache TTL constants are correct")
     func cacheTTLConstants() {
-        #expect(APICache.TTL.home == 5 * 60) // 5 minutes
-        #expect(APICache.TTL.playlist == 30 * 60) // 30 minutes
-        #expect(APICache.TTL.artist == 60 * 60) // 1 hour
-        #expect(APICache.TTL.search == 2 * 60) // 2 minutes
-        #expect(APICache.TTL.library == 5 * 60) // 5 minutes
-        #expect(APICache.TTL.lyrics == 24 * 60 * 60) // 24 hours
-        #expect(APICache.TTL.songMetadata == 30 * 60) // 30 minutes
+        #expect(APICache.TTL.home == 5 * 60)
+        #expect(APICache.TTL.playlist == 30 * 60)
+        #expect(APICache.TTL.artist == 60 * 60)
+        #expect(APICache.TTL.search == 2 * 60)
+        #expect(APICache.TTL.library == 5 * 60)
+        #expect(APICache.TTL.lyrics == 24 * 60 * 60)
+        #expect(APICache.TTL.songMetadata == 30 * 60)
     }
 
     @Test("Cache keys change when API request language changes")

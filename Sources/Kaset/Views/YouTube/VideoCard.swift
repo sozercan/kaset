@@ -1,9 +1,5 @@
 import SwiftUI
 
-// MARK: - VideoCard
-
-/// Grid card for a YouTube video: 16:9 thumbnail with duration badge,
-/// title, and channel/meta lines.
 struct VideoCard: View {
     let video: YouTubeVideo
 
@@ -62,9 +58,6 @@ struct VideoCard: View {
     }
 }
 
-// MARK: - VideoThumbnailView
-
-/// 16:9 video thumbnail with a duration (or LIVE) badge.
 struct VideoThumbnailView: View {
     let video: YouTubeVideo
     var targetSize = CGSize(width: 320, height: 180)
@@ -98,11 +91,6 @@ struct VideoThumbnailView: View {
         }
     }
 
-    /// Thin red resume-progress bar pinned flush to the thumbnail's bottom edge.
-    /// Clipped by the parent's rounded corners. Exposed as its own labeled
-    /// accessibility element so consumers that combine children (the related
-    /// rail and list rows) announce the watched percent; `VideoCard` overrides
-    /// this with its own curated label, which already includes it.
     @ViewBuilder
     private func watchedProgressBar(percent: Int) -> some View {
         let fraction = CGFloat(min(max(percent, 0), 100)) / 100

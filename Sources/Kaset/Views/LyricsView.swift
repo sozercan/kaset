@@ -1,7 +1,22 @@
 import FoundationModels
 import SwiftUI
 
-/// Right sidebar panel displaying lyrics for the current track.
+@MainActor
+enum LyricsPollLease {
+    private static var holders = 0
+
+    static func acquire() {
+        self.holders += 1
+    }
+
+    static func release() {
+        self.holders = max(0, self.holders - 1)
+        if self.holders == 0 {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+    }
+}
+
 @available(macOS 26.0, *)
 struct LyricsView: View {
     @Environment(PlayerService.self) private var playerService
@@ -10,11 +25,11 @@ struct LyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
 
-    // AI explanation state
     @State private var lyricsSummary: LyricsSummary?
     @State private var partialSummary: LyricsSummary.PartiallyGenerated?
     @State private var isExplaining = false
@@ -23,7 +38,6 @@ struct LyricsView: View {
 
     private let logger = DiagnosticsLogger.ai
 
-    /// Namespace for glass effect morphing.
     @Namespace private var lyricsNamespace
 
     var body: some View {
@@ -36,17 +50,15 @@ struct LyricsView: View {
                         .opacity(0.3)
                 }
 
-                // Content
                 self.contentView
             }
             .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 20), isEnabled: self.showsPanel)
             .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
         }
         .compatGlassTransition(.materialize)
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
-                // Reset explanation when track changes
                 self.lyricsSummary = nil
                 self.partialSummary = nil
                 self.showExplanation = false
@@ -65,9 +77,10 @@ struct LyricsView: View {
             self.updateLyricsPolling(for: newLyrics)
         }
         .onDisappear {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
+            LyricsPollLease.release()
         }
         .onAppear {
+            LyricsPollLease.acquire()
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
     }
@@ -84,8 +97,6 @@ struct LyricsView: View {
         }
     }
 
-    // MARK: - Header
-
     private var headerView: some View {
         HStack {
             Text(String(localized: "Lyrics"))
@@ -93,7 +104,6 @@ struct LyricsView: View {
                 .foregroundStyle(.primary)
             Spacer()
 
-            // Explain button (AI-powered)
             if self.syncedLyricsService.currentLyrics.isAvailable {
                 Button {
                     if self.showExplanation {
@@ -127,8 +137,6 @@ struct LyricsView: View {
         .padding(.vertical, 14)
     }
 
-    // MARK: - Content
-
     @ViewBuilder
     private var contentView: some View {
         if self.playerService.currentTrack == nil {
@@ -161,7 +169,6 @@ struct LyricsView: View {
 
     private func syncedLyricsContentView(_ synced: SyncedLyrics) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // AI Explanation section (streaming or complete)
             if self.isExplaining || self.showExplanation || self.explanationError != nil {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -193,7 +200,6 @@ struct LyricsView: View {
     private func plainLyricsContentView(_ lyrics: Lyrics) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // AI Explanation section (streaming or complete)
                 if self.isExplaining, let partial = partialSummary {
                     self.streamingExplanationSection(partial)
                     Divider()
@@ -208,16 +214,16 @@ struct LyricsView: View {
                         .padding(.vertical, 12)
                 }
 
-                // Lyrics text
                 Text(lyrics.text)
-                    .font(.system(size: 15, weight: .medium))
-                    .lineSpacing(8)
-                    .foregroundStyle(.primary)
+                    .font(.system(size: self.showsPanel ? 15 : 20, weight: self.showsPanel ? .medium : .semibold))
+                    .lineSpacing(self.showsPanel ? 8 : 12)
+                    .foregroundStyle(self.showsPanel ? .primary : .secondary)
+                    .multilineTextAlignment(self.showsPanel ? .leading : .center)
+                    .frame(maxWidth: .infinity, alignment: self.showsPanel ? .leading : .center)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, self.showsPanel ? 16 : 24)
                     .padding(.vertical, 20)
 
-                // Source attribution
                 if let source = lyrics.source {
                     Divider()
                         .padding(.horizontal, 16)
@@ -234,7 +240,6 @@ struct LyricsView: View {
 
     private func explanationSection(_ summary: LyricsSummary) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Mood
             HStack(spacing: 8) {
                 Image(systemName: "heart.circle.fill")
                     .foregroundStyle(.pink)
@@ -244,7 +249,6 @@ struct LyricsView: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
 
-            // Themes
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(summary.themes, id: \.self) { theme in
@@ -259,7 +263,6 @@ struct LyricsView: View {
                 .padding(.horizontal, 16)
             }
 
-            // Explanation
             Text(summary.explanation)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -269,10 +272,8 @@ struct LyricsView: View {
         .background(.purple.opacity(0.05))
     }
 
-    /// Shows partial content as it streams in from the AI.
     private func streamingExplanationSection(_ partial: LyricsSummary.PartiallyGenerated) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Mood (shows when available)
             HStack(spacing: 8) {
                 Image(systemName: "heart.circle.fill")
                     .foregroundStyle(.pink)
@@ -289,7 +290,6 @@ struct LyricsView: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
 
-            // Themes (shows as they arrive)
             if let themes = partial.themes, !themes.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -306,7 +306,6 @@ struct LyricsView: View {
                 }
             }
 
-            // Explanation (shows progressively)
             if let explanation = partial.explanation {
                 Text(explanation)
                     .font(.subheadline)
@@ -330,7 +329,6 @@ struct LyricsView: View {
         .background(.purple.opacity(0.05))
     }
 
-    /// Shows error state for failed AI explanation.
     private func errorSection(_ message: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -390,8 +388,6 @@ struct LyricsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Data Loading
-
     @MainActor
     private func loadLyrics(for videoId: String) async {
         self.lastLoadedVideoId = videoId
@@ -399,7 +395,6 @@ struct LyricsView: View {
 
         guard let track = playerService.currentTrack else { return }
 
-        // Don't search if it's not the current track anymore
         guard track.videoId == videoId else { return }
 
         let info = LyricsSearchInfo(
@@ -420,7 +415,6 @@ struct LyricsView: View {
         guard self.lastLoadedVideoId == videoId else { return }
         guard self.playerService.currentTrack?.videoId == videoId else { return }
 
-        // As a fallback to provide plain lyrics
         if case .unavailable = self.syncedLyricsService.currentLyrics {
             self.isLoadingFallback = true
             defer {
@@ -497,18 +491,15 @@ struct LyricsView: View {
         )
 
         do {
-            // Use streaming for progressive UI updates
             let stream = session.streamResponse(
                 to: prompt,
                 generating: LyricsSummary.self
             )
 
             for try await snapshot in stream {
-                // Extract partial content from snapshot for streaming UI updates
                 self.partialSummary = snapshot.content
             }
 
-            // Stream complete - convert final partial to complete summary
             if let final = self.partialSummary,
                let mood = final.mood,
                let themes = final.themes,

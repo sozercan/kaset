@@ -1,6 +1,6 @@
 import Foundation
 
-/// Playback actions for playlist-backed queues.
+@MainActor
 enum PlaylistPlaybackActions {
     struct ContinuationContext {
         let continuationToken: String?
@@ -11,16 +11,21 @@ enum PlaylistPlaybackActions {
         let playerService: PlayerService
     }
 
-    /// Plays a playlist immediately, replacing the current queue.
     @discardableResult
-    @MainActor
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        playerService: PlayerService
+        playerService: PlayerService,
+        onStart: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
         return Task { @MainActor in
+            var didStart = false
+            defer {
+                if !didStart {
+                    onStart(false)
+                }
+            }
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
                 guard playerService.acceptsMusicPlaybackIntent(intent) else {
@@ -45,14 +50,14 @@ enum PlaylistPlaybackActions {
                     } catch {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
                     }
+                    guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                        DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback after newer playback intent")
+                        return
+                    }
                 } else {
                     let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
                     guard !playableSongs.isEmpty else { return }
 
-                    // Defer Smart Shuffle suggestions until the whole playlist is in the queue, so
-                    // they dedup against the full set; re-shuffle the complete set on finish. The
-                    // load generation is established before playback's first suspension so the premature
-                    // fill cannot slip through.
                     let willDeferLoad = response.continuationToken != nil
                     let loadGeneration = await playerService.playQueue(
                         playableSongs,
@@ -60,6 +65,8 @@ enum PlaylistPlaybackActions {
                         deferringSmartShuffleFill: willDeferLoad,
                         intent: intent
                     )
+                    didStart = true
+                    onStart(true)
                     DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
 
                     guard let loadGeneration else { return }
@@ -74,7 +81,6 @@ enum PlaylistPlaybackActions {
                             playerService: playerService
                         )
                     )
-                    // Stand down if a different playback superseded this load while it paged.
                     guard playerService.isCurrentQueueLoad(loadGeneration) else { return }
                     await playerService.endQueueLoading(loadGeneration)
                     return
@@ -89,6 +95,8 @@ enum PlaylistPlaybackActions {
                     deferringSmartShuffleFill: false,
                     intent: intent
                 )
+                didStart = true
+                onStart(true)
                 DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")
@@ -102,11 +110,17 @@ enum PlaylistPlaybackActions {
 
     static func tracksForPlaylistPlayback(browseTracks: [Song], queueTracks: [Song]) -> [Song] {
         var browsePlayabilityByVideoId: [String: Bool] = [:]
+        var browseAudioIDsByVideoId: [String: String] = [:]
         for track in browseTracks {
             browsePlayabilityByVideoId[track.videoId] = track.isPlayable
+            if let audioTrackVideoId = track.audioTrackVideoId {
+                browseAudioIDsByVideoId[track.videoId] = audioTrackVideoId
+            }
         }
 
-        return queueTracks.map { track in
+        return queueTracks.map { queueTrack in
+            var track = queueTrack
+            track.audioTrackVideoId = track.audioTrackVideoId ?? browseAudioIDsByVideoId[track.videoId]
             guard let browseIsPlayable = browsePlayabilityByVideoId[track.videoId],
                   browseIsPlayable != track.isPlayable
             else {
@@ -131,9 +145,6 @@ enum PlaylistPlaybackActions {
         }
     }
 
-    /// Returns full-playlist tracks that were not already put in the initial queue.
-    /// Uses occurrence counts per video ID so authored duplicates remain intact while
-    /// user removals from the playlist do not shift a fragile numeric offset.
     static func remainingTracks(after initialTracks: [Song], in fullTracks: [Song]) -> [Song] {
         var unmatchedInitialCounts: [String: Int] = [:]
         for track in initialTracks {
@@ -168,8 +179,6 @@ enum PlaylistPlaybackActions {
 
                 let playableSongs = Self.playableSongsWithPlaylistArtwork(response.tracks, playlist: context.playlist)
                 if !playableSongs.isEmpty {
-                    // Tolerate user edits (remove/reorder) within the same playback; only discard if a
-                    // *different* playback superseded this load (which bumps the load generation).
                     guard context.playerService.isCurrentQueueLoad(context.loadGeneration) else {
                         DiagnosticsLogger.ui.debug("Discarding playlist continuations because a new playback started")
                         return
@@ -206,7 +215,8 @@ enum PlaylistPlaybackActions {
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
             isExplicit: song.isExplicit,
-            playlistSetVideoId: song.playlistSetVideoId
+            playlistSetVideoId: song.playlistSetVideoId,
+            audioTrackVideoId: song.audioTrackVideoId
         )
     }
 

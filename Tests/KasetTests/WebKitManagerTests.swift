@@ -3,9 +3,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-// MARK: - WebKitManagerTests
-
-/// Tests for WebKitManager.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct WebKitManagerTests {
@@ -51,12 +48,9 @@ struct WebKitManagerTests {
                 #expect(host.openWindows.count == 1)
                 #expect(host.focusedWindow != nil)
 
-                // Re-registering the same WebView should activate the existing tab, not create another one.
                 _ = host.register(webView: webView, role: .musicPlayer)
                 #expect(host.registeredTabCount == 1)
 
-                // Rebuilding the playback WebView for the same role should replace the tab's target,
-                // not leave a stale ghost tab behind.
                 let replacementWebView = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 180), configuration: configuration)
                 _ = host.register(webView: replacementWebView, role: .musicPlayer)
                 #expect(host.registeredTabCount == 1)
@@ -159,8 +153,6 @@ struct WebKitManagerTests {
 
     @Test("Cookie header for domain")
     func cookieHeaderForDomain() async {
-        // May be nil if no cookies are set
-        // Just verify it doesn't crash
         _ = await self.webKitManager.cookieHeader(for: "youtube.com")
     }
 
@@ -286,7 +278,6 @@ struct WebKitManagerTests {
                 readCookies: { cookies },
                 deleteCookie: { _ in
                     deleteCount += 1
-                    // Simulate a sticky or immediately recreated cookie.
                 },
                 removeAllCookies: {
                     fallbackCount += 1
@@ -371,27 +362,6 @@ struct WebKitManagerTests {
         #expect(newerResult == .saved)
         #expect(storage.persistedData == newerArchive)
         #expect(storage.saveCount == 1)
-    }
-
-    @Test("Empty auth snapshots invalidate only at the latest generation")
-    func emptyAuthSnapshotsInvalidateOnlyWhenLatest() async {
-        let initialArchive = Data([0x2F])
-        let storage = InMemoryCookieArchiveStorage(initialData: initialArchive)
-        let queue = CookieArchiveWriteQueue(storage: storage.interface)
-        let staleGeneration = await queue.reserveGeneration()
-        let latestGeneration = await queue.reserveGeneration()
-
-        #expect(await queue.invalidateAndDeleteIfLatest(
-            generation: staleGeneration
-        ) == .superseded)
-        #expect(storage.persistedData == initialArchive)
-        #expect(await queue.isRestoreAllowed())
-
-        #expect(await queue.invalidateAndDeleteIfLatest(
-            generation: latestGeneration
-        ) == .saved)
-        #expect(storage.persistedData == nil)
-        #expect(await queue.isRestoreAllowed() == false)
     }
 
     @Test("Cookie archive invalidation rejects a previously reserved write")
@@ -507,17 +477,17 @@ struct WebKitManagerTests {
         #expect(await queue.loginTransactionOwnership(transaction) == .none)
     }
 
-    @Test("Empty live login baseline removes stale archive and preserves restore policy")
-    func emptyLiveBaselineRemovesStaleArchiveOnRollback() async throws {
-        let staleArchive = Data([0x44])
+    @Test("Persisted live login baseline restores the retained archive and restore policy")
+    func persistedLiveBaselineRestoresRetainedArchiveOnRollback() async throws {
+        let retainedArchive = Data([0x44])
         let candidateArchive = Data([0x45])
         let storage = InMemoryCookieArchiveStorage(
-            initialData: staleArchive,
+            initialData: retainedArchive,
             restoreAllowed: true
         )
         let queue = CookieArchiveWriteQueue(storage: storage.interface)
         let transaction = try #require(await queue.beginLoginTransaction(
-            liveBaseline: .empty
+            liveBaseline: .persistedArchive
         ))
         let generation = await queue.reserveGeneration()
         #expect(await queue.save(
@@ -530,7 +500,7 @@ struct WebKitManagerTests {
         #expect(await queue.finalizeLoginTransaction(transaction) == false)
         #expect(await queue.claimLoginTransactionRollback(transaction))
         #expect(await queue.rollbackLoginTransaction(transaction))
-        #expect(storage.persistedData == nil)
+        #expect(storage.persistedData == retainedArchive)
         #expect(await queue.isRestoreAllowed())
     }
 
@@ -751,11 +721,8 @@ struct WebKitManagerTests {
         #expect(resolvedURL == nil)
     }
 
-    // MARK: - DATASYNC_ID Identity Matching
-
     @Test("Brand DATASYNC_ID matches when first half equals brand pageId")
     func dataSyncIdMatchesBrand() {
-        // "<delegatedSessionId>||<userSessionId>" — delegated half is the brand.
         let dataSyncId = "111111111111111111111||108880000000000000000"
         #expect(WebKitManager.dataSyncId(dataSyncId, matches: "111111111111111111111") == true)
     }
@@ -768,7 +735,6 @@ struct WebKitManagerTests {
 
     @Test("Primary DATASYNC_ID (empty delegated half) matches nil brand")
     func dataSyncIdMatchesPrimary() {
-        // Primary is "<userSessionId>||" — empty delegated (first) half.
         let dataSyncId = "108880000||"
         #expect(WebKitManager.dataSyncId(dataSyncId, matches: nil) == true)
     }
@@ -787,16 +753,12 @@ struct WebKitManagerTests {
 
     @Test("Blank/unread DATASYNC_ID never falsely verifies as primary")
     func dataSyncIdBlankIsNotPrimary() {
-        // The page JS returns "" (or a bare "||") before ytcfg populates; an
-        // unread page must NOT be treated as a verified primary session.
         #expect(WebKitManager.dataSyncId("", matches: nil) == false)
         #expect(WebKitManager.dataSyncId("||", matches: nil) == false)
         #expect(WebKitManager.dataSyncId("", matches: "111111111111111111111") == false)
         #expect(WebKitManager.dataSyncId("garbage-no-separator", matches: nil) == false)
     }
 }
-
-// MARK: - InMemoryCookieArchiveStorage
 
 private final class InMemoryCookieArchiveStorage: @unchecked Sendable {
     private let lock = NSLock()

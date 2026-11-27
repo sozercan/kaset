@@ -20,8 +20,8 @@ cd kaset
 # Build from command line
 swift build
 
-# Run unit tests (do not combine with UI tests)
-swift test --skip KasetUITests
+# Run unit tests serially, as CI does (do not combine with UI tests)
+swift test --skip KasetUITests --no-parallel
 
 # Package and run the app
 Scripts/compile_and_run.sh
@@ -32,9 +32,12 @@ KASET_SIGNING=adhoc ./Scripts/compile_and_run.sh
 
 # Lint & Format
 swiftlint --strict && swiftformat .
+python3 Scripts/comment_lint.py --base "$(git merge-base HEAD origin/main)"
 ```
 
 Or open `Package.swift` in Xcode to work in the IDE.
+
+CI rejects new or rewritten source comments, even when a change deletes more comments than it adds. Use descriptive code or an ADR for durable rationale. Run `python3 Scripts/comment_lint.py --inventory` to count the remaining comment-only lines, or invoke the repo's `delete-comment` skill for a cleanup pass. See [ADR-0042](docs/adr/0042-ratchet-source-comments.md) for the scope and exceptions.
 
 ## Project Structure
 
@@ -231,7 +234,7 @@ final class MyServiceTests: XCTestCase {
 
 1. **No Third-Party Frameworks** — Do not introduce third-party dependencies without discussion first
 2. **Build Must Pass** — Run `swift build`
-3. **Tests Must Pass** — Run `swift test --skip KasetUITests` for unit tests
+3. **Tests Must Pass** — Run `swift test --skip KasetUITests --no-parallel` for unit tests
 4. **Linting** — Run `swiftlint --strict && swiftformat .` before submitting
 5. **Small PRs** — Keep changes focused and reviewable
 6. **Share AI Prompts** — If you used AI assistance, include the prompt in your PR (see below)
@@ -288,8 +291,8 @@ Reference: Sources/Kaset/Services/HapticService.swift for existing patterns
 ## Testing
 
 ```bash
-# Run unit tests
-swift test --skip KasetUITests
+# Run unit tests serially, as CI does (several suites share singletons)
+swift test --skip KasetUITests --no-parallel
 
 # Run specific unit test (use --filter)
 swift test --skip KasetUITests --filter PlayerServiceTests

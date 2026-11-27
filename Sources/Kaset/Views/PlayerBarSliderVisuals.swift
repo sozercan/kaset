@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarSliderVisuals
-
 enum PlayerBarSliderVisuals {
     static let trackThickness: CGFloat = 4
     static let hitOutset: CGFloat = 8

@@ -1,27 +1,18 @@
 import SwiftUI
 
-// MARK: - SearchView
-
-/// Search view for finding music.
 struct SearchView: View {
     @State var viewModel: SearchViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(AuthService.self) private var authService
-    @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
-    /// External trigger for focusing the search field (from keyboard shortcut).
     @Binding var focusTrigger: Bool
 
     @FocusState private var isSearchFieldFocused: Bool
 
-    /// Index of currently selected suggestion for keyboard navigation.
     @State private var selectedSuggestionIndex: Int = -1
 
-    /// Initializes SearchView with optional focus trigger binding.
     init(viewModel: SearchViewModel, focusTrigger: Binding<Bool> = .constant(false)) {
         _viewModel = State(initialValue: viewModel)
         _focusTrigger = focusTrigger
@@ -30,20 +21,15 @@ struct SearchView: View {
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
             VStack(spacing: 0) {
-                // Search bar
                 self.searchBar
                     .zIndex(1)
 
                 Divider()
 
-                // Content
                 self.contentView
             }
             .localizedNavigationTitle("Search")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
@@ -63,31 +49,17 @@ struct SearchView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
-
-    // MARK: - Search Bar
-
     private var searchBar: some View {
         VStack(spacing: 12) {
-            // Keep suggestions as an overlay of the field itself. If the dropdown participates
-            // in the search bar's layout, macOS 26 glass materialization can render a
-            // second transient plate during updates. Anchoring it as an overlay gives the
-            // autocomplete menu a single visual owner and prevents duplicate dropdowns.
             self.searchField
                 .overlay(alignment: .top) {
                     if self.viewModel.showSuggestions {
                         self.suggestionsDropdown
-                            .padding(.top, 44) // Below search field
+                            .padding(.top, 44)
                     }
                 }
                 .zIndex(1)
 
-            // Filter chips
             if self.viewModel.shouldShowFilters {
                 self.filterChips
             }
@@ -233,8 +205,6 @@ struct SearchView: View {
         .buttonStyle(.chip(isSelected: self.viewModel.selectedFilter == filter))
     }
 
-    // MARK: - Content
-
     @ViewBuilder
     private var contentView: some View {
         if !self.networkMonitor.isConnected {
@@ -307,7 +277,6 @@ struct SearchView: View {
                         .padding(.leading, 72)
                 }
 
-                // Load more indicator / button
                 if self.viewModel.hasMoreResults {
                     self.loadMoreView
                 }
@@ -316,7 +285,6 @@ struct SearchView: View {
         }
     }
 
-    /// Load more view that triggers pagination when visible.
     @ViewBuilder
     private var loadMoreView: some View {
         if self.viewModel.loadingState == .loadingMore {
@@ -341,7 +309,6 @@ struct SearchView: View {
             }
             .buttonStyle(.plain)
             .onAppear {
-                // Auto-load more when this view appears (infinite scroll)
                 Task { await self.viewModel.loadMore() }
             }
         }
@@ -353,7 +320,6 @@ struct SearchView: View {
                 self.handleItemTap(item)
             } label: {
                 HStack(spacing: 12) {
-                    // Thumbnail
                     CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 48, height: 48)) { image in
                         image
                             .resizable()
@@ -369,7 +335,6 @@ struct SearchView: View {
                     .frame(width: 48, height: 48)
                     .clipShape(.rect(cornerRadius: item.usesCircularThumbnail ? 24 : 6))
 
-                    // Info
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(item.title)
@@ -400,12 +365,10 @@ struct SearchView: View {
 
                     Spacer()
 
-                    // Favorite toggle for songs
                     if let song = self.songResultPayload(for: item) {
                         LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
                     }
 
-                    // Play indicator for songs
                     if item.videoId != nil {
                         Image(systemName: "play.circle")
                             .font(.title2)
@@ -420,262 +383,14 @@ struct SearchView: View {
             .accessibilityIdentifier(AccessibilityID.Search.resultRow(index: index))
         }
         .contextMenu {
-            self.contextMenuItems(for: item)
-        }
-    }
-
-    @ViewBuilder
-    private func contextMenuItems(for item: SearchResultItem) -> some View {
-        switch item {
-        case let .song(song), let .video(song):
-            self.songContextMenu(song)
-        case let .album(album):
-            self.albumContextMenu(album)
-        case let .audiobook(audiobook):
-            self.albumContextMenu(audiobook, isAudiobook: true)
-        case let .artist(artist), let .profile(artist):
-            self.artistContextMenu(artist)
-        case let .playlist(playlist):
-            self.playlistContextMenu(playlist)
-        case let .podcastShow(show):
-            self.podcastShowContextMenu(show)
-        case let .podcastEpisode(episode):
-            self.podcastEpisodeContextMenu(episode)
-        }
-    }
-
-    @ViewBuilder
-    private func songContextMenu(_ song: Song) -> some View {
-        Button {
-            Task { await self.playerService.playWithRadio(song: song) }
-        } label: {
-            Label(String(localized: "Play"), systemImage: "play.fill")
-        }
-
-        if self.authService.hasPersonalAccount {
-            Divider()
-
-            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
-
-            Divider()
-
-            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
-        }
-
-        Divider()
-
-        StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
-
-        if self.authService.hasPersonalAccount {
-            Divider()
-
-            Button {
-                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-            } label: {
-                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-            }
-
-            Divider()
-
-            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
-        }
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: song)
-
-        Divider()
-
-        AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-        Divider()
-
-        // Go to Artist - show first artist with valid ID
-        if let artist = song.artists.first(where: { $0.hasNavigableId }) {
-            NavigationLink(value: artist) {
-                Label(String(localized: "Go to Artist"), systemImage: "person")
-            }
-        }
-
-        // Go to Album - show if album has valid browse ID
-        if let album = song.album, album.hasNavigableId {
-            let playlist = Playlist(
-                id: album.id,
-                title: album.title,
-                description: nil,
-                thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
-                trackCount: album.trackCount,
-                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-            )
-            NavigationLink(value: playlist) {
-                Label(String(localized: "Go to Album"), systemImage: "square.stack")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func albumContextMenu(_ album: Album, isAudiobook: Bool = false) -> some View {
-        let viewTitle = isAudiobook ? String(localized: "View Audiobook") : String(localized: "View Album")
-        let icon = isAudiobook ? "books.vertical" : "square.stack"
-
-        Button {
-            let playlist = Playlist(
-                id: album.id,
-                title: album.title,
-                description: nil,
-                thumbnailURL: album.thumbnailURL,
-                trackCount: album.trackCount,
-                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-            )
-            self.navigationPath.append(playlist)
-        } label: {
-            Label(viewTitle, systemImage: icon)
-        }
-
-        Divider()
-
-        // Play / Play Next / Add to Queue for albums and audiobooks
-        Button {
-            SongActionsHelper.playAlbum(
-                album,
+            SearchResultItemContextMenu(
+                item: item,
                 client: self.viewModel.client,
-                playerService: self.playerService
-            )
-        } label: {
-            Label(String(localized: "Play"), systemImage: "play.fill")
-        }
-
-        Button {
-            SongActionsHelper.addAlbumToQueueNext(
-                album,
-                client: self.viewModel.client,
-                playerService: self.playerService
-            )
-        } label: {
-            Label(String(localized: "Play Next"), systemImage: "text.insert")
-        }
-
-        Button {
-            SongActionsHelper.addAlbumToQueueLast(
-                album,
-                client: self.viewModel.client,
-                playerService: self.playerService
-            )
-        } label: {
-            Label(String(localized: "Add to Queue"), systemImage: "text.append")
-        }
-
-        Divider()
-
-        FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
-
-        ShareContextMenu.menuItem(for: album)
-    }
-
-    @ViewBuilder
-    private func artistContextMenu(_ artist: Artist) -> some View {
-        Button {
-            self.navigationPath.append(artist)
-        } label: {
-            Label(
-                artist.profileKind == .profile
-                    ? String(localized: "View Profile")
-                    : String(localized: "View Artist"),
-                systemImage: artist.profileKind == .profile ? "person.crop.circle" : "person"
+                play: { self.handleItemTap(item) },
+                navigate: { self.navigationPath.append($0) }
             )
         }
-
-        Divider()
-
-        FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
-
-        ShareContextMenu.menuItem(for: artist)
     }
-
-    @ViewBuilder
-    private func playlistContextMenu(_ playlist: Playlist) -> some View {
-        if self.authService.hasPersonalAccount {
-            Button {
-                Task {
-                    try? await SongActionsHelper.addPlaylistToLibrary(
-                        playlist,
-                        client: self.viewModel.client,
-                        libraryViewModel: self.libraryViewModel
-                    )
-                }
-            } label: {
-                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-            }
-
-            Divider()
-        }
-
-        FavoritesContextMenu.menuItem(for: playlist, manager: self.favoritesManager)
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: playlist)
-
-        Divider()
-
-        Button {
-            self.navigationPath.append(playlist)
-        } label: {
-            Label(String(localized: "View Playlist"), systemImage: "music.note.list")
-        }
-    }
-
-    @ViewBuilder
-    private func podcastShowContextMenu(_ show: PodcastShow) -> some View {
-        Button {
-            self.navigationPath.append(show)
-        } label: {
-            Label(String(localized: "View Podcast"), systemImage: "mic.fill")
-        }
-
-        Divider()
-
-        FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
-    }
-
-    @ViewBuilder
-    private func podcastEpisodeContextMenu(_ episode: PodcastEpisode) -> some View {
-        let song = episode.playbackSong
-        Button {
-            Task { await self.playerService.play(song: song) }
-        } label: {
-            Label(String(localized: "Play"), systemImage: "play.fill")
-        }
-
-        Divider()
-
-        AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: song)
-
-        if let showBrowseId = episode.showBrowseId,
-           let showTitle = episode.showTitle
-        {
-            Divider()
-
-            Button {
-                self.navigationPath.append(PodcastShow(
-                    id: showBrowseId,
-                    title: showTitle,
-                    author: nil,
-                    description: nil,
-                    thumbnailURL: episode.thumbnailURL,
-                    episodeCount: nil
-                ))
-            } label: {
-                Label(String(localized: "View Podcast"), systemImage: "mic.fill")
-            }
-        }
-    }
-
-    // MARK: - Helpers
 
     private func iconForItem(_ item: SearchResultItem) -> String {
         switch item {
@@ -703,14 +418,12 @@ struct SearchView: View {
     private func handleItemTap(_ item: SearchResultItem) {
         switch item {
         case let .song(song), let .video(song):
-            // Play the song and fetch similar songs (radio queue) in the background
             Task {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .artist(artist), let .profile(artist):
             self.navigationPath.append(artist)
         case let .album(album), let .audiobook(album):
-            // Navigate as playlist for now
             let playlist = Playlist(
                 id: album.id,
                 title: album.title,

@@ -1,9 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeExploreView
-
-/// Explore surface: public destination feeds (Gaming, News, Sports, …) —
-/// YouTube's successors to the retired Trending page.
 struct YouTubeExploreView: View {
     @Bindable var viewModel: YouTubeExploreViewModel
 
@@ -68,14 +64,10 @@ struct YouTubeExploreView: View {
                 }
             }
             .padding(.vertical, 20)
+            .detailScrollContentInset()
         }
-        // Edge-to-edge with a resting inset so the grid extends under the
-        // floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let exploreCategory = "youtubeContent.exploreCategory"

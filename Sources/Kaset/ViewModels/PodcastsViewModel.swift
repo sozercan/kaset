@@ -1,41 +1,24 @@
 import Foundation
 import Observation
 
-/// View model for the Podcasts view.
 @MainActor
 @Observable
 final class PodcastsViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Podcast sections to display.
     private(set) var sections: [PodcastSection] = []
 
-    /// Whether more sections are available to load.
     private(set) var hasMoreSections: Bool = true
 
-    /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
-    /// Service that tracks per-account region availability of the
-    /// podcasts discovery surface. Configured post-init by the owning
-    /// view so existing call sites/previews can construct the viewmodel
-    /// without the service.
     private(set) var availabilityService: PodcastsAvailabilityService?
-    /// Account id that owns the current load — passed through to
-    /// `availabilityService` so 404 / empty results are recorded against
-    /// the right key. Updated by `configure` on account switches.
     private(set) var accountId: String?
     private let logger = DiagnosticsLogger.api
-    /// Whether a user-visible continuation load is currently in flight.
     private var isLoadingMoreSections = false
 
-    /// Current explicit continuation request, cancelled on account switch.
     @ObservationIgnored private var continuationTask: Task<Void, Never>?
     @ObservationIgnored private var continuationTaskID: UUID?
 
-    /// Incremented whenever foreground load results should no longer be
-    /// allowed to mutate this view model (account switch, refresh, or a
-    /// newer load).
     private var loadGeneration = 0
 
     init(
@@ -48,9 +31,6 @@ final class PodcastsViewModel {
         self.accountId = accountId
     }
 
-    /// Wires the viewmodel up to the availability service and the
-    /// currently-active account. Called by `MainWindow` on first display
-    /// and whenever the active account changes. Safe to call repeatedly.
     func configure(
         availabilityService: PodcastsAvailabilityService?,
         accountId: String?
@@ -65,7 +45,6 @@ final class PodcastsViewModel {
         }
     }
 
-    /// Loads podcasts content with fast initial load.
     func load() async {
         guard self.loadingState != .loading,
               self.loadingState != .loadingMore
@@ -91,9 +70,6 @@ final class PodcastsViewModel {
             let sectionCount = self.sections.count
             self.logger.info("Podcasts content loaded: \(sectionCount) sections")
 
-            // Tell the availability service what we just observed. A
-            // user-initiated load is authoritative, so empty payloads
-            // count as "unavailable" here (unlike the background probe).
             if self.sections.isEmpty {
                 self.availabilityService?.markUnavailable(for: loadAccountId)
             } else {
@@ -102,7 +78,6 @@ final class PodcastsViewModel {
         } catch is CancellationError {
             guard self.isCurrentLoad(generation: loadGeneration, accountId: loadAccountId) else { return }
 
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Podcasts load cancelled")
             self.loadingState = .idle
         } catch let YTMusicError.apiError(_, code) where code == 404 {
@@ -111,10 +86,6 @@ final class PodcastsViewModel {
                 return
             }
 
-            // Region without podcasts. Land on `.loaded` with empty
-            // sections — the sidebar row will disappear within a frame
-            // via the availability service, so a generic error toast
-            // would be misleading.
             self.logger.info("Podcasts endpoint returned 404; marking region unavailable")
             self.sections = []
             self.hasMoreSections = false
@@ -131,7 +102,6 @@ final class PodcastsViewModel {
         }
     }
 
-    /// Loads one additional podcast continuation page on explicit user demand.
     func loadMore() async {
         guard self.hasMoreSections,
               self.continuationTask == nil,
@@ -185,7 +155,6 @@ final class PodcastsViewModel {
         }
     }
 
-    /// Refreshes podcasts content.
     func refresh() async {
         await self.cancelInFlightContinuation()
         self.loadGeneration += 1

@@ -6,9 +6,9 @@ Proposed
 
 ## Context
 
-Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for seventeen locales, with additional languages added incrementally.
+Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for eighteen locales, with additional languages added incrementally.
 
-Supported UI locales: `ar`, `de`, `en`, `es`, `fr`, `id`, `it`, `ko`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr`, `uk`, `zh-Hans`, `zh-Hant`. The Settings → General → Language picker lists **System Default** first, then explicit languages in locale code order.
+Supported UI locales: `ar`, `de`, `en`, `es`, `fr`, `id`, `it`, `ja`, `ko`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr`, `uk`, `zh-Hans`, `zh-Hant`. The Settings → General → Language picker lists **System Default** first, then explicit languages in locale code order.
 
 Most locales are plain ISO 639-1 codes, but Chinese is identified by **script** rather than region, matching Apple's localization identifiers (`zh-Hans`, `zh-Hant`) rather than region codes such as `zh-CN`/`zh-TW`. A user whose preferred language is `zh-Hant-TW` or `zh-Hant-HK` resolves to `zh-Hant`, so one traditional bundle serves both. `zh-Hant` follows Taiwan usage, since CLDR expands the bare tag to `zh-Hant-TW` and YouTube's own `zh-Hant` responses use Taiwan vocabulary. Hong Kong (`zh-HK`) is a separate Apple localization and is not currently shipped; adding it later is purely additive.
 
@@ -32,6 +32,8 @@ Use Xcode String Catalogs (`Localizable.xcstrings`) as the source of truth for a
 The catalog lives at `Sources/Kaset/Resources/Localizable.xcstrings`. Because current SwiftPM/Xcode 26 builds can produce duplicate `.strings` outputs when processing both the catalog and checked-in `.lproj` resources, `Package.swift` excludes the catalog and processes generated `*.lproj` directories for SwiftPM/runtime resource bundles. The app packaging script (`Scripts/build-app.sh`) compiles the source catalog into both the packaged app resources and the Kaset SwiftPM resource bundle so packaged builds still come from the catalog.
 
 When updating translations, regenerate the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` files from `Localizable.xcstrings` so SwiftPM builds and packaged app builds stay in sync.
+
+`PackageResourceLookup` looks for the SwiftPM resource bundle relative to the app module and executable, with a `.build` fallback for local runs. A language override uses its `.lproj` bundle when available. Development-region overrides can still resolve localized strings when there is no physical `.lproj`. Navigation titles re-resolve with `Bundle.localizedString(forKey:value:table:)` to read directly from the selected bundle.
 
 ### String Wrapping Patterns
 

@@ -3,9 +3,6 @@ import Foundation
 import Observation
 import os
 
-// MARK: - PlaylistDetailViewModel
-
-/// View model for the PlaylistDetailView.
 @MainActor
 @Observable
 final class PlaylistDetailViewModel {
@@ -62,17 +59,13 @@ final class PlaylistDetailViewModel {
         let continuationToken: String?
     }
 
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// The loaded playlist detail.
     private(set) var playlistDetail: PlaylistDetail?
 
-    /// Whether more tracks are available to load.
     private(set) var hasMore: Bool = false
 
     private let playlist: Playlist
-    /// The API client (exposed for add to library action).
     let client: any YTMusicClientProtocol
     private let likeStatusManager: SongLikeStatusManager
     private let logger = DiagnosticsLogger.api
@@ -99,8 +92,6 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored
     private var countedFilteredLikedMusicVideoIDs: Set<String> = []
 
-    /// Successful occurrence removals remain tombstoned for this view model's lifetime so
-    /// stale refreshes and continuation responses cannot restore them.
     @ObservationIgnored
     private var confirmedRemovedPlaylistSetVideoIDs: Set<String> = []
 
@@ -145,8 +136,6 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    /// Strips song count patterns from author text (e.g., " • 145 songs" or " • 2,429 tracks").
-    /// Used to clean fallback author values that may contain redundant song counts.
     private func stripSongCountAuthor(from author: Artist?) -> Artist? {
         guard let author else { return nil }
         var result = author.name
@@ -175,24 +164,23 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored private var pagingTask: Task<Bool, Never>?
     @ObservationIgnored private var trackRemovalWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Runs the initial load (including full-playlist paging) once, coalescing concurrent
-    /// callers so a player can await the complete track set before finalizing the queue.
     func ensureLoaded() async {
-        if let loadTask {
+        while let loadTask {
             await loadTask.value
-            return
+            if self.loadTask == loadTask {
+                self.loadTask = nil
+            }
+            guard self.loadingState == .idle else { return }
         }
         guard self.loadingState == .idle else { return }
         let task = Task { await self.load() }
         self.loadTask = task
         await task.value
-        self.loadTask = nil
+        if self.loadTask == task {
+            self.loadTask = nil
+        }
     }
 
-    /// Drives pagination to completion (every track), for callers that need the full playlist
-    /// (e.g. building a play queue). Coalesces callers and retries no-progress rounds caused by
-    /// transient continuation failures or concurrent batches. Runs in a stored unstructured task
-    /// so it survives `.task` restarts — the same single-flight discipline as `ensureLoaded`.
     func loadAllRemaining() async {
         await self.ensureLoaded()
         if let fullLoadTask {
@@ -222,7 +210,6 @@ final class PlaylistDetailViewModel {
 }
 
 extension PlaylistDetailViewModel {
-    /// Loads the playlist details including tracks.
     func load() async {
         await self.load(restartingInFlightLoad: false)
     }
@@ -340,7 +327,10 @@ extension PlaylistDetailViewModel {
         )
         return PlaylistDetail(
             playlist: playlist,
-            tracks: allTracks,
+            tracks: PlaylistPlaybackActions.tracksForPlaylistPlayback(
+                browseTracks: detail.tracks,
+                queueTracks: allTracks
+            ),
             duration: detail.duration,
             libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
         )
@@ -454,7 +444,11 @@ extension PlaylistDetailViewModel {
         return true
     }
 
-    /// Loads more tracks via continuation.
+    func loadMoreIfNeeded(appearingAt index: Int) {
+        guard self.hasMore, index >= (self.playlistDetail?.tracks.count ?? 0) - 3 else { return }
+        Task { await self.loadMore() }
+    }
+
     func loadMore() async {
         guard self.loadingState == .loaded,
               self.hasMore,
@@ -650,11 +644,6 @@ extension PlaylistDetailViewModel {
         )
     }
 
-    /// Single-flight wrapper around one continuation fetch. Concurrent callers — the initial
-    /// full-playlist load, the scroll-triggered `loadMore()`, `loadAllRemaining`, and repeated play
-    /// triggers — coalesce onto the in-flight batch and receive its real result, instead of colliding
-    /// on `loadingState` (the loser would otherwise return a spurious `false` that resilient loops
-    /// mis-read as "no progress" and give up on, leaving the queue stuck at a partial count).
     private func loadMoreBatch(generation: Int? = nil) async -> Bool {
         if let pagingTask {
             return await pagingTask.value
@@ -724,15 +713,11 @@ extension PlaylistDetailViewModel {
                 return false
             }
             self.logger.error("Failed to load more playlist tracks: \(error.localizedDescription)")
-            // Keep loaded state so user can retry
             self.loadingState = .loaded
             return false
         }
     }
 
-    /// Handles like status updates for the Liked Music playlist.
-    /// Handles immediate optimistic updates for the loaded Liked Music UI.
-    /// Delayed API response correctness is owned by `SongLikeStatusManager` snapshots.
     func handleLikeStatusChange(_ event: LikeStatusEvent) {
         guard self.isLikedMusicPlaylist else { return }
         guard self.loadingState == .loaded || self.loadingState == .loadingMore else { return }
@@ -762,7 +747,6 @@ extension PlaylistDetailViewModel {
         }
     }
 
-    /// Refreshes the playlist.
     @discardableResult
     func refresh() async -> Bool {
         guard !self.isRemovingTrack else { return false }

@@ -7,18 +7,8 @@ concurrency:
 on:
   push:
     branches: [main]
-    paths:
-      - "**.swift"
-      - ".swiftlint.yml"
-      - ".swiftformat"
-      - ".github/workflows/lint.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "**.swift"
-      - ".swiftlint.yml"
-      - ".swiftformat"
-      - ".github/workflows/lint.yml"
 
 jobs:
   swiftlint:
@@ -28,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Cache Homebrew
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -52,20 +42,21 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-
-      - name: Cache Homebrew
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: |
-            /usr/local/Homebrew
-            ~/Library/Caches/Homebrew
-          key: ${{ runner.os }}-homebrew-swiftformat
+          fetch-depth: 0
 
       - name: Install SwiftFormat
+        env:
+          SWIFTFORMAT_VERSION: "0.63.1"
+          SWIFTFORMAT_SHA256: "385ef1a263ba28685157b98c5536b9c9105e124518f28b7ef8a2bee4b167eaeb"
         run: |
-          brew install swiftformat
-          swiftformat --version
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+          echo "${SWIFTFORMAT_SHA256}  $RUNNER_TEMP/swiftformat.zip" | shasum -a 256 -c -
+          unzip -q -o "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
+          echo "$RUNNER_TEMP/swiftformat" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftformat/swiftformat" --version
 
       - name: Check formatting
         run: |
@@ -73,3 +64,10 @@ jobs:
             echo "::error::Code is not formatted. Run 'swiftformat .' locally and commit the changes."
             exit 1
           }
+
+      - name: Check comment ratchet
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          python3 -m unittest discover -s Scripts -p test_comment_lint.py
+          python3 Scripts/comment_lint.py --base "$BASE_REVISION"

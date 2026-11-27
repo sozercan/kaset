@@ -156,10 +156,41 @@ The bottom Liquid Glass bar adapts to the active source. In YouTube mode
   in the player metadata title area, and release-near-chapter scrubs snap to
   that chapter.
 - No shuffle/repeat/lyrics/queue — those are music concepts. Chapters use a
-  horizontal scroller with chevron paging controls on the watch page.
+  horizontal scroller with chevron paging controls on the watch page; the shelf
+  hugs the cards, and the Chapters header collapses it.
 
 Every navigable YouTube view carries its own bar inset (pushed views
-don't inherit `safeAreaInset` — same rule as the music side).
+don't inherit `safeAreaInset` — same rule as the music side). The watch
+page attaches its own inset so it can hide it.
+
+### Controls on Video
+
+**Show Controls on Video** (Settings → YouTube → Player Controls, default
+off) overlays the same `YouTubePlayerBar` on the docked watch-page video,
+like a regular video player. It appears when the pointer moves over the
+video or a key is pressed (outside text fields), and fades out (hiding the
+cursor) after 3 idle seconds of playback. It stays up while paused, while
+the pointer rests on the bar, while a captions/quality menu opened from the
+bar or the volume capsule is open, while VoiceOver is running, and after
+`Tab` with Keyboard Navigation on (focus may be in the bar) until the
+pointer moves again. `YouTubeInlineControlsVisibility` holds the policy.
+
+On the watch page, exactly one bar is shown at a time. The controls move
+onto the video only while the strip at its bottom edge, where they sit,
+is fully inside the scroll view. The bottom bar takes them back when the
+user scrolls past the video (comments, related), when a tall video in a
+wide window leaves its bottom edge below the fold, while Ask Gemini is
+open (it disables and covers the page), or when the video moves to the
+pop-out window, which keeps its own hover chrome.
+
+Pages without a watch video of their own (Home, Search, Explore,
+Subscriptions, the library sections, channels, playlists) drop the bottom
+bar entirely (`youtubePagePlayerBarInset()`) because they never host a
+docked video: opening a video pushes the watch page, and a video still
+playing when the user leaves it moves to the pop-out window, which carries
+its own controls. Shorts keeps
+the bar because its vertical pager has no controls of its own. Music is
+unaffected.
 
 ## Playback
 
@@ -194,7 +225,8 @@ The extracted surface lives in exactly one place at a time, tracked by
 `YouTubePlayerService.surfaceLocation`:
 
 - `.inline` — docked in `YouTubeWatchView` (the watch page); playback is
-  controlled from the player bar
+  controlled from the player bar (at the bottom, or on the video — see
+  [Controls on Video](#controls-on-video))
 - `.floating` — hosted by `YouTubeVideoWindowController`
 - `.none` — no playback
 
@@ -261,8 +293,9 @@ from the regular grids, and routed to this surface.
 Below the video, the layout is two-column: title/metadata/channel and
 chapters/comments down the left, the related rail down the right.
 Chapters come from the watch page's `next` response (see Endpoints above), show
-as a horizontal scroller with chevron paging controls, and seek the active video
-natively. Comments come from the watch page's `comment-item-section` continuation
+as a horizontal scroller with chevron paging controls that hugs the cards, and
+seek the active video natively. The Chapters header collapses the shelf.
+Comments come from the watch page's `comment-item-section` continuation
 (entity-payload mutations joined to comment view models, with a legacy
 `commentRenderer` fallback): paged reading, posting via
 `comment/create_comment`, like/dislike toggles via

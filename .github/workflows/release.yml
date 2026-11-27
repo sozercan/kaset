@@ -31,9 +31,9 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0  # Full history for changelog generation
+          fetch-depth: 0
 
       - name: Configure git user
         run: |
@@ -59,7 +59,7 @@ jobs:
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        run: swift test -q --skip KasetUITests
+        run: swift test -q --skip KasetUITests --no-parallel
 
       - name: Determine version from tag
         id: version
@@ -99,6 +99,7 @@ jobs:
 
             echo "WARN: $reason" >&2
             echo "WARN: Falling back to ad-hoc signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
+            echo "::warning::Ad-hoc signed release: Shortcuts, Siri, and Spotlight actions (App Intents) will not run without a team-signed build."
             echo "identity=" >> "$GITHUB_OUTPUT"
             echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
           }
@@ -120,11 +121,6 @@ jobs:
             echo "signing_mode=dev" >> "$GITHUB_OUTPUT"
           }
 
-          # Developer ID Application signing + notarization is the preferred
-          # distribution path, but it requires a paid Apple Developer Program
-          # membership. Maintainer builds without that account intentionally use
-          # Apple Development signing when the existing non-paid-account .p12 is
-          # available, then ad-hoc signing as a last resort.
           if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_CERTIFICATE_PWD" ] || [ -z "$MACOS_KEYCHAIN_PWD" ]; then
             use_adhoc_signing "MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, or MACOS_KEYCHAIN_PWD is not configured."
             exit 0
@@ -141,7 +137,6 @@ jobs:
           security create-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
-          # Restrict private-key access to codesign rather than -A (all apps).
           if ! security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PWD" \
             -t cert -f pkcs12 -k "$KEYCHAIN_PATH" \
             -T /usr/bin/codesign -T /usr/bin/security; then
@@ -153,7 +148,6 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: \
             -s -k "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH" >/dev/null
 
-          # Prepend our keychain to the search list so codesign can find the cert.
           security list-keychains -d user -s "$KEYCHAIN_PATH" \
             $(security list-keychains -d user | tr -d '"')
 
@@ -184,7 +178,6 @@ jobs:
           APP_IDENTITY: ${{ steps.import_cert.outputs.identity }}
           ARCHES: "arm64 x86_64"
         run: |
-          # Set version from tag
           echo "MARKETING_VERSION=${{ steps.version.outputs.version }}" > version.env
           echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
           Scripts/build-app.sh release
@@ -221,7 +214,6 @@ jobs:
           echo "Found app at: $APP_PATH"
           rm -f kaset.dmg || true
 
-          # Verify app version matches expected version
           PLIST_VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
           EXPECTED_VERSION="${{ steps.version.outputs.version }}"
           echo "Built app version: $PLIST_VERSION"
@@ -231,7 +223,6 @@ jobs:
             exit 1
           fi
 
-          # Verify Universal Binary (Intel + Apple Silicon)
           if [ -f "$APP_PATH/Contents/MacOS/Kaset" ]; then
             ARCHS=$(lipo -archs "$APP_PATH/Contents/MacOS/Kaset" 2>/dev/null || echo "unknown")
           else
@@ -243,7 +234,6 @@ jobs:
             exit 1
           fi
 
-          # Create styled DMG with Applications symlink
           create-dmg \
             --volname "Kaset" \
             --window-pos 200 120 \
@@ -314,7 +304,7 @@ jobs:
           spctl --assess --type open --verbose=4 "$FILE"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.artifact.outputs.filename }}
           path: ${{ steps.artifact.outputs.filename }}
@@ -338,7 +328,6 @@ jobs:
             exit 0
           fi
 
-          # Find Sparkle's sign_update binary
           SIGN_UPDATE=$(find ./.build -name "sign_update" -type f 2>/dev/null | head -1)
           if [ -z "$SIGN_UPDATE" ]; then
             echo "Warning: sign_update not found, skipping Sparkle signing"
@@ -347,17 +336,13 @@ jobs:
             exit 0
           fi
 
-          # Write private key to a runner-temp file and always remove it before the step exits.
           SPARKLE_KEY_FILE=$(mktemp "$RUNNER_TEMP/kaset-sparkle-key.XXXXXX")
           trap 'rm -f "$SPARKLE_KEY_FILE"' EXIT
           printf '%s' "$SPARKLE_PRIVATE_KEY" > "$SPARKLE_KEY_FILE"
           chmod 600 "$SPARKLE_KEY_FILE"
 
-          # Sign the DMG and capture output. Do not echo SIGN_OUTPUT: it contains the public update signature.
           SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file "$SPARKLE_KEY_FILE" "${{ steps.artifact.outputs.filename }}")
 
-          # Parse signature and length from output
-          # Output format: sparkle:edSignature="..." length="..."
           SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"$//')
           LENGTH=$(stat -f%z "${{ steps.artifact.outputs.filename }}")
 
@@ -372,23 +357,18 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           SHA256="${{ steps.sha256.outputs.sha256 }}"
 
-          # Get previous tag for changelog
-          # List all version tags sorted by version, find the one before current
           CURRENT_TAG="${{ steps.artifact.outputs.tag }}"
           PREV_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -A1 "^${CURRENT_TAG}$" | tail -1)
-          # If grep found nothing or returned the same tag, try alternative method
           if [ "$PREV_TAG" = "$CURRENT_TAG" ] || [ -z "$PREV_TAG" ]; then
             PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || echo "")
           fi
 
-          # Generate changelog
           if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$CURRENT_TAG" ]; then
             CHANGELOG=$(git log --pretty=format:"- %s" "$PREV_TAG".."$CURRENT_TAG" --no-merges | head -50)
           else
             CHANGELOG="- Initial release"
           fi
 
-          # Create release notes
           NOTES=$(cat <<EOF
           ## What's New
 
@@ -396,7 +376,6 @@ jobs:
           EOF
           )
 
-          # Write to file (safer than GITHUB_OUTPUT for multiline)
           echo "$NOTES" > release_notes.md
 
       - name: Check if pre-release
@@ -435,7 +414,7 @@ jobs:
           fi
 
       - name: Checkout Homebrew tap repo
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: sozercan/homebrew-repo
           token: ${{ secrets.HOMEBREW_REPO_TOKEN }}
@@ -449,7 +428,6 @@ jobs:
 
           cd homebrew-repo
 
-          # Update the cask file
           mkdir -p Casks
           cat > Casks/kaset.rb << EOF
           cask "kaset" do
@@ -462,15 +440,12 @@ jobs:
             homepage "https://github.com/sozercan/kaset"
 
             auto_updates true
-            # Homebrew casks can gate on macOS release symbols, but not this
-            # app's exact 15.4 patch minimum; LSMinimumSystemVersion and
-            # Sparkle's appcast enforce 15.4 at launch/update time.
             depends_on macos: :sequoia
 
             app "Kaset.app"
 
-            postflight do
-              system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Kaset.app"], sudo: false
+            postflight_steps do
+              run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Kaset.app"], sudo: false
             end
 
             zap trash: [
@@ -491,16 +466,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # The default branch requires changes to land via pull request, so we
-          # open a short-lived appcast branch and auto-merge it instead of
-          # pushing straight to the default branch.
           DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
           git fetch origin "$DEFAULT_BRANCH"
 
           TAG="${{ steps.artifact.outputs.tag }}"
           VERSION="${TAG#v}"
 
-          # Update appcast.xml for Sparkle auto-updates
           SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
           LENGTH="${{ steps.sparkle_sign.outputs.length }}"
 
@@ -516,7 +487,6 @@ jobs:
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
           RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
 
-          # Create updated appcast.xml with the new item at the top
           cat > appcast.xml << APPCAST_EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -560,8 +530,6 @@ jobs:
             --body "Automated Sparkle appcast update for ${TAG} (release run ${{ github.run_id }}).")
           echo "Opened appcast PR: $PR_URL"
 
-          # The default branch requires 0 approving reviews, so the PR is
-          # immediately mergeable. Retry while GitHub computes mergeability.
           for attempt in 1 2 3 4 5 6; do
             if gh pr merge "$BRANCH" --squash --delete-branch; then
               echo "Merged appcast PR"

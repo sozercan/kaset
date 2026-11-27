@@ -2,12 +2,8 @@ import Foundation
 
 @MainActor
 extension PlayerService {
-    /// Clears active playback UI/WebView state when startup resolves to guest mode.
-    ///
-    /// Unlike explicit sign-out, this preserves only persisted sessions that are
-    /// known to have been created in guest mode. Legacy/unknown sessions are
-    /// cleared because they may contain account-owned listening metadata.
     func clearPlaybackForGuestStartup() {
+        self.hasResolvedStartupPlaybackOwnership = true
         self.logger.info("Clearing active playback state for guest startup")
         guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else {
             self.clearSavedQueue()
@@ -17,18 +13,16 @@ extension PlayerService {
         self.logger.info("Preserving restored guest-owned playback session")
     }
 
-    /// Clears guest-owned restored playback when startup resolves to a signed-in
-    /// account. Guest Mode itself is not persisted, so a guest-owned restore must
-    /// not silently move onto the authenticated playback store.
     func clearGuestPlaybackForAuthenticatedStartup() {
+        self.hasResolvedStartupPlaybackOwnership = true
         guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else { return }
         self.logger.info("Clearing guest-owned playback state for authenticated startup")
         self.clearSavedQueue()
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
-    /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
     func clearPlaybackForSignOut() {
+        self.hasResolvedStartupPlaybackOwnership = true
         self.logger.info("Clearing playback state for sign-out")
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
@@ -36,10 +30,14 @@ extension PlayerService {
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
         self.accountSessionGeneration &+= 1
         self.songLikeStatusManager.invalidateSession()
+        self.libraryMutationStates.removeAll()
         self.confirmedLibraryStateByKey.removeAll()
         self.invalidatePendingPlaybackRequests()
         self.cancelDeferredQueueWork()
         self.clearRestoredPlaybackSessionState()
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         SingletonPlayerWebView.shared.tearDown()
         self.state = .idle
         self.shouldResumeAfterInterruption = false
@@ -55,6 +53,9 @@ extension PlayerService {
         self.pendingPlayVideoId = nil
         self.progress = 0
         self.currentTimeMs = 0
+        self.setPlaybackStateVideoId(nil)
+        self.currentLyricsLineIndex = nil
+        self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
         self.showMiniPlayer = false
         self.isMiniPlayerVisible = false
@@ -77,7 +78,6 @@ extension PlayerService {
         }
     }
 
-    /// Stops playback and clears state.
     func stop() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.stop(intent: intent)
@@ -97,6 +97,9 @@ extension PlayerService {
         self.isAwaitingPlaybackConfirmation = false
         self.isExplicitPauseIntentActive = true
         self.clearRestoredPlaybackSessionState()
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         self.state = .idle
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
@@ -108,6 +111,9 @@ extension PlayerService {
         self.pendingPlayVideoId = nil
         self.progress = 0
         self.currentTimeMs = 0
+        self.setPlaybackStateVideoId(nil)
+        self.currentLyricsLineIndex = nil
+        self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
         self.resetAdPlaybackState()
         await SingletonPlayerWebView.shared.cancelPendingPlayback()
@@ -128,8 +134,6 @@ extension PlayerService {
         self.isStoppingPlayback = false
     }
 
-    /// Stops current or pending playback and clears the queue under one intent.
-    /// A newer playback that starts while Web cancellation suspends wins.
     func stopAndClearQueue() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.stopAndClearQueue(intent: intent)

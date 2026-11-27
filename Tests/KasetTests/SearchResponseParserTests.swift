@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - SearchResponseParserTests
-
 @Suite(.tags(.parser))
 struct SearchResponseParserTests {
     @Test("Direct item-section search roots preserve server order")

@@ -1,5 +1,4 @@
 // swift-tools-version: 6.2
-// The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
 
@@ -23,7 +22,6 @@ let package = Package(
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.8.1"),
     ],
     targets: [
-        // Main app executable
         .executableTarget(
             name: "Kaset",
             dependencies: [
@@ -33,10 +31,8 @@ let package = Package(
             exclude: [
                 "Resources/AppIcon.icon",
                 "Resources/kaset.icns",
-                // The checked-in .lproj files are the SwiftPM/Xcode 26 runtime
-                // resources. build-app.sh compiles the source catalog for the
-                // packaged app to avoid duplicate .strings outputs in SwiftPM.
                 "Resources/Localizable.xcstrings",
+                "Resources/AppShortcuts.xcstrings",
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
@@ -47,6 +43,7 @@ let package = Package(
                 .process("Resources/fr.lproj"),
                 .process("Resources/id.lproj"),
                 .process("Resources/it.lproj"),
+                .process("Resources/ja.lproj"),
                 .process("Resources/ko.lproj"),
                 .process("Resources/nl.lproj"),
                 .process("Resources/pl.lproj"),
@@ -65,7 +62,6 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
-        // API Explorer CLI tool
         .executableTarget(
             name: "APIExplorer",
             dependencies: ["YouTubeAskCore"],
@@ -73,7 +69,11 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
-        // Shared Foundation-only YouTube Ask parsing and safety core
+        .testTarget(
+            name: "APIExplorerTests",
+            dependencies: ["APIExplorer"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .target(
             name: "YouTubeAskCore",
             swiftSettings: [
@@ -81,7 +81,6 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
-        // Unit tests for the shared YouTube Ask core
         .testTarget(
             name: "YouTubeAskCoreTests",
             dependencies: ["YouTubeAskCore"],
@@ -92,14 +91,9 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
-        // Unit tests
         .testTarget(
             name: "KasetTests",
             dependencies: ["Kaset"],
-            // Tests for Apple-Intelligence-powered features are excluded
-            // because the underlying APIs are macOS 26+ only and Swift
-            // Testing's `@Test` / `@Suite` macros do not compose with
-            // `@available(macOS 26, *)`.
             exclude: [
                 "AIErrorHandlerTests.swift",
                 "AIToolTests.swift",

@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Settings for the regular YouTube video experience (distinct from the Music
-/// experience). Currently hosts the ambient backdrop controls; a natural home
-/// for future video-only preferences.
 struct YouTubeSettingsView: View {
     @State private var settings = SettingsManager.shared
 
@@ -24,6 +21,17 @@ struct YouTubeSettingsView: View {
                 Text(String(localized: "Ambient Backdrop"))
             } footer: {
                 Text(String(localized: "A soft color glow drawn from the video plays behind the player. Applies to YouTube videos, not Music."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle(String(localized: "Show Controls on Video"), isOn: self.$settings.showYouTubeControlsOnVideo)
+                    .help(String(localized: "Place the playback controls on the video instead of in the bar at the bottom of the window"))
+            } header: {
+                Text(String(localized: "Player Controls"))
+            } footer: {
+                Text(String(localized: "Controls appear when you move the pointer over the video and fade out while it plays."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

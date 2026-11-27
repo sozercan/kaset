@@ -1,12 +1,9 @@
 import SwiftUI
 
-/// View displaying all top songs for an artist.
 struct TopSongsView: View {
     @State var viewModel: TopSongsViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
         Group {
@@ -15,7 +12,6 @@ struct TopSongsView: View {
                 if self.viewModel.songs.isEmpty {
                     LoadingView(String(localized: "Loading songs..."))
                 } else {
-                    // Show existing songs while loading more
                     self.songsListView
                         .overlay(alignment: .top) {
                             if self.viewModel.loadingState == .loading {
@@ -51,8 +47,6 @@ struct TopSongsView: View {
         }
     }
 
-    // MARK: - Views
-
     private var songsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -66,13 +60,9 @@ struct TopSongsView: View {
                 }
             }
             .padding(.vertical, 16)
+            .detailScrollContentInset()
         }
-        // Edge-to-edge with a resting inset so the list extends under the
-        // floating glass sidebar; the accent backdrop refracts through it.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
-
-    // MARK: - Song Row
 
     private func songRow(_ song: Song, index: Int) -> some View {
         HoverObservingRow { isHovered in
@@ -80,10 +70,8 @@ struct TopSongsView: View {
                 self.playSongInQueue(startingAt: index)
             } label: {
                 HStack(spacing: 12) {
-                    // Thumbnail
                     SongThumbnailView(song: song, size: 44, cornerRadius: 4)
 
-                    // Title (with optional explicit badge)
                     HStack(spacing: 6) {
                         Text(song.title)
                             .font(.system(size: 14))
@@ -95,14 +83,12 @@ struct TopSongsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // Artist column
                     Text(song.artistsDisplay)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .frame(width: 150, alignment: .leading)
 
-                    // Album column (if available)
                     if let album = song.album {
                         Text(album.title)
                             .font(.system(size: 14))
@@ -114,10 +100,8 @@ struct TopSongsView: View {
                             .frame(width: 180)
                     }
 
-                    // Favorite toggle
                     LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
 
-                    // Duration
                     Text(song.durationDisplay)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
@@ -130,77 +114,14 @@ struct TopSongsView: View {
             .buttonStyle(.plain)
         }
         .contextMenu {
-            Button {
-                self.playSongInQueue(startingAt: index)
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
-
-            Divider()
-
-            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
-            }
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                Button {
-                    SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-                } label: {
-                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-                }
-            }
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: song)
-
-            Divider()
-
-            AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-            Divider()
-
-            if self.authService.hasPersonalAccount {
-                AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
-            }
-
-            Divider()
-
-            // Go to Artist - show first artist with valid ID
-            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
-                NavigationLink(value: artist) {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
-                }
-            }
-
-            // Go to Album - show if album has valid browse ID
-            if let album = song.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                NavigationLink(value: playlist) {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
+            SongContextMenu(
+                song: song,
+                client: self.viewModel.client,
+                play: { self.playSongInQueue(startingAt: index) },
+                showsGoToArtist: false
+            )
         }
     }
-
-    // MARK: - Actions
 
     private func playSongInQueue(startingAt index: Int) {
         Task {

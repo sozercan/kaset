@@ -1,8 +1,5 @@
 import SwiftUI
 
-// MARK: - LibraryFilter
-
-/// Filter options for the Library view.
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
@@ -44,13 +41,9 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - LibraryView
-
-/// Library view displaying the user's saved music and followed content.
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -93,8 +86,7 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        ),
-                        playerBarNavigationAction: self.playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.viewModel)
                 } else {
@@ -103,8 +95,7 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        ),
-                        playerBarNavigationAction: self.playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.viewModel)
                 }
@@ -116,8 +107,7 @@ struct LibraryView: View {
                         artist: artist,
                         client: self.viewModel.client,
                         libraryViewModel: self.viewModel
-                    ),
-                    playerBarNavigationAction: self.playerBarNavigationAction
+                    )
                 )
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
@@ -155,29 +145,16 @@ struct LibraryView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
-
-    // MARK: - Views
-
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 20) {
-                // Filter chips
                 self.filterChips
 
-                // Combined grid with filtered content
                 self.libraryGrid
             }
             .padding(.vertical, 20)
+            .detailScrollContentInset()
         }
-        // Inset the resting content while the scroll view stays edge-to-edge,
-        // so the grid extends under the floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     private var filterChips: some View {
@@ -210,7 +187,6 @@ struct LibraryView: View {
         .buttonStyle(.plain)
     }
 
-    /// All library items combined and filtered.
     private var filteredItems: [LibraryItem] {
         var items: [LibraryItem] = []
 
@@ -328,7 +304,6 @@ struct LibraryView: View {
             self.navigationPath.append(playlist)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
                 CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
                     image
                         .resizable()
@@ -345,14 +320,12 @@ struct LibraryView: View {
                 .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(.rect(cornerRadius: 8))
 
-                // Title
                 Text(playlist.title)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(width: self.libraryItemSize, alignment: .topLeading)
 
-                // Track count
                 if let count = playlist.trackCount {
                     Text("\(count) songs", comment: "Playlist track count")
                         .font(.system(size: 11))
@@ -364,7 +337,15 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            PlaylistContextMenu(
+                playlist: playlist,
+                client: self.viewModel.client,
+                navigate: { self.navigationPath.append($0) }
+            )
+
             if playlist.canDelete {
+                Divider()
+
                 Button(role: .destructive) {
                     SongActionsHelper.confirmDeletePlaylist(
                         playlist,
@@ -420,48 +401,11 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button {
-                self.navigationPath.append(self.playlist(from: album))
-            } label: {
-                Label("View Album", systemImage: "square.stack")
-            }
-
-            Divider()
-
-            Button {
-                SongActionsHelper.playAlbum(
-                    album,
-                    client: self.viewModel.client,
-                    playerService: self.playerService
-                )
-            } label: {
-                Label("Play", systemImage: "play.fill")
-            }
-
-            Button {
-                SongActionsHelper.addAlbumToQueueNext(
-                    album,
-                    client: self.viewModel.client,
-                    playerService: self.playerService
-                )
-            } label: {
-                Label("Play Next", systemImage: "text.insert")
-            }
-
-            Button {
-                SongActionsHelper.addAlbumToQueueLast(
-                    album,
-                    client: self.viewModel.client,
-                    playerService: self.playerService
-                )
-            } label: {
-                Label("Add to Queue", systemImage: "text.append")
-            }
-
-            Divider()
-
-            FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
-            ShareContextMenu.menuItem(for: album)
+            AlbumContextMenu(
+                album: album,
+                client: self.viewModel.client,
+                navigate: { self.navigationPath.append($0) }
+            )
         }
     }
 
@@ -528,7 +472,6 @@ struct LibraryView: View {
             self.navigationPath.append(show)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
                 CachedAsyncImage(url: show.thumbnailURL) { image in
                     image
                         .resizable()
@@ -545,14 +488,12 @@ struct LibraryView: View {
                 .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(.rect(cornerRadius: 8))
 
-                // Title
                 Text(show.title)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(width: self.libraryItemSize, alignment: .topLeading)
 
-                // Author
                 if let author = show.author {
                     Text(author)
                         .font(.system(size: 11))
@@ -565,7 +506,7 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
+            PodcastShowContextMenu(show: show, navigate: { self.navigationPath.append($0) })
         }
     }
 
@@ -605,15 +546,11 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
-            ShareContextMenu.menuItem(for: artist)
+            ArtistContextMenu(artist: artist, navigate: { self.navigationPath.append($0) })
         }
     }
 }
 
-// MARK: - LibraryItem
-
-/// Represents a tile displayed in the combined Library grid.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
     case album(Album)

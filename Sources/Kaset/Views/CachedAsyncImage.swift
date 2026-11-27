@@ -1,22 +1,18 @@
 import SwiftUI
 
-// MARK: - CachedAsyncImageRequest
-
 private struct CachedAsyncImageRequest: Equatable {
     let url: URL?
     let targetSize: CGSize
 }
 
-// MARK: - CachedAsyncImage
+private struct CachedAsyncImageTaskID: Equatable {
+    let request: CachedAsyncImageRequest
+    let isMemoryHit: Bool
+}
 
-/// A cached version of AsyncImage that uses ImageCache.
-/// Includes a smooth crossfade transition when the image loads.
 struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     let url: URL?
-    /// Target size for image downsampling. Images are downsampled to this size to reduce memory usage.
-    /// Pass the actual display size of the image for optimal memory efficiency.
     var targetSize: CGSize = .init(width: 320, height: 320)
-    /// Optional callback invoked when an image load fails.
     var onFailure: (@MainActor () -> Void)?
     @ViewBuilder let content: (Image) -> Content
     @ViewBuilder let placeholder: () -> Placeholder
@@ -30,30 +26,34 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         CachedAsyncImageRequest(url: self.url, targetSize: self.targetSize)
     }
 
-    /// Whether to animate the image appearance.
     private var shouldAnimate: Bool {
         !self.accessibilityReduceMotion
     }
 
+    private var memoryCachedImage: NSImage? {
+        guard self.image == nil, let url = self.url else { return nil }
+        return ImageCache.shared.cachedImage(for: url, targetSize: self.targetSize)
+    }
+
     var body: some View {
+        let cached = self.memoryCachedImage
+        let isMemoryHit = cached != nil
         ZStack {
-            if let image {
+            if let image = self.image ?? cached {
                 self.content(Image(nsImage: image))
-                    .opacity(self.isLoaded ? 1 : 0)
+                    .opacity(self.isLoaded || isMemoryHit ? 1 : 0)
                     .animation(self.shouldAnimate ? .easeIn(duration: 0.25) : nil, value: self.isLoaded)
             } else {
                 self.placeholder()
             }
         }
         .onChange(of: self.request) { _, _ in
-            // Reset state when the underlying request changes for proper UX.
-            // Include targetSize so a reused view does not keep a stale decode.
             self.image = nil
             self.isLoaded = false
         }
-        .task(id: self.request) {
+        .task(id: CachedAsyncImageTaskID(request: self.request, isMemoryHit: isMemoryHit)) {
             let request = self.request
-            guard let url = request.url else { return }
+            guard !isMemoryHit, let url = request.url else { return }
             let loadedImage = await ImageCache.shared.image(for: url, targetSize: request.targetSize)
             guard !Task.isCancelled, self.request == request else { return }
 
@@ -70,9 +70,6 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     }
 }
 
-// MARK: - SizedProgressView
-
-/// A simple ProgressView wrapper with proper sizing to avoid AppKit constraint warnings.
 struct SizedProgressView: View {
     var body: some View {
         ProgressView()
@@ -82,7 +79,6 @@ struct SizedProgressView: View {
 }
 
 extension CachedAsyncImage where Placeholder == SizedProgressView {
-    /// Convenience initializer with default ProgressView placeholder.
     init(
         url: URL?,
         targetSize: CGSize = .init(width: 320, height: 320),

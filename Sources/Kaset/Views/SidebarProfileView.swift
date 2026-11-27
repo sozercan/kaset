@@ -1,16 +1,5 @@
-// SidebarProfileView.swift
-// Kaset
-//
-// Profile section displayed at the bottom of the sidebar for account management.
-
 import SwiftUI
 
-// MARK: - SidebarProfileView
-
-/// A profile section displayed at the bottom of the sidebar.
-///
-/// Shows the current user's account info with an option to switch accounts
-/// if brand accounts are available.
 struct SidebarProfileView: View {
     @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
@@ -31,8 +20,6 @@ struct SidebarProfileView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: - Logged In Content
-
     @ViewBuilder
     private var loggedInContent: some View {
         if let account = accountService.currentAccount {
@@ -40,10 +27,8 @@ struct SidebarProfileView: View {
                 self.showingAccountSwitcher = true
             } label: {
                 HStack(spacing: 10) {
-                    // Avatar
                     self.avatarView(for: account)
 
-                    // Name and handle
                     VStack(alignment: .leading, spacing: 2) {
                         Text(account.name)
                             .font(.system(size: 13, weight: .medium))
@@ -60,7 +45,6 @@ struct SidebarProfileView: View {
 
                     Spacer()
 
-                    // Chevron indicator for account/guest switching.
                     if self.accountService.hasBrandAccounts || self.authService.state.isLoggedIn {
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 10, weight: .medium))
@@ -79,12 +63,8 @@ struct SidebarProfileView: View {
                     .environment(self.accountService)
             }
         } else if self.accountService.isLoading {
-            // Loading state only while account data is actively being fetched.
-            // If auth is stale but there is no current account, show the guest
-            // sign-in affordance instead of a permanent skeleton.
             self.loadingStateView
         } else if self.accountService.lastError != nil {
-            // Error state - show retry option
             self.errorStateView
         } else {
             self.missingAccountContent
@@ -104,8 +84,6 @@ struct SidebarProfileView: View {
         .accessibilityLabel(String(localized: "Loading account"))
         .accessibilityHint(String(localized: "Double-tap to retry loading accounts"))
     }
-
-    // MARK: - Loading State
 
     private var loadingStateView: some View {
         HStack(spacing: 10) {
@@ -127,8 +105,6 @@ struct SidebarProfileView: View {
         }
         .accessibilityIdentifier(AccessibilityID.SidebarProfile.loadingState)
     }
-
-    // MARK: - Error State
 
     private var errorStateView: some View {
         HStack(spacing: 10) {
@@ -176,8 +152,6 @@ struct SidebarProfileView: View {
         }
     }
 
-    // MARK: - Logged Out Content
-
     private var loggedOutContent: some View {
         Button {
             self.authService.startLogin()
@@ -210,8 +184,6 @@ struct SidebarProfileView: View {
         .contentShape(Rectangle())
     }
 
-    // MARK: - Avatar View
-
     @ViewBuilder
     private func avatarView(for account: UserAccount) -> some View {
         if let thumbnailURL = account.thumbnailURL {
@@ -240,8 +212,6 @@ struct SidebarProfileView: View {
             }
     }
 
-    // MARK: - Accessibility
-
     private func profileAccessibilityLabel(for account: UserAccount) -> String {
         var label = "Profile: \(account.name)"
         if let handle = account.handle {
@@ -254,8 +224,6 @@ struct SidebarProfileView: View {
     }
 }
 
-// MARK: - AccessibilityID.SidebarProfile
-
 extension AccessibilityID {
     enum SidebarProfile {
         static let container = "sidebarProfile"
@@ -265,8 +233,6 @@ extension AccessibilityID {
         static let loggedOutState = "sidebarProfile.loggedOut"
     }
 }
-
-// MARK: - Preview
 
 #Preview("With Account") {
     let authService = AuthService()

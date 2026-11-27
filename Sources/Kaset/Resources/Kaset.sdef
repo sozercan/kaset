@@ -2,7 +2,6 @@
 <!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
 <dictionary title="Kaset Terminology">
 
-    <!-- Standard Suite -->
     <suite name="Standard Suite" code="????" description="Common classes and commands for all applications.">
 
         <command name="quit" code="aevtquit" description="Quit the application.">
@@ -18,10 +17,8 @@
 
     </suite>
 
-    <!-- Kaset Suite -->
     <suite name="Kaset Suite" code="Kast" description="Commands and classes for controlling Kaset.">
 
-        <!-- Playback Commands -->
         <command name="play" code="Kastplay" description="Start or resume playback.">
             <cocoa class="KasetPlayCommand"/>
         </command>
@@ -85,6 +82,31 @@
         <command name="play track at index" code="Kastplix" description="Play a specific track from the queue by its index.">
             <cocoa class="KasetPlayTrackAtIndexCommand"/>
             <direct-parameter type="integer" description="The 1-based index of the track in the queue to play."/>
+        </command>
+
+        <command name="play videos" code="Kastpvds" description="Replace the queue with videos by their YouTube video IDs and start playback.">
+            <cocoa class="KasetPlayVideosCommand"/>
+            <direct-parameter description="The YouTube video IDs to queue, in order.">
+                <type type="text" list="yes"/>
+            </direct-parameter>
+            <parameter name="starting at" code="Ksta" type="integer" optional="yes" description="The 1-based index of the video to start with (default 1).">
+                <cocoa key="startingAt"/>
+            </parameter>
+        </command>
+
+        <command name="add to queue" code="Kastaddq" description="Add videos by their YouTube video IDs to the queue without interrupting playback.">
+            <cocoa class="KasetAddToQueueCommand"/>
+            <direct-parameter description="The YouTube video IDs to add, in order.">
+                <type type="text" list="yes"/>
+            </direct-parameter>
+            <parameter name="next" code="Knxt" type="boolean" optional="yes" description="Insert after the current track instead of at the end of the queue (default false).">
+                <cocoa key="next"/>
+            </parameter>
+        </command>
+
+        <command name="remove from queue" code="Kastremq" description="Remove every occurrence of a video from the queue by its YouTube video ID, except the one that is playing.">
+            <cocoa class="KasetRemoveFromQueueCommand"/>
+            <direct-parameter type="text" description="The YouTube video ID to remove, or the audioVideoId reported by get play queue."/>
         </command>
 
     </suite>

@@ -18,8 +18,6 @@ struct MoodCategoryViewModelTests {
         self.viewModel = MoodCategoryViewModel(category: category, client: self.mockClient)
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle")
     func initialStateIsIdle() {
         #expect(self.viewModel.loadingState == .idle)
@@ -32,8 +30,6 @@ struct MoodCategoryViewModelTests {
         #expect(self.viewModel.category.browseId == "FEmusic_moods_and_genres_category")
         #expect(self.viewModel.category.params == "chill-params")
     }
-
-    // MARK: - Load Tests
 
     @Test("Load success sets sections and loaded state")
     func loadSuccessSetsData() async {
@@ -58,11 +54,8 @@ struct MoodCategoryViewModelTests {
             await self.viewModel.load()
         }
 
-        // Give the task a moment to start
         try? await Task.sleep(for: .milliseconds(10))
 
-        // The state should be loading or loaded depending on timing
-        // We verify it completes successfully
         await loadTask.value
         #expect(self.viewModel.loadingState == .loaded)
     }
@@ -76,7 +69,6 @@ struct MoodCategoryViewModelTests {
         await self.viewModel.load()
 
         if case .error = self.viewModel.loadingState {
-            // Expected
         } else {
             Issue.record("Expected error state, got \(self.viewModel.loadingState)")
         }
@@ -88,12 +80,10 @@ struct MoodCategoryViewModelTests {
             TestFixtures.makeHomeSection(title: "Section 1"),
         ])
 
-        // Start first load
         let task1 = Task {
             await self.viewModel.load()
         }
 
-        // Try to start another load immediately
         try? await Task.sleep(for: .milliseconds(20))
         let task2 = Task {
             await self.viewModel.load()
@@ -102,23 +92,18 @@ struct MoodCategoryViewModelTests {
         await task1.value
         await task2.value
 
-        // Should only have one call since second was skipped
         #expect(self.mockClient.moodCategoryCalled)
         #expect(self.viewModel.sections.count == 1)
     }
 
-    // MARK: - Refresh Tests
-
     @Test("Refresh clears sections and reloads")
     func refreshClearsAndReloads() async {
-        // Initial load
         self.mockClient.moodCategoryResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
         await self.viewModel.load()
         #expect(self.viewModel.sections.count == 1)
 
-        // Refresh with different data
         self.mockClient.moodCategoryResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Refreshed 1"),
             TestFixtures.makeHomeSection(title: "Refreshed 2"),
@@ -130,8 +115,6 @@ struct MoodCategoryViewModelTests {
         #expect(self.viewModel.sections.count == 2)
         #expect(self.viewModel.sections[0].title == "Refreshed 1")
     }
-
-    // MARK: - Client Exposure Tests
 
     @Test("Client is exposed for navigation")
     func clientIsExposed() {

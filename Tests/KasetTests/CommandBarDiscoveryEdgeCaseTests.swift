@@ -1,8 +1,6 @@
 import Testing
 @testable import Kaset
 
-// MARK: - CommandBarDiscoveryEdgeCaseTests
-
 @Suite(.serialized)
 @MainActor
 struct CommandBarDiscoveryEdgeCaseTests {

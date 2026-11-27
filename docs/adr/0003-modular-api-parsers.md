@@ -35,6 +35,13 @@ Sources/Kaset/Services/API/
 2. **Shared helpers** - `ParsingHelpers` centralizes common patterns (thumbnail extraction, artist parsing, duration parsing)
 3. **Internal visibility** - Parsers are internal to the module, YTMusicClient is the public interface
 
+### Music model boundaries
+
+- Inline album and artist metadata can identify content for display without identifying a navigable page. Album navigation requires a server browse ID (`MPRE` or `OLAK`), not a generated fallback. Artists distinguish public `UC` channel IDs from `MPLAUC` library browse IDs; sharing and subscription operations use the public channel identity. Generated display IDs must not become browse targets.
+- A playlist row's `playlistSetVideoId` is an occurrence ID, not the song's playback ID. Use it for removal so two copies of the same song remain distinguishable. Album rows can link to an official music video while the credits menu links to its audio counterpart. Retain the row's playable ID and expose the credits ID separately; `Song.preferredAudioVideoId` falls back to the row's ID when no distinct recording was identified.
+- Account-generated collections are not ordinary subscribable playlists, and their data can require the signed-in account even when playback is otherwise available. For paginated playlist details, prefer the server's total count over the number of rows loaded.
+- Moods and genres are browse destinations, not playlists. Preserve their `browseId` and `params` separately. Decode the combined ID only for older playlist-like values without a structured endpoint.
+
 ## Consequences
 
 ### Positive

@@ -2,8 +2,6 @@ import Foundation
 import os
 import SwiftUI
 
-// MARK: - PlaylistDetailLibraryMutationActivity
-
 struct PlaylistDetailLibraryMutationActivity {
     private(set) var operationID: UUID?
 
@@ -27,6 +25,7 @@ struct PlaylistDetailLibraryMutationActivity {
 @available(macOS 26.0, *)
 extension PlaylistDetailView {
     func toggleLibrary(_ detail: PlaylistDetail) {
+        guard detail.supportsLibraryToggle else { return }
         var activity = self.libraryMutationActivity
         guard let operationID = activity.begin() else { return }
         self.libraryMutationActivity = activity

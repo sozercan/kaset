@@ -2,9 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - Fixture Loading
-
-/// Loads a captured YouTube API fixture from the test bundle.
 private func loadYouTubeFixture(_ name: String) throws -> [String: Any] {
     guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
         throw YouTubeFixtureError.notFound(name)
@@ -16,14 +13,10 @@ private func loadYouTubeFixture(_ name: String) throws -> [String: Any] {
     return dict
 }
 
-// MARK: - YouTubeFixtureError
-
 private enum YouTubeFixtureError: Error {
     case notFound(String)
     case invalidJSON(String)
 }
-
-// MARK: - YouTubeSearchParserTests
 
 @Suite("YouTubeSearchParser", .tags(.parser))
 struct YouTubeSearchParserTests {
@@ -71,8 +64,6 @@ struct YouTubeSearchParserTests {
     }
 }
 
-// MARK: - YouTubeFeedParserTests
-
 @Suite("YouTubeFeedParser", .tags(.parser))
 struct YouTubeFeedParserTests {
     @Test("Signed-out home feed parses without videos (nudge only)")
@@ -81,8 +72,6 @@ struct YouTubeFeedParserTests {
 
         let feed = YouTubeFeedParser.parse(data)
 
-        // Unauthenticated home is a sign-in nudge; the parser must return
-        // cleanly with no items rather than mis-parsing chrome as videos.
         #expect(feed.videos.isEmpty)
     }
 
@@ -96,6 +85,33 @@ struct YouTubeFeedParserTests {
         #expect(feed.videos.allSatisfy { !$0.videoId.isEmpty && !$0.title.isEmpty })
     }
 
+    @Test("Collects grid and card videos from a captured gaming destination")
+    func collectsFromGamingDestination() throws {
+        let data = try loadYouTubeFixture("youtube_destination_gaming")
+
+        let feed = YouTubeFeedParser.parse(data)
+
+        let expectedVideoIDs: Set = [
+            "XaIPf-LpCI0", "f6LrgQwZs6g", "inPJQCqgyPU", "4SKpQjTTWDU",
+            "3ynmamX5lYU", "2VpLwb5-4ZU", "e-0H7KmxYcs", "Wu3pEWQzbgM",
+            "ibY5qR4CYU8", "fEkFkFZyx5w", "kJ04Npj6MpE", "m6ucCFhSY5k",
+        ]
+        #expect(Set(feed.videos.map(\.videoId)) == expectedVideoIDs)
+        #expect(feed.videos.count == expectedVideoIDs.count)
+        #expect(feed.shorts.isEmpty)
+
+        let gridVideo = try #require(feed.videos.first { $0.videoId == "XaIPf-LpCI0" })
+        #expect(gridVideo.channelName == "ESL Counter-Strike")
+        #expect(gridVideo.channelId == "UCPq2ETz4aAGo2Z-8JisDPIA")
+        #expect(gridVideo.viewCountText == "2.7M views")
+        #expect(gridVideo.thumbnailURL != nil)
+
+        let cardVideo = try #require(feed.videos.first { $0.videoId == "ibY5qR4CYU8" })
+        #expect(!cardVideo.title.isEmpty)
+        #expect(cardVideo.lengthText == "1:26")
+        #expect(cardVideo.thumbnailURL != nil)
+    }
+
     @Test("Deduplicates repeated videos while preserving order")
     func deduplicates() {
         let video1 = MockYouTubeClient.makeVideo(videoId: "a")
@@ -104,21 +120,12 @@ struct YouTubeFeedParserTests {
         #expect(result.map(\.videoId) == ["a", "b"])
     }
 
-    // MARK: - Home chips & shelves
-
-    /// A chip spec for `makeHomeResponse` (struct, not a tuple, to satisfy the
-    /// large_tuple lint rule).
     private struct ChipFixture {
         let title: String
-        /// InnerTube continuation cursor; `nil` models the tokenless "All" chip.
         let continuation: String?
         let selected: Bool
     }
 
-    /// Builds a minimal home browse response with a filter-chip bar and
-    /// optional richShelfRenderer shelves, matching the live `FEwhat_to_watch`
-    /// shape (`richGridRenderer.header.feedFilterChipBarRenderer` and
-    /// `richGridRenderer.contents[].richSectionRenderer.content.richShelfRenderer`).
     private func makeHomeResponse(
         chips: [ChipFixture] = [],
         shelves: [(title: String, videoIds: [String])] = []
@@ -221,14 +228,10 @@ struct YouTubeFeedParserTests {
 
         let bundle = try YouTubeFeedParser.parseHomeBundle(from: data)
 
-        // Chips: the selected "All" chip is dropped.
         #expect(bundle.chips.map(\.title) == ["Gaming"])
         #expect(bundle.chips.map(\.continuation) == ["tok-gaming"])
-        // Shelves: the titled shelf with its videos.
         #expect(bundle.shelves.map(\.title) == ["Breaking news"])
         #expect(bundle.shelves.first?.videos.map(\.videoId) == ["n1", "n2"])
-        // Feed: the flat walk collects the shelf videos too (the view model
-        // dedupes them against the shelf rail).
         #expect(bundle.feed.videos.map(\.videoId).sorted() == ["n1", "n2"])
     }
 
@@ -241,8 +244,6 @@ struct YouTubeFeedParserTests {
         }
     }
 }
-
-// MARK: - WatchNextParserTests
 
 @Suite("WatchNextParser", .tags(.parser))
 struct WatchNextParserTests {
@@ -388,8 +389,6 @@ struct WatchNextParserTests {
                     ],
                 ],
             ],
-            // Matching macro markers provide end bounds that the canonical
-            // chapterRenderer timeline omits.
             "engagementPanels": [
                 [
                     "engagementPanelSectionListRenderer": [
@@ -557,8 +556,6 @@ struct WatchNextParserTests {
     }
 }
 
-// MARK: - ChannelPageParserTests
-
 @Suite("ChannelPageParser", .tags(.parser))
 struct ChannelPageParserTests {
     @Test("Parses channel metadata and landing videos from a captured browse response")
@@ -575,8 +572,6 @@ struct ChannelPageParserTests {
     }
 }
 
-// MARK: - YouTubePlaylistPageParserTests
-
 @Suite("YouTubePlaylistPageParser", .tags(.parser))
 struct YouTubePlaylistPageParserTests {
     @Test("Parses playlist title and videos from a captured browse response")
@@ -591,8 +586,6 @@ struct YouTubePlaylistPageParserTests {
         #expect(detail.playlist.firstVideoId == detail.videos.first?.videoId)
     }
 }
-
-// MARK: - YouTubeCommentsParserTests
 
 @Suite("YouTubeCommentsParser", .tags(.parser))
 struct YouTubeCommentsParserTests {

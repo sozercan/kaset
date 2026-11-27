@@ -1,8 +1,6 @@
 import Foundation
 import WebKit
 
-// MARK: - AuthCookieOperationFence
-
 struct AuthCookieOperationFence {
     private(set) var generation: UInt64 = 0
 
@@ -15,14 +13,10 @@ struct AuthCookieOperationFence {
     }
 }
 
-// MARK: - LiveAuthCookieClearResult
-
 struct LiveAuthCookieClearResult: Equatable {
     let didClear: Bool
     let usedCookieStoreFallback: Bool
 }
-
-// MARK: - LiveAuthCookieStoreClearer
 
 @MainActor
 enum LiveAuthCookieStoreClearer {
@@ -34,6 +28,7 @@ enum LiveAuthCookieStoreClearer {
 
     static func clear(
         maximumDeletePasses: Int = 3,
+        allowsCookieStoreFallback: Bool = true,
         operations: Operations
     ) async -> LiveAuthCookieClearResult {
         for _ in 0 ..< max(maximumDeletePasses, 0) {
@@ -51,6 +46,9 @@ enum LiveAuthCookieStoreClearer {
             await Task.yield()
         }
 
+        guard allowsCookieStoreFallback else {
+            return LiveAuthCookieClearResult(didClear: false, usedCookieStoreFallback: false)
+        }
         await operations.removeAllCookies()
         let remainingCookies = await operations.readCookies()
         return LiveAuthCookieClearResult(

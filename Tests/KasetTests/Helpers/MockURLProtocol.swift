@@ -1,9 +1,6 @@
 import Foundation
 
-/// A custom URLProtocol that intercepts network requests for testing.
-/// Allows tests to provide mock responses without making real network calls.
 final class MockURLProtocol: URLProtocol {
-    /// Handler type for processing requests.
     typealias RequestHandler = @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
 
     private static let sessionIDHeader = "X-Kaset-MockURLProtocol-Session-ID"
@@ -11,8 +8,6 @@ final class MockURLProtocol: URLProtocol {
     // swiftlint:disable:next modifier_order
     private nonisolated(unsafe) static var handlersBySessionID: [String: RequestHandler] = [:]
 
-    /// Legacy fallback handler for older tests. Prefer `makeMockSession(handler:)`
-    /// so parallel suites cannot clear or replace each other's handler.
     nonisolated(unsafe) static var requestHandler: RequestHandler?
 
     override static func canInit(with _: URLRequest) -> Bool {
@@ -44,11 +39,8 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    override func stopLoading() {
-        // No-op
-    }
+    override func stopLoading() {}
 
-    /// Creates a URLSession configured to use this mock protocol.
     static func makeMockSession(handler: RequestHandler? = nil) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -64,7 +56,6 @@ final class MockURLProtocol: URLProtocol {
         return URLSession(configuration: configuration)
     }
 
-    /// Sets the request handler associated with a specific mock session.
     static func setRequestHandler(for session: URLSession, _ handler: @escaping RequestHandler) {
         self.handlersLock.withLock {
             guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
@@ -75,7 +66,6 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    /// Removes the request handler associated with a specific mock session.
     static func reset(session: URLSession) {
         self.handlersLock.withLock {
             guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
@@ -86,42 +76,9 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    /// Resets the legacy fallback request handler.
-    /// Per-session handlers are isolated and must be cleared with `reset(session:)`.
     static func reset() {
         self.handlersLock.withLock {
             Self.requestHandler = nil
-        }
-    }
-
-    /// Sets up a successful JSON response.
-    /// - Parameters:
-    ///   - json: The JSON dictionary to return.
-    ///   - statusCode: The HTTP status code (default 200).
-    static func setMockJSONResponse(_ json: [String: Any], statusCode: Int = 200) {
-        // Pre-serialize the JSON to Data to avoid capturing non-Sendable type
-        // swiftlint:disable:next force_try
-        let data = try! JSONSerialization.data(withJSONObject: json)
-        Self.handlersLock.withLock {
-            Self.requestHandler = { request in
-                let response = HTTPURLResponse(
-                    url: request.url!,
-                    statusCode: statusCode,
-                    httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json"]
-                )!
-                return (response, data)
-            }
-        }
-    }
-
-    /// Sets up an error response.
-    /// - Parameter error: The error to throw.
-    static func setMockError(_ error: any Error & Sendable) {
-        self.handlersLock.withLock {
-            Self.requestHandler = { _ in
-                throw error
-            }
         }
     }
 

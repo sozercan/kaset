@@ -1,9 +1,6 @@
 import Foundation
 
-// MARK: - QueueEntry
-
 struct QueueEntry: Identifiable, Hashable {
-    /// Where a queue entry came from. `suggested` marks Smart Shuffle recommendations.
     enum Source: String, Hashable, Codable {
         case queued
         case suggested
@@ -11,11 +8,36 @@ struct QueueEntry: Identifiable, Hashable {
 
     let id: UUID
     let song: Song
-    /// Defaulted so existing `QueueEntry(id:song:)` call sites compile unchanged.
     var source: Source = .queued
 }
 
-// MARK: - QueueState
+struct QueuePlaybackContext: Equatable {
+    let entryID: UUID?
+    let index: Int
+    let requestGeneration: Int
+    let navigationGeneration: Int
+}
+
+struct PlaybackNavigationContext: Equatable {
+    let requestGeneration: Int
+    let navigationGeneration: Int
+}
+
+enum RadioQueueFetchOutcome: Equatable {
+    case applied
+    case unavailable
+    case queueMutated
+    case superseded
+}
+
+struct PendingNativeQueueAdvance: Equatable {
+    let sourceEntryID: UUID?
+    let sourceVideoId: String
+    let targetEntryID: UUID
+    let targetVideoId: String
+    let generation: Int
+    let fallbackDeadline: ContinuousClock.Instant
+}
 
 struct QueueState {
     enum PlaybackOwner: Equatable {

@@ -1,11 +1,9 @@
 import Foundation
 import WebKit
 
-// MARK: - CookieArchiveBackupAction
-
 enum CookieArchiveBackupAction: Equatable, Sendable {
     case persist(data: Data, cookieCount: Int)
-    case invalidate
+    case retainWithoutPrimarySession
     case retainExisting
 
     static func make(from result: CookieArchiveEncodingResult) -> CookieArchiveBackupAction {
@@ -13,14 +11,12 @@ enum CookieArchiveBackupAction: Equatable, Sendable {
         case let .archive(data, cookieCount):
             .persist(data: data, cookieCount: cookieCount)
         case .noPrimarySession:
-            .invalidate
+            .retainWithoutPrimarySession
         case .failure:
             .retainExisting
         }
     }
 }
-
-// MARK: - CookieArchiveSnapshot
 
 struct CookieArchiveSnapshot: Equatable, Sendable {
     let data: Data
@@ -67,8 +63,6 @@ struct CookieArchiveSnapshot: Equatable, Sendable {
     }
 }
 
-// MARK: - CookieArchiveVerificationState
-
 enum CookieArchiveVerificationState: Sendable {
     case noValidAuthCookies
     case snapshot(CookieArchiveSnapshot)
@@ -92,8 +86,6 @@ enum CookieArchiveVerificationState: Sendable {
         }
     }
 }
-
-// MARK: - CookieArchiveStabilityEntry
 
 private struct CookieArchiveStabilityEntry: Codable, Equatable, Sendable {
     let name: String
@@ -123,8 +115,6 @@ private struct CookieArchiveStabilityEntry: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - LoginCookieVerificationState
-
 private struct LoginCookieVerificationState: Equatable, Sendable {
     let entries: [CookieArchiveStabilityEntry]
 
@@ -146,14 +136,10 @@ private struct LoginCookieVerificationState: Equatable, Sendable {
     }
 }
 
-// MARK: - CookieArchiveWriteAttempt
-
 struct CookieArchiveWriteAttempt: Sendable {
     let snapshot: CookieArchiveSnapshot
     let generation: UInt64
 }
-
-// MARK: - CookieBackupStabilizationResult
 
 enum CookieBackupStabilizationResult: Equatable {
     case persisted
@@ -161,8 +147,6 @@ enum CookieBackupStabilizationResult: Equatable {
     case cancelled
     case unstable
 }
-
-// MARK: - CookieBackupStabilizer
 
 @MainActor
 enum CookieBackupStabilizer {
@@ -206,9 +190,6 @@ enum CookieBackupStabilizer {
                 return operations.canContinue() ? .failed : .cancelled
             }
 
-            // Give already-enqueued observer callbacks a chance to mark the
-            // snapshot dirty, but verify freshness directly instead of treating
-            // observer delivery as a synchronization barrier.
             await Task.yield()
             guard operations.canContinue() else { return .cancelled }
 
@@ -244,15 +225,11 @@ enum CookieBackupStabilizer {
     }
 }
 
-// MARK: - LiveCookieRollbackResult
-
 private enum LiveCookieRollbackResult {
     case restored
     case superseded
     case failed
 }
-
-// MARK: - LoginCookieBackupBaseline
 
 private struct LoginCookieBackupBaseline {
     let liveBaseline: CookieArchiveLiveBaseline
@@ -260,13 +237,14 @@ private struct LoginCookieBackupBaseline {
     let loginCookies: [HTTPCookie]
 }
 
-// MARK: - Forced Cookie Backup
-
 extension WebKitManager {
-    /// Starts a rollback-safe persistence transaction before the login WebView
-    /// can change authentication cookies.
     func beginLoginCookieBackup() async -> CookieBackupTransaction? {
-        guard await self.waitForInitialCookieRestore() else {
+        switch await self.waitForInitialCookieRestore() {
+        case .ready:
+            break
+        case .unavailable:
+            return nil
+        case .failed:
             self.loginCookieBackupSetupRequiresCleanup = true
             return nil
         }
@@ -346,9 +324,9 @@ extension WebKitManager {
 
         let authCookies = allLiveCookies.filter(KeychainCookieStorage.isAuthCookie)
         let loginCookies = allLiveCookies.filter(KeychainCookieStorage.isLoginDomainCookie)
-        if authCookies.isEmpty {
+        if case .noPrimarySession = KeychainCookieStorage.makeArchiveResult(from: authCookies) {
             return LoginCookieBackupBaseline(
-                liveBaseline: .empty,
+                liveBaseline: .persistedArchive,
                 authSnapshot: nil,
                 loginCookies: loginCookies
             )
@@ -422,8 +400,13 @@ extension WebKitManager {
         return transaction.hasChangedFromPreviousLiveSnapshot(snapshot)
     }
 
-    /// Captures and persists a fresh stable snapshot while the transaction keeps
-    /// startup restoration disabled.
+    func clearLiveLoginCookies(for transaction: CookieBackupTransaction) async -> Bool {
+        guard await self.isLoginCookieBackupActive(transaction), !Task.isCancelled else { return false }
+        self.logger.notice("Clearing live login cookies for reauthentication")
+        let didClear = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: false)
+        return didClear && self.isCurrentLoginCookieBackup(transaction)
+    }
+
     func refreshLoginCookieBackup(_ transaction: CookieBackupTransaction) async -> Bool {
         guard self.isCurrentLoginCookieBackup(transaction) else { return false }
         self.cookieDebounceTask?.cancel()
@@ -496,9 +479,6 @@ extension WebKitManager {
               !Task.isCancelled
         else { return nil }
 
-        // Persist and re-read one last stable snapshot while restoration remains
-        // disabled. Finalization enables restoration as its last atomic step, so
-        // cancellation can never make an unconfirmed login restorable.
         guard let postFinalizeSnapshot = await self.refreshPersistedSnapshot(),
               transaction.hasChangedFromPreviousLiveSnapshot(postFinalizeSnapshot),
               let postFinalizeSessionValue = postFinalizeSnapshot.primarySessionValue,
@@ -673,13 +653,10 @@ extension WebKitManager {
         self.activeLoginCookieBackupTransaction?.matches(transaction) == true
     }
 
-    /// Forces an immediate save of a stable YouTube/Google cookie snapshot.
     func forceBackupCookies() async -> Bool {
-        guard !self.isClearingAuthCookies else { return false }
+        guard self.canPersistAuthCookies else { return false }
 
         if let forcedCookieBackupTask {
-            // A later caller establishes a newer freshness boundary even if
-            // WebKit has not delivered its cookie-change callback yet.
             self.forcedCookieBackupDirty = true
             return await forcedCookieBackupTask.value
         }
@@ -709,15 +686,13 @@ extension WebKitManager {
                         self.forcedCookieBackupDirty
                     },
                     canContinue: {
-                        !Task.isCancelled && !self.isClearingAuthCookies
+                        !Task.isCancelled && self.canPersistAuthCookies
                     }
                 )
             )
 
             switch result {
             case .persisted:
-                // A callback that lands after the stabilizer's final read remains
-                // dirty; fail closed so the caller retries instead of erasing it.
                 return !self.forcedCookieBackupDirty
             case .cancelled:
                 return false
@@ -756,8 +731,6 @@ extension WebKitManager {
     }
 }
 
-// MARK: - WebKitManager + WKHTTPCookieStoreObserver
-
 extension WebKitManager: WKHTTPCookieStoreObserver {
     nonisolated func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
         Task { @MainActor in
@@ -768,7 +741,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
     func handleObservedCookieChange(in cookieStore: WKHTTPCookieStore) {
         self.recordCookieChange()
 
-        guard !self.isRestoringCookies, !self.isClearingAuthCookies else { return }
+        guard self.canPersistAuthCookies else { return }
         if self.isPreparingLoginCookieBackup
             || self.activeLoginCookieBackupTransaction != nil
             || self.forcedCookieBackupTask != nil
@@ -777,7 +750,6 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
             return
         }
 
-        // WebKit fires once per individual cookie change, so debounce the backup.
         self.cookieDebounceTask?.cancel()
         self.cookieDebounceTask = Task {
             do {
@@ -794,26 +766,21 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
     }
 
     private func performCookieBackup(cookieStore: WKHTTPCookieStore) async {
-        guard !self.isClearingAuthCookies else { return }
+        guard self.canPersistAuthCookies else { return }
         let generation = await self.cookieArchiveQueue.reserveGeneration()
         let cookies = await cookieStore.allCookies()
-        guard !Task.isCancelled, !self.isClearingAuthCookies else { return }
+        guard !Task.isCancelled, self.canPersistAuthCookies else { return }
         let authCookies = cookies.filter(KeychainCookieStorage.isAuthCookie)
         let action = CookieArchiveBackupAction.make(
             from: KeychainCookieStorage.makeArchiveResult(from: authCookies)
         )
         switch action {
-        case .invalidate:
-            let result = await self.cookieArchiveQueue.invalidateAndDeleteIfLatest(
-                generation: generation
-            )
-            if result == .failed {
-                self.logger.error("Could not invalidate an empty authentication-cookie snapshot")
-            }
+        case .retainWithoutPrimarySession:
+            self.logger.notice("Live cookies have no primary YouTube session; keeping the last authentication-cookie archive")
         case .retainExisting:
             self.logger.error("Retaining the last authentication-cookie archive after serialization failure")
         case let .persist(data, cookieCount):
-            guard !Task.isCancelled, !self.isClearingAuthCookies else { return }
+            guard !Task.isCancelled, self.canPersistAuthCookies else { return }
             _ = await self.cookieArchiveQueue.save(
                 archiveData: data,
                 cookieCount: cookieCount,

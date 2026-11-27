@@ -1,33 +1,24 @@
 import Foundation
 import FoundationModels
 
-/// A tool that allows the language model to search the YouTube Music catalog.
-/// This grounds AI responses in real music data rather than hallucinated song IDs.
 @available(macOS 26.0, *)
 struct MusicSearchTool: Tool {
-    /// The YTMusicClient used for API calls.
     private let client: any YTMusicClientProtocol
 
-    /// Logger for debugging.
     private let logger = DiagnosticsLogger.ai
 
-    /// Creates a new MusicSearchTool.
-    /// - Parameter client: The YTMusicClient to use for searches.
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
 
-    /// Human-readable name for the tool.
     let name = "searchMusic"
 
-    /// Description of what the tool does.
     let description = """
     Searches the YouTube Music catalog for songs, albums, artists, and playlists.
     Use this tool to find real music content before suggesting playback or queuing.
     Returns formatted results with video IDs that can be used for playback.
     """
 
-    /// The arguments this tool accepts.
     @Generable
     struct Arguments {
         @Guide(description: "The search query (song title, artist name, album, etc.)")
@@ -37,16 +28,13 @@ struct MusicSearchTool: Tool {
         let filter: String
     }
 
-    /// Output type for the tool
     typealias Output = String
 
-    /// Performs the search and returns formatted results.
     func call(arguments: Arguments) async throws -> String {
         self.logger.info("MusicSearchTool searching for: \(arguments.query)")
 
         let response = try await client.search(query: arguments.query)
 
-        // Format results based on filter
         var results: [String] = []
 
         let includeAll = arguments.filter.isEmpty || arguments.filter == "all"

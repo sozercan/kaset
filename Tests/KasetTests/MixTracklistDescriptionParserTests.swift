@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MixTracklistDescriptionParserTests
-
 @Suite(.tags(.model))
 struct MixTracklistDescriptionParserTests {
     @MainActor
@@ -722,8 +720,6 @@ struct MixTracklistDescriptionParserTests {
         #expect(tracklist?.entries.map(\.title) == ["Track One", "Track Two", "Track Three"])
     }
 
-    /// The parser is shared by the seek bar and the scrobbler, which can both request the same video
-    /// before either fetch returns. Concurrent requests must coalesce onto a single watch-next call.
     @MainActor
     @Test("Concurrent parses for the same video issue a single fetch")
     func coalescesConcurrentParsesForSameVideo() async {
@@ -752,7 +748,6 @@ struct MixTracklistDescriptionParserTests {
         async let first = parser.parseTracklist(videoId: "mix")
         async let second = parser.parseTracklist(videoId: "mix")
 
-        // Let both requests reach the gated in-flight fetch, then release it.
         while mockYouTube.getWatchNextCallCount == 0 {
             await Task.yield()
         }

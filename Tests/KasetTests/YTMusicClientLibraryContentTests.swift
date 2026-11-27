@@ -4,8 +4,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YTMusicClientLibraryRequestTests
-
 @Suite(.serialized, .tags(.api), .timeLimit(.minutes(1)))
 @MainActor
 struct YTMusicClientLibraryRequestTests {
@@ -1026,10 +1024,7 @@ private extension YTMusicClientLibraryRequestTests {
     }
 }
 
-// MARK: - LibraryRequestTestSupport
-
 private enum LibraryRequestTestSupport {
-    /// URLSession may bridge `httpBody` to a stream before URLProtocol observes the request.
     static func bodyData(from request: URLRequest) throws -> Data {
         if let body = request.httpBody {
             return body
@@ -1056,8 +1051,6 @@ private enum LibraryRequestTestSupport {
         }
     }
 }
-
-// MARK: - LibraryRequestRecorder
 
 private final class LibraryRequestRecorder: @unchecked Sendable {
     private let lock = NSLock()

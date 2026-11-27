@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for RetryPolicy.
 @Suite(.serialized, .tags(.api))
 struct RetryPolicyTests {
     @Test("Default policy has expected values")
@@ -16,11 +15,11 @@ struct RetryPolicyTests {
     @Test(
         "Delay uses exponential backoff",
         arguments: [
-            (0, 1.0), // 1 * 2^0 = 1
-            (1, 2.0), // 1 * 2^1 = 2
-            (2, 4.0), // 1 * 2^2 = 4
-            (3, 8.0), // 1 * 2^3 = 8
-            (4, 16.0), // 1 * 2^4 = 16
+            (0, 1.0),
+            (1, 2.0),
+            (2, 4.0),
+            (3, 8.0),
+            (4, 16.0),
         ]
     )
     func delayExponentialBackoff(attempt: Int, expectedDelay: Double) {
@@ -31,8 +30,8 @@ struct RetryPolicyTests {
     @Test(
         "Delay is capped at maxDelay",
         arguments: [
-            (5, 8.0), // Would be 32, but capped at 8
-            (10, 8.0), // Would be 1024, but capped at 8
+            (5, 8.0),
+            (10, 8.0),
         ]
     )
     func delayMaxCap(attempt: Int, expectedDelay: Double) {
@@ -43,9 +42,9 @@ struct RetryPolicyTests {
     @Test(
         "Delay respects custom baseDelay",
         arguments: [
-            (0, 0.5), // 0.5 * 2^0 = 0.5
-            (1, 1.0), // 0.5 * 2^1 = 1.0
-            (2, 2.0), // 0.5 * 2^2 = 2.0
+            (0, 0.5),
+            (1, 1.0),
+            (2, 2.0),
         ]
     )
     func delayWithCustomBaseDelay(attempt: Int, expectedDelay: Double) {
@@ -109,7 +108,6 @@ struct RetryPolicyTests {
         } catch {
             #expect(callCount == 3)
             if case YTMusicError.networkError = error {
-                // Expected
             } else {
                 Issue.record("Wrong error type: \(error)")
             }
@@ -129,7 +127,7 @@ struct RetryPolicyTests {
             }
             Issue.record("Should have thrown")
         } catch YTMusicError.authExpired {
-            #expect(callCount == 1) // Should not retry
+            #expect(callCount == 1)
         } catch {
             Issue.record("Wrong error type: \(error)")
         }
@@ -148,7 +146,7 @@ struct RetryPolicyTests {
             }
             Issue.record("Should have thrown")
         } catch YTMusicError.notAuthenticated {
-            #expect(callCount == 1) // Should not retry
+            #expect(callCount == 1)
         } catch {
             Issue.record("Wrong error type: \(error)")
         }

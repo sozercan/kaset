@@ -10,9 +10,6 @@ private let realWorldArtistIdMismatchCases = [
     ),
 ]
 
-// MARK: - LibraryMutationSerialTests.SongActionsHelperTests
-
-/// Tests for SongActionsHelper library mutation flows.
 extension LibraryMutationSerialTests {
     @Suite(.tags(.viewModel), .timeLimit(.minutes(1)))
     @MainActor
@@ -73,8 +70,8 @@ extension LibraryMutationSerialTests {
             }
         }
 
-        @Test("Add to Library cannot toggle a newer track")
-        func addToLibraryCannotMutateNewerTrack() async {
+        @Test("Add to Library saves the selected song even if playback changes")
+        func addToLibraryDoesNotMutateNewerTrack() async {
             let playerService = PlayerService()
             let authService = AuthService(webKitManager: MockWebKitManager())
             authService.completeLogin(sapisid: "REDACTED")
@@ -105,7 +102,7 @@ extension LibraryMutationSerialTests {
 
             #expect(playerService.currentTrack?.videoId == songB.videoId)
             #expect(!playerService.currentTrackInLibrary)
-            #expect(!self.mockClient.editSongLibraryStatusCalled)
+            #expect(self.mockClient.editSongLibraryStatusTokens == [["a-add"]])
         }
 
         @Test("Add to Library waits for tokens on an already-loading song")
@@ -163,12 +160,14 @@ extension LibraryMutationSerialTests {
                 isInLibrary: true,
                 feedbackTokens: FeedbackTokens(add: nil, remove: "mock-token")
             )
+            self.mockClient.songResponses[song.videoId] = song
 
             let task = SongActionsHelper.addToLibrary(song, playerService: playerService)
             await task.value
             try? await Task.sleep(for: .milliseconds(25))
 
-            #expect(playerService.currentTrackInLibrary)
+            #expect(playerService.currentTrack == nil)
+            #expect(playerService.state == .idle)
             #expect(!self.mockClient.editSongLibraryStatusCalled)
         }
 

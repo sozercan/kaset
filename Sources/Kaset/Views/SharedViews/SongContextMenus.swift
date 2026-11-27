@@ -1,9 +1,6 @@
 import Foundation
 import SwiftUI
 
-// MARK: - LikeDislikeContextMenu
-
-/// Reusable context menu items for like/dislike actions.
 struct LikeDislikeContextMenu: View {
     let song: Song
     let likeStatusManager: SongLikeStatusManager
@@ -18,7 +15,6 @@ struct LikeDislikeContextMenu: View {
 
     @ViewBuilder
     private var menuItems: some View {
-        // Show Unlike if already liked, otherwise show Like
         if self.likeStatusManager.isLiked(self.song) {
             Button {
                 SongActionsHelper.unlikeSong(self.song, likeStatusManager: self.likeStatusManager)
@@ -32,7 +28,6 @@ struct LikeDislikeContextMenu: View {
                 Label(String(localized: "Like"), systemImage: "hand.thumbsup")
             }
 
-            // Only show Dislike if not already liked
             if self.likeStatusManager.isDisliked(self.song) {
                 Button {
                     SongActionsHelper.undislikeSong(self.song, likeStatusManager: self.likeStatusManager)
@@ -50,9 +45,6 @@ struct LikeDislikeContextMenu: View {
     }
 }
 
-// MARK: - AddToQueueContextMenu
-
-/// Reusable context menu items for adding songs to the queue.
 struct AddToQueueContextMenu: View {
     let song: Song
     let playerService: PlayerService
@@ -72,9 +64,6 @@ struct AddToQueueContextMenu: View {
     }
 }
 
-// MARK: - AddToPlaylistContextMenu
-
-/// Reusable context-menu submenu for adding a song to one of the user's playlists.
 struct AddToPlaylistContextMenu: View {
     let song: Song
     let client: any YTMusicClientProtocol
@@ -155,11 +144,6 @@ struct AddToPlaylistContextMenu: View {
             Label(String(localized: "Add to Playlist"), systemImage: "text.badge.plus")
         }
         .onAppear {
-            // Start loading as soon as the parent context menu is built, not only
-            // after the submenu opens. AppKit/SwiftUI menu contents are largely
-            // snapshotted while open, so preloading prevents the submenu from
-            // sitting on a stale "Loading Playlists…" row until the user closes
-            // and reopens it.
             self.startLoadingPlaylistsIfNeeded()
         }
     }
@@ -195,10 +179,6 @@ struct AddToPlaylistContextMenu: View {
             let menu = try await self.fetchAddToPlaylistOptionsWithTimeout()
             self.loadState = .loaded(menu)
         } catch is CancellationError {
-            // Opening and closing menus can cancel view-scoped work. Keep the
-            // submenu in the non-failed initial state so the next open retries
-            // automatically instead of showing a manual retry before a real
-            // request failure has occurred.
             self.loadState = .idle
         } catch {
             self.loadState = .failed("Unable to Load Playlists")

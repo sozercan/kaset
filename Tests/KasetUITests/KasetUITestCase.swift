@@ -1,9 +1,5 @@
 @preconcurrency import XCTest
 
-// MARK: - TestAccessibilityID
-
-/// Accessibility identifiers matching those in AccessibilityID enum.
-/// Duplicated here to avoid import issues with the app target.
 enum TestAccessibilityID {
     enum Sidebar {
         static let container = "sidebar"
@@ -35,8 +31,6 @@ enum TestAccessibilityID {
 
     enum MainWindow {
         static let container = "mainWindow"
-        static let commandBar = "mainWindow.commandBar"
-        static let commandBarOverlay = "mainWindow.commandBarOverlay"
         static let commandBarInput = "mainWindow.commandBarInput"
     }
 
@@ -54,16 +48,12 @@ enum TestAccessibilityID {
         static let fallbackPanel = "lyrics.fallbackPanel"
     }
 
-    // MARK: - Sidebar Profile
-
     enum SidebarProfile {
         static let container = "sidebarProfile"
         static let profileButton = "sidebarProfile.profileButton"
         static let loadingState = "sidebarProfile.loading"
         static let loggedOutState = "sidebarProfile.loggedOut"
     }
-
-    // MARK: - Account Switcher
 
     enum AccountSwitcher {
         static let container = "accountSwitcher"
@@ -78,66 +68,15 @@ enum TestAccessibilityID {
     }
 }
 
-// MARK: - MockFavoriteItem
-
-/// Helper type for creating mock favorites in UI tests.
-struct MockFavoriteItem {
-    let id: String
-    let pinnedAt: Date
-    let type: MockFavoriteType
-
-    enum MockFavoriteType {
-        case song(videoId: String, title: String, artist: String)
-        case album(id: String, title: String, artist: String)
-        case playlist(id: String, title: String, author: String)
-        case artist(id: String, name: String)
-    }
-
-    init(id: String = UUID().uuidString, pinnedAt: Date = Date(), type: MockFavoriteType) {
-        self.id = id
-        self.pinnedAt = pinnedAt
-        self.type = type
-    }
-
-    /// Creates a mock song favorite.
-    static func song(videoId: String, title: String, artist: String) -> MockFavoriteItem {
-        MockFavoriteItem(type: .song(videoId: videoId, title: title, artist: artist))
-    }
-
-    /// Creates a mock album favorite.
-    static func album(id: String, title: String, artist: String) -> MockFavoriteItem {
-        MockFavoriteItem(type: .album(id: id, title: title, artist: artist))
-    }
-
-    /// Creates a mock playlist favorite.
-    static func playlist(id: String, title: String, author: String) -> MockFavoriteItem {
-        MockFavoriteItem(type: .playlist(id: id, title: title, author: author))
-    }
-
-    /// Creates a mock artist favorite.
-    static func artist(id: String, name: String) -> MockFavoriteItem {
-        MockFavoriteItem(type: .artist(id: id, name: name))
-    }
-}
-
-// MARK: - KasetUITestCase
-
-/// Base class for Kaset UI tests.
-/// Provides common setup, launch configuration, and helper methods.
 @MainActor
 class KasetUITestCase: XCTestCase {
-    /// The application under test.
     var app: XCUIApplication!
-
-    // MARK: - Setup / Teardown
 
     override func setUpWithError() throws {
         try super.setUpWithError()
 
-        // Stop immediately when a failure occurs
         continueAfterFailure = false
 
-        // Create new app instance pointing to installed Kaset.app
         let appURL = URL(fileURLWithPath: "/Applications/Kaset.app")
         if FileManager.default.fileExists(atPath: appURL.path) {
             self.app = XCUIApplication(url: appURL)
@@ -145,15 +84,12 @@ class KasetUITestCase: XCTestCase {
             self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
         }
 
-        // Add UI test mode arguments
         self.app.launchArguments.append("-UITestMode")
         self.app.launchArguments.append("-SkipAuth")
 
-        // Also set via environment (more reliable with XCUIApplication(url:))
         self.app.launchEnvironment["UI_TEST_MODE"] = "1"
         self.app.launchEnvironment["SKIP_AUTH"] = "1"
 
-        // Disable animations for faster, more reliable tests
         self.app.launchArguments.append("-UIAnimationsDisabled")
     }
 
@@ -162,9 +98,6 @@ class KasetUITestCase: XCTestCase {
         try super.tearDownWithError()
     }
 
-    // MARK: - Launch Helpers
-
-    /// Launches the app with mock home sections.
     func launchWithMockHome(sectionCount: Int = 3, itemsPerSection: Int = 5) {
         let sections = (0 ..< sectionCount).map { sectionIndex in
             [
@@ -191,7 +124,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with mock search results.
     func launchWithMockSearch(songCount: Int = 5) {
         let songs = (0 ..< songCount).map { index in
             [
@@ -213,7 +145,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with mock library playlists.
     func launchWithMockLibrary(playlistCount: Int = 3) {
         let playlists = (0 ..< playlistCount).map { index in
             [
@@ -232,7 +163,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with a mock current track (player has something playing).
     func launchWithMockPlayer(isPlaying: Bool = true, hasVideo: Bool = false) {
         let track: [String: Any] = [
             "id": "current-track",
@@ -254,169 +184,14 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with a mock current track that has video available.
     func launchWithMockPlayerWithVideo(isPlaying: Bool = true) {
         self.launchWithMockPlayer(isPlaying: isPlaying, hasVideo: true)
     }
 
-    /// Launches the app with mock favorites.
-    /// - Parameter items: Array of favorite item configurations.
-    func launchWithMockFavorites(_ items: [MockFavoriteItem]) {
-        let favorites = items.map { item -> [String: Any] in
-            var dict: [String: Any] = [
-                "id": item.id,
-                "pinnedAt": ISO8601DateFormatter().string(from: item.pinnedAt),
-            ]
-
-            // Encode the itemType based on type
-            switch item.type {
-            case let .song(videoId, title, artist):
-                dict["itemType"] = [
-                    "song": [
-                        "_0": [
-                            "id": videoId,
-                            "title": title,
-                            "artists": [["id": "artist-\(videoId)", "name": artist]],
-                            "videoId": videoId,
-                        ],
-                    ],
-                ]
-            case let .album(albumId, title, artist):
-                dict["itemType"] = [
-                    "album": [
-                        "_0": [
-                            "id": albumId,
-                            "title": title,
-                            "artists": [["id": "artist-\(albumId)", "name": artist]],
-                        ],
-                    ],
-                ]
-            case let .playlist(playlistId, title, author):
-                dict["itemType"] = [
-                    "playlist": [
-                        "_0": [
-                            "id": playlistId,
-                            "title": title,
-                            "author": author,
-                        ],
-                    ],
-                ]
-            case let .artist(artistId, name):
-                dict["itemType"] = [
-                    "artist": [
-                        "_0": [
-                            "id": artistId,
-                            "name": name,
-                        ],
-                    ],
-                ]
-            }
-
-            return dict
-        }
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: favorites),
-           let jsonString = String(data: jsonData, encoding: .utf8)
-        {
-            self.app.launchEnvironment["MOCK_FAVORITES"] = jsonString
-        }
-
-        self.app.launch()
-    }
-
-    /// Launches the app with mock player state and mock favorites.
-    func launchWithMockPlayerAndFavorites(
-        isPlaying: Bool = true,
-        hasVideo: Bool = false,
-        favorites: [MockFavoriteItem] = []
-    ) {
-        let track: [String: Any] = [
-            "id": "current-track",
-            "title": "Now Playing Song",
-            "artist": "Current Artist",
-            "videoId": "current-video",
-            "duration": 180,
-            "hasVideo": hasVideo,
-        ]
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: track),
-           let jsonString = String(data: jsonData, encoding: .utf8)
-        {
-            self.app.launchEnvironment["MOCK_CURRENT_TRACK"] = jsonString
-        }
-        self.app.launchEnvironment["MOCK_IS_PLAYING"] = isPlaying ? "true" : "false"
-        self.app.launchEnvironment["MOCK_HAS_VIDEO"] = hasVideo ? "true" : "false"
-
-        // Add mock favorites
-        let favoritesArray = favorites.map { item -> [String: Any] in
-            var dict: [String: Any] = [
-                "id": item.id,
-                "pinnedAt": ISO8601DateFormatter().string(from: item.pinnedAt),
-            ]
-
-            switch item.type {
-            case let .song(videoId, title, artist):
-                dict["itemType"] = [
-                    "song": [
-                        "_0": [
-                            "id": videoId,
-                            "title": title,
-                            "artists": [["id": "artist-\(videoId)", "name": artist]],
-                            "videoId": videoId,
-                        ],
-                    ],
-                ]
-            case let .album(albumId, title, artist):
-                dict["itemType"] = [
-                    "album": [
-                        "_0": [
-                            "id": albumId,
-                            "title": title,
-                            "artists": [["id": "artist-\(albumId)", "name": artist]],
-                        ],
-                    ],
-                ]
-            case let .playlist(playlistId, title, author):
-                dict["itemType"] = [
-                    "playlist": [
-                        "_0": [
-                            "id": playlistId,
-                            "title": title,
-                            "author": author,
-                        ],
-                    ],
-                ]
-            case let .artist(artistId, name):
-                dict["itemType"] = [
-                    "artist": [
-                        "_0": [
-                            "id": artistId,
-                            "name": name,
-                        ],
-                    ],
-                ]
-            }
-
-            return dict
-        }
-
-        if let jsonData = try? JSONSerialization.data(withJSONObject: favoritesArray),
-           let jsonString = String(data: jsonData, encoding: .utf8)
-        {
-            self.app.launchEnvironment["MOCK_FAVORITES"] = jsonString
-        }
-
-        self.app.launch()
-    }
-
-    /// Launches the app with default configuration (logged in, no specific mock data).
     func launchDefault() {
         self.app.launch()
     }
 
-    // MARK: - Wait Helpers
-
-    /// Waits for an element to exist with a timeout.
     @discardableResult
     func waitForElement(
         _ element: XCUIElement,
@@ -435,7 +210,6 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
-    /// Waits for an element to be hittable (visible and interactable).
     @discardableResult
     func waitForHittable(
         _ element: XCUIElement,
@@ -454,31 +228,6 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
-    /// Waits for element count to match expected value.
-    @discardableResult
-    func waitForElementCount(
-        _ query: XCUIElementQuery,
-        count: Int,
-        timeout: TimeInterval = 5,
-        file: StaticString = #file,
-        line: UInt = #line
-    ) -> Bool {
-        let predicate = NSPredicate(format: "count == \(count)")
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: query)
-        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
-
-        if result != .completed {
-            XCTFail(
-                "Timed out waiting for element count. Expected: \(count), Actual: \(query.count)",
-                file: file,
-                line: line
-            )
-            return false
-        }
-        return true
-    }
-
-    /// Waits for an element to disappear with a timeout.
     @discardableResult
     func waitForElementToDisappear(
         _ element: XCUIElement,
@@ -497,18 +246,12 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
-    // MARK: - Navigation Helpers
-
-    /// Navigates to a sidebar item by accessibility identifier.
     func navigateToSidebarItem(_ accessibilityID: String) {
-        // Find by accessibility identifier first, fall back to label
         var sidebarItem = self.app.buttons[accessibilityID].firstMatch
         if !sidebarItem.exists {
-            // Try other element types
             sidebarItem = self.app.cells[accessibilityID].firstMatch
         }
 
-        // First wait for element to exist
         let existsPredicate = NSPredicate(format: "exists == true")
         let existsExpectation = XCTNSPredicateExpectation(predicate: existsPredicate, object: sidebarItem)
         let existsResult = XCTWaiter().wait(for: [existsExpectation], timeout: 15)
@@ -518,54 +261,27 @@ class KasetUITestCase: XCTestCase {
             return
         }
 
-        // Then wait for it to be hittable (may need time for layout)
         if self.waitForHittable(sidebarItem, timeout: 10) {
             sidebarItem.click()
         }
     }
 
-    /// Navigates to a sidebar item by label text.
-    func navigateToSidebarItemByLabel(_ label: String) {
-        // Wait for sidebar to be ready with extended timeout for UI test startup
-        let sidebarItem = self.app.staticTexts[label].firstMatch
-
-        // First wait for element to exist
-        let existsPredicate = NSPredicate(format: "exists == true")
-        let existsExpectation = XCTNSPredicateExpectation(predicate: existsPredicate, object: sidebarItem)
-        let existsResult = XCTWaiter().wait(for: [existsExpectation], timeout: 15)
-
-        guard existsResult == .completed else {
-            XCTFail("Sidebar item '\(label)' never appeared")
-            return
-        }
-
-        // Then wait for it to be hittable (may need time for layout)
-        if self.waitForHittable(sidebarItem, timeout: 10) {
-            sidebarItem.click()
-        }
-    }
-
-    /// Navigates to Home via sidebar.
     func navigateToHome() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.homeItem)
     }
 
-    /// Navigates to Search via sidebar.
     func navigateToSearch() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.searchItem)
     }
 
-    /// Navigates to Explore via sidebar.
     func navigateToExplore() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.exploreItem)
     }
 
-    /// Navigates to Library via sidebar.
     func navigateToLibrary() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.libraryItem)
     }
 
-    /// Navigates to Liked Music via sidebar.
     func navigateToLikedMusic() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.likedMusicItem)
     }

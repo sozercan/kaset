@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Moods & Genres view for browsing music by mood or genre.
 struct MoodsAndGenresView: View {
     @State var viewModel: MoodsAndGenresViewModel
     @Environment(PlayerService.self) private var playerService
@@ -32,10 +31,7 @@ struct MoodsAndGenresView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Moods & Genres")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
@@ -55,15 +51,6 @@ struct MoodsAndGenresView: View {
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
     }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
-
-    // MARK: - Views
 
     @ViewBuilder
     private var contentView: some View {
@@ -105,35 +92,29 @@ struct MoodsAndGenresView: View {
                         }
                     }
                 }
-                // Edge-to-edge so shelves slide under the glass sidebar;
-                // resting inset is restored per-shelf via contentInset.
                 .padding(.vertical, 20)
             }
         }
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        CarouselShelfSection(
+        HomeItemShelfSection(
             accessibilityLabel: section.title,
-            items: Array(section.items.enumerated()),
-            id: \.element.id,
-            itemAlignment: .top,
-            contentInset: DetailContentLayout.horizontalInset
-        ) {
-            Text(section.title)
-                .font(.title2)
-                .fontWeight(.semibold)
-        } itemContent: { index, item in
-            HomeSectionItemCard(
-                item: item,
-                playAction: self.playlistPlayAction(for: item)
-            ) {
+            items: section.items,
+            contentInset: DetailContentLayout.horizontalInset,
+            action: { item, index in
                 self.playItem(item, in: section, at: index)
+            },
+            playlistPlayAction: { item in
+                self.playlistPlayAction(for: item)
+            },
+            header: {
+                Text(section.title)
+                    .font(.title2)
+                    .fontWeight(.semibold)
             }
-        }
+        )
     }
-
-    // MARK: - Actions
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,

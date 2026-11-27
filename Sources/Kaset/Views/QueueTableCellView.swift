@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - QueueCellActions
-
 struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
@@ -10,8 +8,6 @@ struct QueueCellActions {
     let allowsLikeAction: Bool
     let isLiked: Bool
 }
-
-// MARK: - QueueTableCellView
 
 class QueueTableCellView: NSView {
     private static let horizontalPadding: CGFloat = 12
@@ -169,8 +165,6 @@ class QueueTableCellView: NSView {
         self.addGestureRecognizer(clickGesture)
     }
 
-    /// Explicit "E" badge — placed inline at the trailing edge of the title row.
-    /// Hidden by default; toggled in configure(...) based on song.isExplicit.
     private func configureExplicitBadge() {
         self.explicitBadge.isEditable = false
         self.explicitBadge.isBordered = false
@@ -188,7 +182,6 @@ class QueueTableCellView: NSView {
         self.explicitBadge.alphaValue = 0
     }
 
-    /// Like (thumbs-up) button — always visible; opacity reflects state.
     private func configureLikeButton() {
         self.likeButton.bezelStyle = .accessoryBar
         self.likeButton.isBordered = false
@@ -355,8 +348,6 @@ class QueueTableCellView: NSView {
         self.layer?.backgroundColor = NSColor.clear.cgColor
     }
 }
-
-// MARK: - WaveformView
 
 class WaveformView: NSView {
     var isAnimating: Bool = false {

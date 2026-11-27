@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - SyncedLyricsBridgeScriptTests
-
 @Suite(.serialized, .tags(.service))
 struct SyncedLyricsBridgeScriptTests {
     @Test("Synced lyrics display bucket follows current line")
@@ -229,7 +227,7 @@ struct SyncedLyricsBridgeScriptTests {
         let lineMessageCount = context.evaluateScript("postedMessages.filter(function(m) { return m.type === 'LYRICS_LINE'; }).length")?.toInt32() ?? -1
 
         #expect(timeoutCountBeforeStart == 0)
-        #expect(finalTimeoutCount == 1) // explicit start only; seek after stop adds none
+        #expect(finalTimeoutCount == 1)
         #expect(lineMessageCount == 1)
     }
 
@@ -269,7 +267,7 @@ struct SyncedLyricsBridgeScriptTests {
             readyState: 4,
             addEventListener: function(name, handler) { videoListeners[name] = handler; }
         };
-        var playerBar = { attributes: {}, childNodes: [] };
+        var playerBar = { attributes: {}, childNodes: [], querySelector: function() { return null; } };
         var playerApi = {
             getVideoData: function() { return { video_id: 'abc', title: 'Title', author: 'Artist' }; },
             getPresentingPlayerType: function() { return 1; },
@@ -285,7 +283,7 @@ struct SyncedLyricsBridgeScriptTests {
             readyState: 'complete',
             body: {},
             querySelector: function(selector) {
-                if (selector === 'ytmusic-player-bar') return playerBar;
+                if (selector === '[slot="player-bar"]') return playerBar;
                 if (selector === 'video') return video;
                 if (selector === 'ytmusic-player') return ytmusicPlayer;
                 if (selector === '#progress-bar') return null;
@@ -313,8 +311,6 @@ struct SyncedLyricsBridgeScriptTests {
         }
     }
 }
-
-// MARK: - TestScriptError
 
 private enum TestScriptError: Error {
     case javaScriptException(String)
