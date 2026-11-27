@@ -98,6 +98,7 @@ struct PlaylistDetailView: View {
             if let detail = viewModel.playlistDetail {
                 RefinePlaylistSheet(
                     tracks: detail.tracks,
+                    canApplyRemovals: detail.canDelete,
                     isProcessing: self.$isRefining,
                     changes: self.$playlistChanges,
                     partialChanges: self.$partialChanges,
@@ -105,8 +106,8 @@ struct PlaylistDetailView: View {
                     onRefine: { prompt in
                         await self.refinePlaylist(tracks: detail.tracks, prompt: prompt)
                     },
-                    onApply: {
-                        self.showRefineSheet = false
+                    onApplyRemovals: { removalVideoIDs in
+                        await self.applyPlaylistRefinementRemovals(removalVideoIDs, detail: detail)
                     }
                 )
             }
@@ -576,6 +577,89 @@ struct PlaylistDetailView: View {
 
         self.partialChanges = nil
         self.isRefining = false
+    }
+
+    private func applyPlaylistRefinementRemovals(
+        _ removalVideoIDs: [String],
+        detail: PlaylistDetail
+    ) async -> String? {
+        guard detail.canDelete else {
+            return String(localized: "This playlist cannot be edited.")
+        }
+
+        var remainingRemovalCounts: [String: Int] = [:]
+        for videoId in removalVideoIDs {
+            remainingRemovalCounts[videoId, default: 0] += 1
+        }
+        var removableTracks: [Song] = []
+        for track in detail.tracks {
+            guard let remaining = remainingRemovalCounts[track.videoId],
+                  remaining > 0,
+                  track.playlistSetVideoId != nil
+            else { continue }
+            removableTracks.append(track)
+            remainingRemovalCounts[track.videoId] = remaining - 1
+        }
+        guard !removableTracks.isEmpty else {
+            return String(localized: "Selected tracks cannot be removed from this playlist.")
+        }
+
+        do {
+            let (failedVideoIDs, removedAny) = try await LibraryMutationActions.withAccountBoundaryTracking {
+                var remainingFailures: [String] = []
+                var didRemoveTrack = false
+                for track in removableTracks {
+                    try Task.checkCancellation()
+                    guard let setVideoId = track.playlistSetVideoId else { continue }
+                    await LibraryMutationActions.removeSongFromPlaylist(
+                        track,
+                        from: self.viewModel,
+                        client: self.viewModel.client
+                    )
+                    try Task.checkCancellation()
+                    let stillPresent = self.viewModel.playlistDetail?.tracks.contains {
+                        $0.playlistSetVideoId == setVideoId
+                    } ?? false
+                    if stillPresent {
+                        remainingFailures.append(track.videoId)
+                    } else {
+                        didRemoveTrack = true
+                    }
+                }
+                return (remainingFailures, didRemoveTrack)
+            }
+
+            if removedAny {
+                self.libraryViewModel?.markNeedsReloadOnActivation()
+            }
+
+            if failedVideoIDs.isEmpty {
+                self.playlistChanges = nil
+                self.refineError = nil
+                self.showRefineSheet = false
+                return nil
+            }
+
+            if let currentChanges = self.playlistChanges {
+                self.playlistChanges = PlaylistChanges(
+                    removals: failedVideoIDs,
+                    reorderedIds: currentChanges.reorderedIds,
+                    reasoning: currentChanges.reasoning
+                )
+            }
+            let message = String(localized: "Could not remove all suggested tracks from the playlist.")
+            self.refineError = message
+            return message
+        } catch is CancellationError {
+            self.playlistChanges = nil
+            self.refineError = nil
+            self.showRefineSheet = false
+            return nil
+        } catch {
+            let message = String(localized: "Could not remove all suggested tracks from the playlist.")
+            self.refineError = message
+            return message
+        }
     }
 }
 

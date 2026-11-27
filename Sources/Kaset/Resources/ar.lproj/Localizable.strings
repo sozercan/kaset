@@ -683,3 +683,8 @@
 "Talk to a companion app" = "التواصل مع تطبيق مرافق";
 "Request a connection to its companion app." = "طلب الاتصال بالتطبيق المرافق لها.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "قد تتمكن من قراءة المعلومات المعروضة أثناء تسجيل دخولك ومشاركتها. لا تفعّلها إلا إذا كنت تثق بها.";
+"Applying..." = "جارٍ التطبيق...";
+"Remove Suggested Tracks" = "إزالة المقاطع المقترحة";
+"This playlist cannot be edited." = "لا يمكن تعديل قائمة التشغيل هذه.";
+"Selected tracks cannot be removed from this playlist." = "لا يمكن إزالة المقاطع المحددة من قائمة التشغيل هذه.";
+"Could not remove all suggested tracks from the playlist." = "تعذرت إزالة جميع المقاطع المقترحة من قائمة التشغيل.";

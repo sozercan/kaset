@@ -682,3 +682,8 @@
 "Talk to a companion app" = "与配套应用通信";
 "Request a connection to its companion app." = "请求连接到其配套应用。";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "它可能会读取并共享你登录期间显示的信息。请仅在你信任它时启用。";
+"Applying..." = "正在应用...";
+"Remove Suggested Tracks" = "移除建议曲目";
+"This playlist cannot be edited." = "无法编辑此播放列表。";
+"Selected tracks cannot be removed from this playlist." = "无法从此播放列表中移除所选曲目。";
+"Could not remove all suggested tracks from the playlist." = "无法从播放列表中移除所有建议曲目。";

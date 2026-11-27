@@ -683,3 +683,8 @@
 "Talk to a companion app" = "Зв’язуватися із супутньою програмою";
 "Request a connection to its companion app." = "Запитувати з’єднання зі своєю супутньою програмою.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Воно зможе читати й передавати інформацію, яка відображається, поки ви ввійшли в обліковий запис. Вмикайте його, лише якщо довіряєте йому.";
+"Applying..." = "Застосування...";
+"Remove Suggested Tracks" = "Видалити запропоновані треки";
+"This playlist cannot be edited." = "Цей плейлист не можна редагувати.";
+"Selected tracks cannot be removed from this playlist." = "Вибрані треки не можна видалити з цього плейлиста.";
+"Could not remove all suggested tracks from the playlist." = "Не вдалося видалити всі запропоновані треки з плейлиста.";

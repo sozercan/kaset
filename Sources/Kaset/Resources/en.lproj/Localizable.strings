@@ -104,3 +104,8 @@
 "Talk to a companion app" = "Talk to a companion app";
 "Request a connection to its companion app." = "Request a connection to its companion app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "It could read and share information shown while you’re signed in. Only turn it on if you trust it.";
+"Applying..." = "Applying...";
+"Remove Suggested Tracks" = "Remove Suggested Tracks";
+"This playlist cannot be edited." = "This playlist cannot be edited.";
+"Selected tracks cannot be removed from this playlist." = "Selected tracks cannot be removed from this playlist.";
+"Could not remove all suggested tracks from the playlist." = "Could not remove all suggested tracks from the playlist.";
