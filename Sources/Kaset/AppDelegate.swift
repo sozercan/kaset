@@ -48,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if SettingsManager.shared.appExperience.includesMusic {
             self.playerService?.restoreQueueFromPersistence()
         } else {
-            self.playerService?.preservesSavedSessionWhileDisabled = true
+            self.playerService?.loadPersistedPlaybackSessionOwnerScopeWithoutRestoring()
         }
     }
 

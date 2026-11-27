@@ -249,21 +249,27 @@ final class AppIntentsBridge {
         guard self.isMusicEnabled() else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty, let client else { return [] }
-        return try await client.searchSongs(query: trimmedQuery).filter(\.isPlayable)
+        let songs = try await client.searchSongs(query: trimmedQuery)
+        guard self.isMusicEnabled() else { return [] }
+        return songs.filter(\.isPlayable)
     }
 
     func searchPlaylists(matching query: String) async throws -> [Playlist] {
         guard self.isMusicEnabled() else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty, let client else { return [] }
-        return try await client.searchPlaylists(query: trimmedQuery).playlists
+        let results = try await client.searchPlaylists(query: trimmedQuery)
+        guard self.isMusicEnabled() else { return [] }
+        return results.playlists
     }
 
     func searchAlbums(matching query: String) async throws -> [Album] {
         guard self.isMusicEnabled() else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty, let client else { return [] }
-        return try await client.searchAlbums(query: trimmedQuery).albums.filter(\.hasNavigableId)
+        let results = try await client.searchAlbums(query: trimmedQuery)
+        guard self.isMusicEnabled() else { return [] }
+        return results.albums.filter(\.hasNavigableId)
     }
 
     func song(videoId: String) async -> Song? {
@@ -271,6 +277,8 @@ final class AppIntentsBridge {
         if let queued = self.playerService?.queue.first(where: { $0.videoId == videoId }) {
             return queued
         }
-        return try? await self.client?.getSong(videoId: videoId)
+        let song = try? await self.client?.getSong(videoId: videoId)
+        guard self.isMusicEnabled() else { return nil }
+        return song
     }
 }

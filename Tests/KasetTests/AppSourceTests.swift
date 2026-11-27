@@ -143,12 +143,13 @@ struct AppSourceTests {
         #expect(manager.appSource == .music)
     }
 
-    @Test("Tearing down for experience change preserves saved queue across repeated empty saves")
+    @Test("Tearing down for experience change preserves saved queue and latest progress across repeated empty saves")
     func experienceTeardownPreservesSavedSessionAcrossRepeatedSaves() {
         let player = PlayerService()
         let song = TestFixtures.makeSong(id: "preserve-session-song")
         player.setQueue([song])
         player.saveQueueForPersistence()
+        player.progress = 47
         defer {
             player.clearPlaybackForSignOut()
         }
@@ -163,5 +164,42 @@ struct AppSourceTests {
         player.resumeAfterExperienceChange()
         #expect(!player.preservesSavedSessionWhileDisabled)
         #expect(player.queue.map(\.videoId) == ["preserve-session-song"])
+        #expect(player.progress == 47)
+    }
+
+    @Test("Sign-out clears saved playback session even after experience teardown")
+    func signOutClearsSavedSessionAfterExperienceTeardown() {
+        let player = PlayerService()
+        let song = TestFixtures.makeSong(id: "signout-after-teardown")
+        player.setQueue([song])
+        player.saveQueueForPersistence()
+
+        player.tearDownForExperienceChange()
+        player.clearPlaybackForSignOut()
+
+        let restored = PlayerService()
+        #expect(!restored.restoreQueueFromPersistence())
+        #expect(restored.queue.isEmpty)
+    }
+
+    @Test("Disabled-Music startup loads guest owner scope without restoring playback")
+    func disabledMusicStartupPreservesGuestOwnerScope() {
+        let player = PlayerService()
+        let song = TestFixtures.makeSong(id: "guest-session-song")
+        player.setQueue([song])
+        player.saveQueueForPersistence(ownerScopeOverride: PlayerService.playbackSessionScopeGuest)
+        defer {
+            player.clearPlaybackForSignOut()
+        }
+
+        let startupPlayer = PlayerService()
+        startupPlayer.loadPersistedPlaybackSessionOwnerScopeWithoutRestoring()
+        #expect(startupPlayer.preservesSavedSessionWhileDisabled)
+        #expect(startupPlayer.queue.isEmpty)
+        #expect(startupPlayer.restoredPlaybackSessionOwnerScope == PlayerService.playbackSessionScopeGuest)
+
+        startupPlayer.clearPlaybackForGuestStartup()
+        startupPlayer.resumeAfterExperienceChange()
+        #expect(startupPlayer.queue.map(\.videoId) == ["guest-session-song"])
     }
 }

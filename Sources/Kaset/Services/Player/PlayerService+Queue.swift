@@ -1332,6 +1332,27 @@ extension PlayerService {
         }
     }
 
+    func loadPersistedPlaybackSessionOwnerScopeWithoutRestoring() {
+        self.preservesSavedSessionWhileDisabled = true
+        guard let sessionData = self.queuePersistenceDefaults.data(forKey: self.savedPlaybackSessionKey) else {
+            self.restoredPlaybackSessionOwnerScope = nil
+            return
+        }
+        do {
+            let savedSession = try JSONDecoder().decode(PersistedPlaybackSession.self, from: sessionData)
+            let restoredQueue = savedSession.ownerScope == Self.playbackSessionScopeGuest
+                ? Self.queueWithoutAccountMetadata(savedSession.queue)
+                : savedSession.queue
+            guard !restoredQueue.isEmpty else {
+                self.restoredPlaybackSessionOwnerScope = nil
+                return
+            }
+            self.restoredPlaybackSessionOwnerScope = savedSession.ownerScope
+        } catch {
+            self.restoredPlaybackSessionOwnerScope = nil
+        }
+    }
+
     @discardableResult
     func restoreQueueFromPersistence() -> Bool {
         let decoder = JSONDecoder()

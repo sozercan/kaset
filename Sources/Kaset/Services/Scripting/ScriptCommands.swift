@@ -14,7 +14,8 @@ private let logger = DiagnosticsLogger.scripting
 
 @MainActor
 private func getPlayerService() -> PlayerService? {
-    PlayerService.shared
+    guard SettingsManager.shared.appExperience.includesMusic else { return nil }
+    return PlayerService.shared
 }
 
 private let videoIdCharacters = CharacterSet(
