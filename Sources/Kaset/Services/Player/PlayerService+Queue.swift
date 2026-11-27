@@ -493,14 +493,16 @@ extension PlayerService {
             } else if self.shuffleEnabled {
                 let originalEntries = self.originalShuffleOrder(retaining: existingEntries) + relatedEntries
                 let seedOriginalIndex = originalEntries.firstIndex(where: { $0.id == seedEntry.id }) ?? 0
-                self.materializeShuffleQueue(
-                    entries: originalEntries,
-                    startingAt: seedOriginalIndex,
-                    recordUndo: false,
-                    storesOriginalOrder: true
-                )
+                self.applyAutomaticQueueChange {
+                    self.materializeShuffleQueue(
+                        entries: originalEntries,
+                        startingAt: seedOriginalIndex,
+                        recordUndo: false,
+                        storesOriginalOrder: true
+                    )
+                }
             } else {
-                self.setQueue(entries: mergedEntries)
+                self.applyAutomaticQueueChange { self.setQueue(entries: mergedEntries) }
                 self.queueOrderBeforeShuffle = nil
             }
             if let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntry.id }) {

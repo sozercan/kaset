@@ -554,6 +554,29 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.queueEntryIDs == entryIDs)
     }
 
+    @Test("An automatic radio merge during Start Radio does not count as a queue edit")
+    func automaticRadioMergeDuringStartRadioStillApplies() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        let automaticRecommendation = TestFixtures.makeSong(id: "rec-automatic")
+        let startRadioRecommendation = TestFixtures.makeSong(id: "rec-start-radio")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.mockClient.beforeRadioQueueReturn = { [playerService, mockClient] videoId in
+            await MainActor.run {
+                mockClient.beforeRadioQueueReturn = nil
+                mockClient.radioQueueSongs[videoId] = [songs[0], automaticRecommendation]
+            }
+            await playerService.fetchAndApplyRadioQueue(for: videoId)
+            await MainActor.run {
+                mockClient.radioQueueSongs[videoId] = [songs[0], startRadioRecommendation]
+            }
+        }
+
+        await self.playerService.startRadio(song: songs[0])
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, startRadioRecommendation.videoId])
+    }
+
     @Test("Different-song radio rejects a prior track-end event")
     func differentSongRadioRejectsPriorTrackEnd() async throws {
         let songs = TestFixtures.makeSongs(count: 4)
