@@ -461,17 +461,14 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.playbackSpeedButton,
             accessibilityLabel: String(localized: "Playback speed")
         ) {
-            ForEach(YouTubePlayerService.playbackRateOptions, id: \.self) { rate in
-                Button {
-                    self.youtubePlayer.selectPlaybackRate(rate)
-                } label: {
-                    if self.youtubePlayer.playbackRate == rate {
-                        Label(YouTubePlayerService.playbackRateDisplayName(rate), systemImage: "checkmark")
-                    } else {
-                        Text(verbatim: YouTubePlayerService.playbackRateDisplayName(rate))
-                    }
+            Picker(String(localized: "Playback speed"), selection: self.playbackRateSelection) {
+                ForEach(YouTubePlayerService.playbackRateOptions, id: \.self) { rate in
+                    Text(verbatim: YouTubePlayerService.playbackRateDisplayName(rate))
+                        .tag(rate)
                 }
             }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: "gauge.with.needle")
                 .font(.system(size: 16, weight: .regular))
@@ -507,6 +504,13 @@ struct YouTubePlayerBar: View {
         Binding(
             get: { self.youtubePlayer.activeCaptionLanguageCode },
             set: { self.youtubePlayer.selectCaptionTrack(languageCode: $0) }
+        )
+    }
+
+    private var playbackRateSelection: Binding<Double> {
+        Binding(
+            get: { self.youtubePlayer.playbackRate },
+            set: { self.youtubePlayer.selectPlaybackRate($0) }
         )
     }
 
