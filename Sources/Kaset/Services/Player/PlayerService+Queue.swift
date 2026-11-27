@@ -127,7 +127,9 @@ extension PlayerService {
     }
 
     func startRadio(song: Song, intent: MusicPlaybackIntent) async {
-        guard self.currentTrack?.videoId == song.videoId else {
+        guard self.currentTrack?.videoId == song.videoId,
+              self.queueEntryIDOwningCurrentPlayback != nil
+        else {
             await self.playWithRadio(song: song, intent: intent)
             return
         }
@@ -148,11 +150,11 @@ extension PlayerService {
         )
         guard outcome == .applied else { return }
         self.currentEpisode = nil
-        guard self.playbackNavigationContext == navigationContext else { return }
         if self.state == .ended {
             await self.next()
             return
         }
+        guard self.playbackNavigationContext == navigationContext else { return }
         await self.fillSmartShuffleWindow()
     }
 

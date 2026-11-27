@@ -667,6 +667,69 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
     }
 
+    @Test("Start Radio on detached playback restarts the song with radio")
+    func startRadioOnDetachedPlaybackRestarts() async {
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.play(videoId: songs[0].videoId)
+        self.playerService.pendingPlayVideoId = nil
+        #expect(self.playerService.queueEntryIDOwningCurrentPlayback == nil)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[1]]
+
+        await self.playerService.startRadio(song: songs[0])
+
+        #expect(self.playerService.pendingPlayVideoId == songs[0].videoId)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId])
+    }
+
+    @Test("When the song playback moved to also ends during Start Radio, playback continues into the radio")
+    func advancedSongEndsDuringStartRadioFetchContinues() async throws {
+        let songs = TestFixtures.makeSongs(count: 2)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 239, duration: 240)
+        let firstIntent = self.playerService.currentMusicPlaybackIntent
+        let firstOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+
+        let radioGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = radioGate
+        let refresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        guard self.mockClient.getRadioQueueVideoIds.count == 1 else {
+            await radioGate.open()
+            await refresh.value
+            Issue.record("The Start Radio request never reached the mock client")
+            return
+        }
+
+        self.mockClient.getRadioQueueGate = nil
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: firstOccurrence,
+            intent: firstIntent
+        )
+        #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 239, duration: 240)
+        let secondIntent = self.playerService.currentMusicPlaybackIntent
+        let secondOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[1].videoId,
+            playbackOccurrence: secondOccurrence,
+            intent: secondIntent
+        )
+        #expect(self.playerService.state == .ended)
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        await radioGate.open()
+        await refresh.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId, recommended.videoId])
+        #expect(self.playerService.currentTrack?.videoId == recommended.videoId)
+    }
+
     @Test("Different-song radio rejects a prior track-end event")
     func differentSongRadioRejectsPriorTrackEnd() async throws {
         let songs = TestFixtures.makeSongs(count: 4)
