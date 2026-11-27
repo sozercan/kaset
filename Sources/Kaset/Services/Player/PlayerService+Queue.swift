@@ -420,8 +420,11 @@ extension PlayerService {
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
+            let navigationStillValid = replacesUpcoming
+                ? self.playbackNavigationContext.requestGeneration == sourceNavigationContext.requestGeneration
+                : self.playbackNavigationContext == sourceNavigationContext
             guard !Task.isCancelled,
-                  self.playbackNavigationContext == sourceNavigationContext,
+                  navigationStillValid,
                   isCurrentRequest()
             else {
                 self.logger.info("Discarding stale or cancelled radio queue")
@@ -446,14 +449,29 @@ extension PlayerService {
                 self.logger.info("No radio songs returned")
                 return .unavailable
             }
-            guard let currentSong = self.currentTrack, currentSong.videoId == videoId else {
+            guard let currentSong = self.currentTrack,
+                  replacesUpcoming || currentSong.videoId == videoId
+            else {
                 self.logger.info("Track changed, discarding radio queue")
                 return .superseded
             }
 
             let seedEntry: QueueEntry
             let existingEntries: [QueueEntry]
-            if let seedEntryID {
+            if replacesUpcoming {
+                guard let seedEntryID,
+                      let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID }),
+                      self.queueEntries[seedIndex].song.videoId == videoId,
+                      let anchorID = self.queueEntryIDOwningCurrentPlayback,
+                      let anchorIndex = self.queueEntries.firstIndex(where: { $0.id == anchorID }),
+                      anchorIndex >= seedIndex
+                else {
+                    self.logger.info("Playback left the radio seed, discarding radio queue")
+                    return .superseded
+                }
+                seedEntry = self.queueEntries[anchorIndex]
+                existingEntries = Array(self.queueEntries[...anchorIndex])
+            } else if let seedEntryID {
                 guard self.queueEntryIDOwningCurrentPlayback == seedEntryID,
                       let ownedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID }),
                       self.queueEntries[ownedIndex].song.videoId == videoId
@@ -462,7 +480,7 @@ extension PlayerService {
                     return .superseded
                 }
                 seedEntry = self.queueEntries[ownedIndex]
-                existingEntries = replacesUpcoming ? Array(self.queueEntries[...ownedIndex]) : self.queueEntries
+                existingEntries = self.queueEntries
             } else {
                 guard self.queueEntryIDOwningCurrentPlayback == nil,
                       self.activePlaybackQueueEntryID == nil
