@@ -76,6 +76,16 @@ Supporting decisions:
   an app that is already paused (by the user, by WebKit handling a media key, by the page's own
   controls, or at the end of a track). Arming then would resume music nobody was listening to.
   Only a pause that took the player out of playing or awaiting-confirmation leaves a marker.
+- **Resume only when the lost device comes back.** Each route event records the default device
+  after the change, and a disappearance also records the device that was lost. When a pause
+  claims a disappearance, the claim remembers that lost device, keyed by the pause's admission
+  instant. A later event counts as a restoration only if it is not itself a disappearance and its
+  new default is the lost device. A manual switch to another output, or a second notification
+  for the fallback output the system chose, therefore never resumes playback. Devices are
+  identified by `kAudioDevicePropertyDeviceUID`, captured while the device is the default and
+  falling back to the `AudioDeviceID` when the UID is unavailable, because a reconnected
+  Bluetooth device can come back under a new object ID and a vanished device may no longer
+  answer property queries.
 - **Make the disappearance one-shot.** A disappearance explains at most one pause. Only the
   newest disappearance before a command can explain it, and output that came back between the
   disappearance and the command makes the pause the user's. Otherwise a user pressing Pause right
@@ -116,6 +126,8 @@ Supporting decisions:
 
 - Playback restarts on its own when a route returns. This is a deliberate behavior change; it is
   narrowly scoped to a pause the system imposed, and any user transport action retires it.
+- Reconnecting to a different output than the one that was lost does not resume, even if the
+  user would have liked it to. Pressing Play still works.
 - Classification rests on a 1.5s correlation window between a device disappearing and the `pause`
   command (measured at 40–60ms). It is a heuristic, not a signal the OS provides.
 
