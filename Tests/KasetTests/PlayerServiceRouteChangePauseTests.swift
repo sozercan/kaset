@@ -294,6 +294,37 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.state == .paused)
     }
 
+    @Test("A recovery attempt cancelled while it waits on queued commands does not resume")
+    func cancelledRecoveryDoesNotResumeAfterWaiting() async {
+        let playerService = self.makeRouteLossPausedService(routeReturned: true)
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        playerService.progress = 10
+        playerService.duration = 300
+        let snapshotStarted = AsyncGate()
+        let releaseSnapshot = AsyncGate()
+        playerService.currentMusicPlaybackSnapshot = {
+            await snapshotStarted.open()
+            await releaseSnapshot.wait()
+            return nil
+        }
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: 15, admittedAt: .now),
+            issuedAtMilliseconds: 1001
+        )
+
+        let recovery = Task { @MainActor in
+            await playerService.resumeAfterRouteRestored()
+        }
+        await snapshotStarted.wait()
+        recovery.cancel()
+        await releaseSnapshot.open()
+        await recovery.value
+
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+        #expect(playerService.routeLossPauseAt != nil)
+    }
+
     @Test("Starting other playback retires recovery for what the route loss interrupted")
     func newPlaybackRetiresRouteRecovery() async {
         SingletonPlayerWebView.shared.currentVideoId = nil

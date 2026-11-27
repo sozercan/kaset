@@ -212,7 +212,9 @@ private enum CoreAudioOutput {
     }
 
     static func isDeviceUsable(_ deviceID: AudioDeviceID) -> Bool {
-        guard self.availableDeviceIDs().contains(deviceID) else { return false }
+        if let availableDeviceIDs = self.availableDeviceIDs(), !availableDeviceIDs.contains(deviceID) {
+            return false
+        }
 
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceIsAlive,
@@ -226,7 +228,7 @@ private enum CoreAudioOutput {
         return isAlive != 0
     }
 
-    static func availableDeviceIDs() -> Set<AudioDeviceID> {
+    static func availableDeviceIDs() -> Set<AudioDeviceID>? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -239,11 +241,12 @@ private enum CoreAudioOutput {
             0,
             nil,
             &size
-        ) == noErr, size > 0 else { return [] }
+        ) == noErr, size > 0 else { return nil }
 
+        let capacity = size
         var deviceIDs = [AudioDeviceID](
             repeating: 0,
-            count: Int(size) / MemoryLayout<AudioDeviceID>.size
+            count: Int(capacity) / MemoryLayout<AudioDeviceID>.size
         )
         guard AudioObjectGetPropertyData(
             AudioObjectID(kAudioObjectSystemObject),
@@ -252,7 +255,16 @@ private enum CoreAudioOutput {
             nil,
             &size,
             &deviceIDs
-        ) == noErr else { return [] }
-        return Set(deviceIDs)
+        ) == noErr else { return nil }
+
+        var currentSize = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &currentSize
+        ) == noErr, currentSize <= capacity else { return nil }
+        return Set(deviceIDs.prefix(Int(size) / MemoryLayout<AudioDeviceID>.size))
     }
 }

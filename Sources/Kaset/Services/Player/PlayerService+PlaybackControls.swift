@@ -555,7 +555,8 @@ extension PlayerService {
             drainRemoteCommands()
             guard self.remoteMusicTransportTask != pendingRemoteCommands else { break }
         }
-        guard self.routeLossPauseAt.map({ self.hasAudioRouteReturned($0) }) == true,
+        guard !Task.isCancelled,
+              self.routeLossPauseAt.map({ self.hasAudioRouteReturned($0) }) == true,
               !self.isPlaying,
               !self.isExplicitPauseIntentActive,
               self.currentTrack != nil || self.pendingPlayVideoId != nil
