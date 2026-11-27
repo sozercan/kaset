@@ -52,8 +52,7 @@ struct NowPlayingClaimTests {
         let video = NowPlayingManager.ActiveVideoClaim(
             title: "Video",
             artist: "Channel",
-            playbackState: .paused,
-            isPlaybackConfirmed: false
+            playbackState: .paused
         )
         let expected = NowPlayingManager.NowPlayingClaim.claim(
             title: "Video",
@@ -68,20 +67,48 @@ struct NowPlayingClaimTests {
         ) == expected)
     }
 
-    @Test("Confirmed video playback keeps the video claim without publishing a new one")
-    func playingVideoIsHandsOff() {
+    @Test("Playing video publishes the tagged video entry")
+    func playingVideoClaims() {
         let video = NowPlayingManager.ActiveVideoClaim(
             title: "Video",
             artist: "Channel",
-            playbackState: .playing,
-            isPlaybackConfirmed: true
+            playbackState: .playing
+        )
+        let expected = NowPlayingManager.NowPlayingClaim.claim(
+            title: "Video",
+            artist: "Channel",
+            playbackState: .playing
         )
 
         #expect(NowPlayingManager.desiredClaim(
             state: .paused,
             hasTrack: true,
             activeVideo: video
-        ) == .handsOff)
+        ) == expected)
+    }
+
+    @Test("A video that is already playing when first observed after music gets its tagged entry")
+    @MainActor
+    func playingVideoAfterMusicStateOnlyPublishesEntry() {
+        let center = FakeNowPlayingCenter()
+        var ownership = NowPlayingManager.apply(.stateOnly(.playing), to: center, ownership: .none)
+        ownership = NowPlayingManager.apply(.stateOnly(.paused), to: center, ownership: ownership)
+        let video = NowPlayingManager.ActiveVideoClaim(
+            title: "Video",
+            artist: "Channel",
+            playbackState: .playing
+        )
+
+        ownership = NowPlayingManager.apply(
+            NowPlayingManager.desiredClaim(state: .paused, hasTrack: true, activeVideo: video),
+            to: center,
+            ownership: ownership
+        )
+
+        #expect(ownership == .claim)
+        #expect(NowPlayingManager.isNativeClaim(center.nowPlayingInfo))
+        #expect(center.nowPlayingInfo?[MPMediaItemPropertyTitle] as? String == "Video")
+        #expect(center.playbackState == .playing)
     }
 
     @Test("A loading video keeps its fallback even if the previous document was playing")
@@ -89,8 +116,7 @@ struct NowPlayingClaimTests {
         let video = NowPlayingManager.ActiveVideoClaim(
             title: "Next Video",
             artist: "Channel",
-            playbackState: .playing,
-            isPlaybackConfirmed: false
+            playbackState: .playing
         )
         let expected = NowPlayingManager.NowPlayingClaim.claim(
             title: "Next Video",

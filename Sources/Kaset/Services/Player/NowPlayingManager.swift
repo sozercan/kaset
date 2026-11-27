@@ -155,7 +155,6 @@ final class NowPlayingManager {
         let title: String
         let artist: String
         let playbackState: NativeClaimPlaybackState
-        let isPlaybackConfirmed: Bool
     }
 
     nonisolated static func desiredClaim(
@@ -164,14 +163,11 @@ final class NowPlayingManager {
         activeVideo: ActiveVideoClaim?
     ) -> NowPlayingClaim {
         if let activeVideo {
-            guard activeVideo.isPlaybackConfirmed else {
-                return .claim(
-                    title: activeVideo.title,
-                    artist: activeVideo.artist,
-                    playbackState: activeVideo.playbackState
-                )
-            }
-            return .handsOff
+            return .claim(
+                title: activeVideo.title,
+                artist: activeVideo.artist,
+                playbackState: activeVideo.playbackState
+            )
         }
 
         switch state {
@@ -266,8 +262,7 @@ final class NowPlayingManager {
         return ActiveVideoClaim(
             title: video.title,
             artist: video.channelName ?? "",
-            playbackState: youtube.isPlaying || youtube.isPlaybackLoading ? .playing : .paused,
-            isPlaybackConfirmed: youtube.isPlaying && !youtube.isPlaybackLoading
+            playbackState: youtube.isPlaying || youtube.isPlaybackLoading ? .playing : .paused
         )
     }
 
