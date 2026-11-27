@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// View displaying the user's YouTube Music listening history.
-/// Fetches history from the API and displays songs grouped by time period.
 struct HistoryView: View {
     @State var viewModel: HistoryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -76,7 +74,6 @@ struct HistoryView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .history)
     }
 
-    /// Refreshes with visual feedback: spinning icon → data swap.
     @discardableResult
     private func performRefresh() async -> Bool {
         self.isRefreshing = true
@@ -84,8 +81,6 @@ struct HistoryView: View {
         self.isRefreshing = false
         return changed
     }
-
-    // MARK: - Content
 
     private var headerView: some View {
         HStack(spacing: 16) {
@@ -168,8 +163,6 @@ struct HistoryView: View {
         }
         .accessibilityIdentifier(AccessibilityID.History.scrollView)
     }
-
-    // MARK: - Song Row
 
     private func songRow(_ song: Song, allSongs: [Song], index: Int) -> some View {
         HoverObservingRow { isHovered in

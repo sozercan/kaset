@@ -2,8 +2,6 @@
 
 import Foundation
 
-// MARK: - Web Queue Sync
-
 @MainActor
 extension PlayerService {
     private static let queueNavigationInFlightProtectionGrace: Duration = .seconds(20)
@@ -30,13 +28,11 @@ extension PlayerService {
         self.isKasetInitiatedPlayback = false
         self.isAwaitingWebRestoredTrack = false
         if previousVideoId != observedVideoId {
-            // The saved seek belongs to the persisted track, not a different server-restored track.
             self.pendingRestoredSeek = nil
             self.progress = 0
             self.duration = matchedQueueSong?.duration ?? 0
         }
 
-        // Sync the web view's current video ID so Kaset knows the player is already on this track
         SingletonPlayerWebView.shared.currentVideoId = observedVideoId
         if observedVideoId == previousVideoId, !self.queue.isEmpty {
             let queueEntryID = self.currentQueueEntryID
@@ -134,15 +130,7 @@ extension PlayerService {
         title.isEmpty || artist.isEmpty || !self.metadataMatchesSong(title: title, artist: artist, song: song)
     }
 
-    /// Synchronizes Kaset's expected next track with YouTube Music's native "Up Next" queue.
-    /// Injecting the next track ahead of time enables best-effort gapless playback when the current track ends.
-    ///
-    /// **Important:** Only runs when the player is in a stable state (`.playing` or `.paused`).
-    /// During `.loading` or a main-document navigation, the player bar DOM is in flux.
-    /// Injection is deferred until playback is stable or the navigation delegate reports
-    /// that the replacement document has finished loading.
     func syncWebQueue() {
-        // Never manipulate the player-bar menu while its document is being replaced.
         guard self.state == .playing || self.state == .paused else { return }
         guard !SingletonPlayerWebView.shared.isDocumentNavigationInProgress else { return }
         guard self.activePlaybackOwnsCurrentQueueEntry else {
@@ -158,9 +146,6 @@ extension PlayerService {
             return
         }
 
-        // Duplicate video IDs need an explicit in-place restart so the media
-        // generation advances with the queue entry. Clear any marker consumed by
-        // the preceding occurrence before checking cached target IDs.
         guard nextSong.videoId != sourceVideoId else {
             self.clearWebQueueInjectionState()
             return
@@ -194,6 +179,24 @@ extension PlayerService {
         }
     }
 
+    private func scheduleWebQueueInjectionRetry(videoId: String) {
+        let sourceVideoId = self.expectedPlaybackVideoId
+        let remaining = self.webQueueInjectionRetries.flatMap {
+            $0.pair == (videoId, sourceVideoId) ? $0.remaining : nil
+        } ?? 5
+        guard remaining > 0 else { return }
+        self.webQueueInjectionRetries = ((videoId, sourceVideoId), remaining - 1)
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard self.injectedWebQueueVideoId == nil,
+                  self.pendingWebQueueInjectionVideoId == nil,
+                  let nextIndex = self.expectedQueueIndexAfterCurrentTrack(),
+                  self.queue[safe: nextIndex]?.videoId == videoId
+            else { return }
+            self.syncWebQueue()
+        }
+    }
+
     private func scheduleWebQueueInjectionTimeout(videoId: String, generation: Int) {
         Task {
             try? await Task.sleep(for: Self.webQueueInjectionTimeout)
@@ -209,7 +212,6 @@ extension PlayerService {
         }
     }
 
-    /// Records the WebView result for an attempted native queue injection.
     func handleWebQueueInjectionResult(
         videoId: String,
         attemptGeneration: Int,
@@ -231,6 +233,9 @@ extension PlayerService {
                 self.injectedWebQueueVideoId = nil
             }
             self.logger.warning("Web queue injection failed for \(videoId): \(reason ?? "unknown")")
+            if reason == "queue-source-not-ready" {
+                self.scheduleWebQueueInjectionRetry(videoId: videoId)
+            }
             return
         }
 
@@ -245,6 +250,7 @@ extension PlayerService {
         }
 
         self.injectedWebQueueVideoId = videoId
+        self.webQueueInjectionRetries = nil
         self.logger.info("Synced web queue: confirmed \(videoId) to play next natively")
     }
 
@@ -335,8 +341,6 @@ extension PlayerService {
             return false
         }
 
-        // At the repeat-all boundary, YouTube can report the first queue song as the
-        // observed id before the natural `ended` callback reaches Kaset.
         return currentQueueSong.videoId == expectedCurrentVideoId
             && firstQueueSong.videoId == observedVideoId
     }
@@ -375,7 +379,7 @@ extension PlayerService {
         self.logger.info("Suppressing unexpected autoplay after native queue ended")
         self.keepQueueSongVisible(currentQueueSong, thumbnailUrl: thumbnailUrl)
         self.scheduleMusicPlaybackIntentTask(expectedQueueEntryID: self.currentQueueEntryID) { service, intent in
-            await service.pause(intent: intent)
+            await service.pause(intent: intent, isAutomaticStop: true)
         }
         return true
     }
@@ -439,11 +443,6 @@ extension PlayerService {
         self.logger.info(
             "YouTube loaded different track '\(title)' (\(resolvedVideoId)), re-playing intended track '\(intendedSong.title)'"
         )
-        // Keep the Kaset-initiated guard active until the intended video is
-        // actually confirmed. WebView metadata can emit multiple stale frames
-        // for the previous/native queue item while our manual navigation load is
-        // still in flight; dropping the guard here lets a later stale frame
-        // realign `currentIndex` backward through `handleUnexpectedQueueDriftIfNeeded`.
         self.scheduleQueueNavigationRecovery(for: intendedSong)
         return true
     }
@@ -491,8 +490,6 @@ extension PlayerService {
         self.saveQueueForPersistence(syncWebQueue: false)
     }
 
-    // The occurrence token joins the existing observed metadata so the near-end
-    // transition can be claimed atomically instead of advancing twice.
     // swiftlint:disable:next function_parameter_count
     private func handleNearEndTrackChangeIfNeeded(
         observedVideoId: String?,
@@ -527,10 +524,6 @@ extension PlayerService {
             self.keepQueueSongVisible(currentEntry.song, thumbnailUrl: thumbnailUrl)
             return true
         }
-        // Claim before scheduling either corrective branch below. Those branches
-        // deliberately own this terminal transition even when YouTube's observed
-        // successor is not the queue's expected song; otherwise a queued `ended`
-        // callback can race the unstructured corrective task and advance twice.
         guard self.claimTerminalMusicPlaybackOccurrence(playbackOccurrence) else {
             self.logger.debug("Ignoring duplicate near-end transition for consumed playback occurrence")
             return true
@@ -546,7 +539,6 @@ extension PlayerService {
                 artist: artist,
                 song: expectedNextTrack
             ) {
-                // Repeat one: "expected next" is still the current row — do not call `next()` (that advances the queue).
                 if self.repeatMode == .one {
                     self.logger.info(
                         "YouTube autoplay near end during repeat one; re-asserting current queue track (not advancing)"
@@ -598,13 +590,11 @@ extension PlayerService {
         self.markPlaybackEnded()
         self.logger.info("Unexpected autoplay detected at end of native queue; pausing playback")
         self.scheduleMusicPlaybackIntentTask(expectedQueueEntryID: self.currentQueueEntryID) { service, intent in
-            await service.pause(intent: intent)
+            await service.pause(intent: intent, isAutomaticStop: true)
         }
         return true
     }
 
-    /// Last-line repeat-one enforcement: WebView metadata is lossy/out-of-order; earlier handlers can miss a frame.
-    /// This does **not** guarantee recovery if the bridge stops firing — only consolidates what we can observe here.
     private func finalRepeatOneSafetyNetIfNeeded(
         observedVideoId: String?,
         title: String,
@@ -681,14 +671,10 @@ extension PlayerService {
             return true
         }
 
-        // Repeat one: autoplay can swap the video before title/artist update, so `trackChanged` may still be false.
-        // Without this branch we fall through and assign `currentTrack` from YouTube, breaking UI sync.
         guard trackChanged || self.repeatMode == .one else {
             return false
         }
 
-        // Repeat one: never realign `currentIndex` to another queue item when YouTube briefly loads
-        // a different in-queue video (autoplay); that would break repeat and jump the queue pointer.
         if self.repeatMode == .one {
             self.logger.info(
                 "Repeat one: observed \(observedVideoId) diverged from queue; re-playing without advancing queue index"
@@ -717,7 +703,6 @@ extension PlayerService {
             if queueIndexChanged || self.shouldKeepQueueMetadata(title: title, artist: artist, song: matchingSong) {
                 if self.currentTrack?.videoId != matchingSong.videoId {
                     self.resetTrackStatus()
-                    // Immediately restore like status from SongLikeStatusManager cache
                     if let cachedStatus = self.songLikeStatusManager.status(for: matchingSong.videoId) {
                         self.currentTrackLikeStatus = cachedStatus
                     }
@@ -742,7 +727,6 @@ extension PlayerService {
         return true
     }
 
-    /// Replays the current queue song after a natural `ended` event. User-initiated **Next** uses ``PlayerService/next()`` instead.
     private func replayCurrentQueueSongForRepeatOneAfterTrackEnd(
         intent: MusicPlaybackIntent,
         startsPaused: Bool = false
@@ -790,7 +774,6 @@ extension PlayerService {
         }
     }
 
-    /// Replays the currently playing song for repeat-one when no native queue is active.
     private func replayCurrentSongForRepeatOneWithoutQueueAfterTrackEnd(
         intent: MusicPlaybackIntent,
         startsPaused: Bool = false
@@ -874,7 +857,6 @@ extension PlayerService {
     }
 
     // swiftlint:disable cyclomatic_complexity function_body_length
-    /// Handles a natural track completion reported directly by the WebView.
     func handleTrackEnded(
         observedVideoId: String?,
         playbackOccurrence: MusicPlaybackOccurrence? = nil,
@@ -884,7 +866,12 @@ extension PlayerService {
         shouldContinue: @MainActor () -> Bool = { true }
     ) async {
         let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
-        guard shouldContinue(), self.acceptsMusicPlaybackIntent(intent) else { return }
+        guard shouldContinue(),
+              self.acceptedTrackEndContinuationIntent(
+                  originalIntent: intent,
+                  occurrence: playbackOccurrence ?? self.currentMusicPlaybackOccurrence
+              ) != nil
+        else { return }
         if identityResolutionTimedOut {
             guard observedVideoId == nil,
                   playbackOccurrence?.documentGeneration != nil,
@@ -1042,8 +1029,6 @@ extension PlayerService {
             let currentQueueVideoId = self.queue[safe: self.currentIndex]?.videoId
             let expectedCurrentVideoId = currentQueueVideoId ?? self.currentTrack?.videoId ?? self.pendingPlayVideoId
             if let expectedCurrentVideoId, expectedCurrentVideoId != observedVideoId {
-                // Late duplicate `ended` events should not advance the queue twice. The only mismatch
-                // we allow is repeat-all wrapping from the last queue item back to the first song.
                 if self.repeatMode == .one {
                     self.logger.info(
                         "Track ended: observed \(observedVideoId) != queue \(expectedCurrentVideoId) while repeat one is active; replaying current queue song"
@@ -1068,7 +1053,7 @@ extension PlayerService {
             self.shouldSuppressAutoplayAfterQueueEnd = true
             self.markPlaybackEnded()
             self.logger.info("Reached end of native queue; not yielding to YouTube autoplay")
-            await self.pause(intent: continuationIntent)
+            await self.pause(intent: continuationIntent, isAutomaticStop: true)
             return
         }
         self.shouldSuppressAutoplayAfterQueueEnd = false
@@ -1081,10 +1066,6 @@ extension PlayerService {
             return
         }
 
-        // A readback-confirmed YouTube Music queue entry may advance without
-        // navigation. Keep the outgoing song visible until the media-bound observer
-        // confirms the exact expected target; a wrong or missing transition falls
-        // back to deterministic loading after a short bounded wait.
         if allowsNativeQueueHandoff,
            let expectedIndex = self.expectedQueueIndexAfterCurrentTrack(),
            let expectedSong = self.queue[safe: expectedIndex],
@@ -1140,7 +1121,6 @@ extension PlayerService {
 
     // swiftlint:enable cyclomatic_complexity function_body_length
 
-    /// Updates track metadata and enforces Kaset's queue when YouTube tries to diverge.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {
         self.updateTrackMetadata(
             title: title,
@@ -1189,10 +1169,6 @@ extension PlayerService {
 
         let thumbnailURL = URL(string: thumbnailUrl)
         let normalizedArtistName = Self.normalizedWebArtistName(artist)
-        // The WebView byline can carry a view-count tail (e.g. "Artist • 1.3M views");
-        // strip it so it never surfaces as the displayed artist name. The id stays
-        // non-navigable ("unknown") because this is an unresolved placeholder — the
-        // resolved, navigable identity arrives from `fetchSongMetadata`.
         let artistObj = Artist(id: "unknown", name: normalizedArtistName)
         let normalizedObservedVideoId = self.normalizedPlaybackVideoId(observedVideoId)
         let resolvedVideoId = self.resolvedObservedVideoId(observedVideoId)
@@ -1255,7 +1231,6 @@ extension PlayerService {
             return
         }
 
-        // Repeat one: never replace the queue-driven `currentTrack` with YouTube's row (autoplay after idle/end).
         if self.repeatMode == .one, let queued = self.queue[safe: self.currentIndex] {
             self.keepQueueSongVisible(queued, thumbnailUrl: thumbnailUrl)
             return
@@ -1271,9 +1246,6 @@ extension PlayerService {
             return
         }
 
-        // The WebView can resend the same track when only its volatile byline tail
-        // changes. Keep the resolved metadata and status, but still accept a newly
-        // available thumbnail from the DOM.
         guard trackChanged else {
             guard let currentTrack = self.currentTrack,
                   let thumbnailURL,
@@ -1298,14 +1270,12 @@ extension PlayerService {
         )
 
         self.resetTrackStatus()
-        // Immediately restore like status from SongLikeStatusManager cache
         if let cachedStatus = self.songLikeStatusManager.status(for: resolvedVideoId) {
             self.currentTrackLikeStatus = cachedStatus
         }
 
         if videoIdChanged {
             self.clearWebQueueInjectionState()
-            // Re-sync the web queue since the playing video changed natively.
             self.syncWebQueue()
         }
     }
@@ -1324,9 +1294,6 @@ extension PlayerService {
 
         let hasResolvedArtists = currentTrack.artists.contains { !$0.isUnresolvedPlaceholder }
         let observedArtistIsEmpty = artist.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        // WebView/player metadata remains the display-title source of truth; artist
-        // identity resolves independently. Preserve navigable artists and ignore
-        // transient empty observations without pinning generated parser placeholders.
         let resolvedTitle = Self.resolvedObservedTitle(current: currentTrack.title, observed: title)
         let shouldApplyObservedArtist = allowsObservedArtist
             && !observedArtistIsEmpty
@@ -1348,11 +1315,6 @@ extension PlayerService {
         return observed
     }
 
-    /// Normalizes a WebView-reported byline into a clean artist name.
-    ///
-    /// The observer normally supplies the structured player author, which is
-    /// locale-independent. As a DOM fallback, remove only an unambiguous trailing
-    /// English view-count segment without discarding names such as "21 Savage".
     static func normalizedWebArtistName(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let segments = trimmed.split(separator: "•", omittingEmptySubsequences: false)

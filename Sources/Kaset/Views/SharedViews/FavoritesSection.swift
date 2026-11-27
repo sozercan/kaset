@@ -1,22 +1,14 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - FavoritesSection
-
-/// A horizontal scrolling section displaying pinned Favorites items.
-/// Supports drag-and-drop reordering and context menu actions.
 struct FavoritesSection: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @State private var draggedItem: FavoriteItem?
     @State private var navigationPath: NavigationPath?
 
-    /// Binding to navigation path for navigation within the section.
     var onNavigate: ((any Hashable) -> Void)?
 
-    /// Resting horizontal inset for the shelf content, so items rest clear of
-    /// the floating glass sidebar while still scrolling underneath it.
-    /// Defaults to `0` (edge-to-edge) to preserve existing call sites.
     var contentInset: CGFloat = 0
 
     var body: some View {
@@ -60,8 +52,6 @@ struct FavoritesSection: View {
             }
     }
 
-    // MARK: - Actions
-
     private func handleTap(_ item: FavoriteItem) {
         switch item.itemType {
         case let .song(song):
@@ -97,13 +87,10 @@ struct FavoritesSection: View {
             return false
         }
 
-        // Calculate the proper destination index
         let destinationIndex = sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
         self.favoritesManager.move(from: IndexSet(integer: sourceIndex), to: destinationIndex)
         return true
     }
-
-    // MARK: - Context Menu
 
     @ViewBuilder
     private func contextMenu(for item: FavoriteItem) -> some View {
@@ -144,9 +131,6 @@ struct FavoritesSection: View {
     }
 }
 
-// MARK: - FavoriteItemCard
-
-/// A card view for a single Favorites item.
 private struct FavoriteItemCard: View {
     let item: FavoriteItem
     let onTap: () -> Void
@@ -191,7 +175,6 @@ private struct FavoriteItemCard: View {
         .frame(width: Self.cardWidth, height: Self.cardHeight)
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
-            // Play overlay on hover (for songs)
             if case .song = self.item.itemType, self.isHovering {
                 Circle()
                     .fill(.ultraThinMaterial)
@@ -261,12 +244,9 @@ private struct FavoriteItemCard: View {
     }
 }
 
-// MARK: - Preview
-
 #Preview {
     let manager = FavoritesManager(skipLoad: true)
     manager.setActiveAccountScopeID("preview")
-    // Add some sample items for preview
     let song = Song(
         id: "test",
         title: "Test Song",

@@ -1,14 +1,9 @@
 import Foundation
 
-// MARK: - HomeSection
-
-/// Represents a section on the YouTube Music home page.
 struct HomeSection: Identifiable, Hashable {
     let id: String
     let title: String
     let items: [HomeSectionItem]
-    /// Whether this section is a chart (e.g., "Top 100", "Trending", "Charts").
-    /// Chart sections are rendered as vertical numbered lists instead of horizontal carousels.
     let isChart: Bool
 
     init(id: String, title: String, items: [HomeSectionItem], isChart: Bool = false) {
@@ -19,9 +14,6 @@ struct HomeSection: Identifiable, Hashable {
     }
 }
 
-// MARK: - HomeSectionItem
-
-/// An item within a home section (can be song, album, playlist, or artist).
 enum HomeSectionItem: Identifiable, Hashable {
     case song(Song)
     case album(Album)
@@ -144,8 +136,6 @@ enum HomeSectionItem: Identifiable, Hashable {
         }
     }
 
-    /// Whether this is a song that renders as a wide video thumbnail rather
-    /// than square artwork.
     var isVideoSong: Bool {
         guard case let .song(song) = self else { return false }
         if let musicVideoType = song.musicVideoType {
@@ -155,7 +145,6 @@ enum HomeSectionItem: Identifiable, Hashable {
         return subtitle.contains("views") || subtitle.contains("video")
     }
 
-    /// Returns the video ID if this item is playable.
     var videoId: String? {
         switch self {
         case let .song(song):
@@ -165,7 +154,6 @@ enum HomeSectionItem: Identifiable, Hashable {
         }
     }
 
-    /// Returns the browse ID for navigation (playlists, albums, artists).
     var browseId: String? {
         switch self {
         case .song:
@@ -179,7 +167,6 @@ enum HomeSectionItem: Identifiable, Hashable {
         }
     }
 
-    /// Returns the underlying playlist if this is a playlist item.
     var playlist: Playlist? {
         if case let .playlist(playlist) = self {
             return playlist
@@ -187,7 +174,6 @@ enum HomeSectionItem: Identifiable, Hashable {
         return nil
     }
 
-    /// Returns the underlying album if this is an album item.
     var album: Album? {
         if case let .album(album) = self {
             return album
@@ -195,8 +181,6 @@ enum HomeSectionItem: Identifiable, Hashable {
         return nil
     }
 
-    /// Song equality compares playback identity. Both card implementations also
-    /// need the metadata they render and pass to playback, navigation, and library actions.
     func hasSameCardContent(as other: Self) -> Bool {
         guard self == other else { return false }
         guard case let .song(lhsSong) = self,

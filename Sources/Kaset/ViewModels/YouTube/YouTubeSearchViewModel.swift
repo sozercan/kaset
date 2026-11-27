@@ -1,26 +1,19 @@
 import Foundation
 import Observation
 
-// MARK: - YouTubeSearchViewModel
-
-/// View model for YouTube search.
 @MainActor
 @Observable
 final class YouTubeSearchViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Current search query.
     var query: String = "" {
         didSet {
             self.handleQueryChange(from: oldValue)
         }
     }
 
-    /// Search results.
     private(set) var results: YouTubeSearchResponse = .empty
 
-    /// Filter for result kinds.
     var selectedFilter: YouTubeSearchFilter = .all {
         didSet {
             guard oldValue != self.selectedFilter else { return }
@@ -44,7 +37,6 @@ final class YouTubeSearchViewModel {
         self.client = client
     }
 
-    /// Performs a search for the current query and filter.
     func search() async {
         guard let context = self.currentSearchContext else {
             self.resetForEmptyQuery()
@@ -64,7 +56,6 @@ final class YouTubeSearchViewModel {
         self.resetForEmptyQuery()
     }
 
-    /// Loads the next page of results.
     func loadMore() async {
         guard self.loadingState == .loaded,
               let continuation = self.results.continuation,
@@ -163,8 +154,6 @@ final class YouTubeSearchViewModel {
             self.publishedSearchGeneration = request.generation
             self.loadingState = .loaded
         } catch {
-            // A cancelled load (view went away mid-flight or a newer search
-            // superseded it) is not an error; the next search owns publishing.
             if error is CancellationError {
                 return
             }
@@ -230,7 +219,6 @@ final class YouTubeSearchViewModel {
             self.loadingState = .loaded
         } catch {
             guard self.isCurrentPagination(request) else { return }
-            // A cancelled page load is not an error; allow retrying.
             if error is CancellationError {
                 self.loadingState = .loaded
                 return
@@ -281,21 +269,15 @@ final class YouTubeSearchViewModel {
     }
 }
 
-// MARK: - SearchContext
-
 private struct SearchContext: Equatable {
     let query: String
     let filter: YouTubeSearchFilter
 }
 
-// MARK: - SearchRequest
-
 private struct SearchRequest: Equatable {
     let context: SearchContext
     let generation: Int
 }
-
-// MARK: - PaginationRequest
 
 private struct PaginationRequest: Equatable {
     let context: SearchContext
@@ -303,15 +285,11 @@ private struct PaginationRequest: Equatable {
     let continuation: String
 }
 
-// MARK: - StartedSearch
-
 private struct StartedSearch {
     let task: Task<Void, Never>
     let request: SearchRequest
     let didCreate: Bool
 }
-
-// MARK: - StartedPagination
 
 private struct StartedPagination {
     let task: Task<Void, Never>

@@ -2,9 +2,6 @@ import SwiftUI
 
 // swiftlint:disable file_length
 
-// MARK: - PlayerBar
-
-/// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
 struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullSongInfoWidth: CGFloat = 234
@@ -19,14 +16,10 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @Environment(\.playerBarCurrentArtistID) private var currentRouteArtistID
     @Environment(NowPlayingTracklistProvider.self) private var tracklistProvider: NowPlayingTracklistProvider?
 
-    /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
 
-    /// Seek state for the progress-dependent leaf views. `body` must not read its
-    /// properties, or every playback progress tick re-evaluates the whole bar.
     @State private var seekController = PlayerBarSeekController()
 
-    /// Local volume value for smooth slider dragging.
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
     @State private var showsVolumeOverlay = false
@@ -93,7 +86,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             self.volumeValue = self.playerService.volume
         }
         .onDisappear {
-            // A lookup that finishes after the user left would push onto a stack they no longer see.
             self.cancelNavigationResolution()
         }
     }
@@ -113,8 +105,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
-
-    // MARK: - Song Info
 
     private func songInfoSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
@@ -226,8 +216,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             )
             .id(self.currentTitleIdentity)
             .overlay {
-                // The marquee is AppKit-hosted and the bar's interactive glass swallows plain
-                // tap gestures, so a transparent Button takes the click.
                 Button(action: self.openFullScreenPlayer) {
                     Color.clear
                         .contentShape(.rect)
@@ -374,8 +362,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Progress
-
     private var progressSection: some View {
         ZStack(alignment: .top) {
             if case let .error(message) = playerService.state {
@@ -391,8 +377,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     accent: Self.brandAccent
                 )
                 .padding(.top, 18)
-                // Keeps the segment tooltip above the transport buttons; the tooltip
-                // itself is non-hit-testable so the buttons stay clickable.
                 .zIndex(1)
             }
 
@@ -402,7 +386,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Sub-track segments for the seek bar. Depends on duration, never on progress.
     private var progressSegments: [PlayerBarProgressSegment] {
         PlayerBarSeekController.progressSegments(
             tracklist: self.tracklistProvider?.tracklist,
@@ -601,8 +584,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.playerService.currentTrack?.videoId ?? "none"
     }
 
-    // MARK: - Playback Options
-
     private var playbackOptionsSection: some View {
         HStack(spacing: 6) {
             self.lyricsButton
@@ -723,8 +704,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Current Song Context Menu
-
     private func currentSongContextMenu(for track: Song) -> some View {
         SongContextMenu(
             song: track,
@@ -744,8 +723,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             }
         )
     }
-
-    // MARK: - Error View
 
     private func errorView(message: String) -> some View {
         HStack(spacing: 8) {
@@ -776,8 +753,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Actions
-
     private func openFullScreenPlayer() {
         guard self.playerService.currentTrack != nil else { return }
         HapticService.toggle()
@@ -786,16 +761,12 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Whether the context menu offers the track's artist: not when the player bar can't navigate
-    /// or that artist's page is already showing.
     private func showsGoToArtist(for track: Song) -> Bool {
         guard self.navigationAction.openArtist != nil else { return false }
         guard let artist = track.artists.first(where: { $0.hasNavigableId }) else { return true }
         return !PlayerBarCurrentRoute.isArtist(artist, routeArtistID: self.currentRouteArtistID)
     }
 
-    /// Whether the context menu offers the track's album: not when the player bar can't navigate
-    /// or that album's page is already showing.
     private func showsGoToAlbum(for track: Song) -> Bool {
         guard self.navigationAction.openAlbum != nil else { return false }
         guard let album = track.album else { return true }

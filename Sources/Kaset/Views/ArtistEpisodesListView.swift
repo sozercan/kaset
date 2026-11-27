@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// View displaying the full list of episodes (or other filtered subset) behind
-/// a `MUSIC_PAGE_TYPE_ARTIST` "See all" affordance — Latest episodes, Live
-/// performances, etc.
 struct ArtistEpisodesListView: View {
     @State var viewModel: ArtistEpisodesListViewModel
     @Environment(PlayerService.self) private var playerService
@@ -53,8 +50,6 @@ struct ArtistEpisodesListView: View {
                 }
             }
             .padding(.vertical, 16)
-            // Edge-to-edge with a resting inset so the list extends under the
-            // floating glass sidebar.
             .detailScrollContentInset()
         }
     }

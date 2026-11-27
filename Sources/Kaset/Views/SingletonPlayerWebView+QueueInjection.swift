@@ -3,7 +3,6 @@ import WebKit
 
 @MainActor
 extension SingletonPlayerWebView {
-    /// Cancels any page-side queue injection attempt that has not completed yet.
     func cancelQueueInjection() {
         guard let webView else { return }
         let script = """
@@ -20,16 +19,6 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Injects a song into YouTube Music's native "Up Next" queue.
-    ///
-    /// The player-bar **Play next** item already carries a `queueAddEndpoint`. Kaset
-    /// temporarily substitutes its queue-target video ID, invokes the menu item's
-    /// native click path, and immediately restores the endpoint. The attempt is
-    /// trusted only after the visible queue model confirms the expected target after
-    /// the source video captured by Swift.
-    ///
-    /// - Returns: `true` if the injection script was started. Completion is reported
-    ///   asynchronously through `QUEUE_INJECTION_RESULT`.
     @discardableResult
     func injectNextSong(
         videoId: String,
@@ -193,6 +182,12 @@ extension SingletonPlayerWebView {
                     && item.classList.contains('selected'));
             }
 
+            function queueItemShowsPlayback(item) {
+                if (typeof item.getAttribute !== 'function') return false;
+                const state = item.getAttribute('play-button-state');
+                return state === 'playing' || state === 'paused' || state === 'loading';
+            }
+
             function currentQueueItems() {
                 const queueItems = Array.from(document.querySelectorAll(
                     'ytmusic-player-queue-item, ytmusic-player-queue-item-renderer, '
@@ -203,7 +198,11 @@ extension SingletonPlayerWebView {
                     const ids = collectVideoIds(item.data || item.__data || null);
                     const isCurrent = queueItemIsCurrent(item);
                     if (ids.length > 0 || isCurrent) {
-                        items.push({ videoId: ids[0] || '', isCurrent: isCurrent });
+                        items.push({
+                            videoId: ids[0] || '',
+                            isCurrent: isCurrent,
+                            isPlaying: isCurrent && queueItemShowsPlayback(item)
+                        });
                     }
                 }
                 return items;
@@ -220,12 +219,20 @@ extension SingletonPlayerWebView {
 
             function uniqueCurrentQueueIndex(items) {
                 let currentIndex = -1;
+                let isAmbiguous = false;
                 for (let index = 0; index < items.length; index += 1) {
                     if (!items[index].isCurrent) continue;
-                    if (currentIndex >= 0) return -1;
+                    if (currentIndex >= 0) isAmbiguous = true;
                     currentIndex = index;
                 }
-                return currentIndex;
+                if (!isAmbiguous) return currentIndex;
+                let playingIndex = -1;
+                for (let index = 0; index < items.length; index += 1) {
+                    if (!items[index].isPlaying) continue;
+                    if (playingIndex >= 0) return -1;
+                    playingIndex = index;
+                }
+                return playingIndex;
             }
 
             function hasExpectedNextOccurrence(items) {
@@ -254,6 +261,13 @@ extension SingletonPlayerWebView {
             }
 
             function findPlayNextItem(menuItems) {
+                const endpointItem = Array.from(menuItems).find(item => {
+                    const data = item.data || item.__data || null;
+                    const endpoint = data && (data.serviceEndpoint || data.navigationEndpoint || data.endpoint);
+                    const queueAdd = endpoint && endpoint.queueAddEndpoint;
+                    return !!queueAdd && queueAdd.queueInsertPosition === 'INSERT_AFTER_CURRENT_VIDEO';
+                });
+                if (endpointItem) return endpointItem;
                 const playNextPathData = "M6 2.86V5H3a1 1 0 00-1 1v12a1 1 0 102 0V7h2v2.137a.5.5 0 00.748.434L13 5.998 6.748 2.426A.5.5 0 006 2.86ZM21 5h-5a1 1 0 100 2h5a1 1 0 100-2Zm0 6H9a1 1 0 000 2h12a1 1 0 000-2Zm0 6H9a1 1 0 000 2h12a1 1 0 000-2Z";
                 const iconItem = Array.from(menuItems).find(item =>
                     typeof item.querySelector === 'function'
@@ -263,7 +277,8 @@ extension SingletonPlayerWebView {
                 return Array.from(menuItems).find(item => {
                     const text = (item.textContent || '').toLowerCase();
                     const ariaLabel = (item.getAttribute('aria-label') || '').toLowerCase();
-                    return text.includes('next') || ariaLabel.includes('next');
+                    return text.includes('next') || ariaLabel.includes('next')
+                        || text.includes('riproduci dopo') || ariaLabel.includes('riproduci dopo');
                 }) || null;
             }
 
@@ -303,9 +318,6 @@ extension SingletonPlayerWebView {
                 }
                 const queueItemsBeforeClick = currentQueueItems();
                 const queueCurrentIndexBeforeClick = uniqueCurrentQueueIndex(queueItemsBeforeClick);
-                // With no rendered selected source, YouTube can take the queue endpoint's
-                // `onEmptyQueue` path and start the injected target immediately. Wait for
-                // the native queue model to confirm the source occurrence before clicking.
                 if (queueCurrentIndexBeforeClick < 0
                     || queueItemsBeforeClick[queueCurrentIndexBeforeClick].videoId !== sourceVideoId) {
                     dismissPlayerMenu();
@@ -396,7 +408,6 @@ extension SingletonPlayerWebView {
                 const menuButton = __kasetPlayerBarElement('menu', playerBar);
                 if (menuButton) return menuButton;
 
-                // Compatibility fallback for the newer player-bar button shape.
                 return Array.from(playerBar.querySelectorAll('button')).find(button =>
                     (button.getAttribute('aria-label') || '').toLowerCase() === 'action menu'
                 ) || null;
@@ -414,9 +425,6 @@ extension SingletonPlayerWebView {
                     return;
                 }
 
-                // Opening an already-mounted menu can trigger both the mutation callback
-                // and the zero-delay fallback. Inspect each opening only once so retries
-                // remain bounded rather than multiplying timers.
                 let didInspectOpenMenu = false;
                 function tryDispatchFromMenu() {
                     if (didReport || didDispatchCommand || didInspectOpenMenu
@@ -445,8 +453,6 @@ extension SingletonPlayerWebView {
                     report(false, 'menu-timeout');
                 }, 5000);
                 playerBarMenuButton.click();
-                // Menus can stay mounted between SPA navigations and only toggle
-                // visibility, producing no child-list mutation.
                 setTimeout(tryDispatchFromMenu, 0);
             }
 

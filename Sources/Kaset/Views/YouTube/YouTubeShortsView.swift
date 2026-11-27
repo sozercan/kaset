@@ -1,17 +1,11 @@
 import SwiftUI
 
-// MARK: - YouTubeShortsView
-
-/// The Shorts experience: a vertical pager that autoplays one short at a
-/// time. Scrolling up advances to the next short, scrolling down returns
-/// to the previous one (snap paging).
 struct YouTubeShortsView: View {
     let viewModel: YouTubeShortsViewModel
 
     @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
-    /// The short currently snapped into view (drives autoplay).
     @State private var currentShortId: String?
 
     var body: some View {
@@ -42,17 +36,9 @@ struct YouTubeShortsView: View {
             }
         }
         .navigationTitle(Text("Shorts", comment: "YouTube Shorts title"))
-        // Keyed on the view-model identity so a cold-launch account swap (which
-        // rebuilds the model) re-fires the load instead of leaving the fresh,
-        // idle model stuck. See YouTubeHomeView for the full rationale.
         .task(id: ObjectIdentifier(self.viewModel)) {
-            // The view model is swapped on an account change; this @State is from
-            // the previous account. Reset it so the autoplay guard below selects
-            // the new model's first short instead of keeping a stale ID that is
-            // not in the new pager.
             self.currentShortId = nil
             await self.viewModel.load()
-            // Autoplay the first short on entry.
             if self.currentShortId == nil, let first = self.viewModel.shorts.first {
                 self.currentShortId = first.videoId
                 self.play(shortId: first.videoId)
@@ -62,8 +48,6 @@ struct YouTubeShortsView: View {
             self.stopIfPlayingShort()
         }
     }
-
-    // MARK: - Pager
 
     private var pager: some View {
         ScrollView(.vertical) {
@@ -79,9 +63,6 @@ struct YouTubeShortsView: View {
             }
             .scrollTargetLayout()
         }
-        // Viewport-relative `.paging` accumulates the asymmetric navigation-bar
-        // and player-bar safe-area offset on every page. Align the explicit
-        // row targets instead so repeated wheel gestures cannot drift mid-page.
         .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne))
         .scrollPosition(id: self.$currentShortId)
         .scrollIndicators(.hidden)
@@ -93,7 +74,6 @@ struct YouTubeShortsView: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.shortsPager)
     }
 
-    /// Whether the live surface belongs to this short.
     private func isPresenting(_ short: YouTubeVideo) -> Bool {
         self.youtubePlayer.currentVideo?.videoId == short.videoId
             && self.youtubePlayer.surfaceLocation == .inline
@@ -108,8 +88,6 @@ struct YouTubeShortsView: View {
         self.youtubePlayer.activeInlineVideoId = short.videoId
     }
 
-    /// Leaving the Shorts surface ends shorts playback (a vertical short in
-    /// the 16:9 floating window would be all pillarbox).
     private func stopIfPlayingShort() {
         guard let current = self.youtubePlayer.currentVideo,
               current.isShort,
@@ -122,10 +100,6 @@ struct YouTubeShortsView: View {
     }
 }
 
-// MARK: - ShortPage
-
-/// One full-height page of the Shorts pager: the live 9:16 surface when
-/// active, otherwise the thumbnail; title/channel overlaid at the bottom.
 private struct ShortPage: View {
     let short: YouTubeVideo
     let isActive: Bool
@@ -164,7 +138,6 @@ private struct ShortPage: View {
         .accessibilityLabel(self.short.title)
     }
 
-    /// Title / channel overlay at the bottom of the short, Shorts-style.
     private var infoOverlay: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(self.short.title)
@@ -195,8 +168,6 @@ private struct ShortPage: View {
         .allowsHitTesting(false)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let shortsPager = "youtubeContent.shortsPager"

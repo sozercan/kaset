@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import APIExplorer
 
-// MARK: - DiscoveryAuditTests
-
 @Suite("Read-only API discovery")
 struct DiscoveryAuditTests {
     @Test("The mobile profile keeps its version and device identity consistent")

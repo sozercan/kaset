@@ -5,8 +5,6 @@ extension PlayerService {
     private static let queueNavigationRecoveryTimeout: Duration = .seconds(8)
 
     func finishPlaybackAfterFailedQueueAdvance(reason: String) async {
-        // A transient failure leaves the current token intact, while a duplicate-only page can
-        // advance to another token. Only a nil token proves that the continuation is exhausted.
         let hasRetryableMixContinuation = self.mixContinuationToken != nil
         if !hasRetryableMixContinuation {
             self.mixContinuationRequiresAuth = false
@@ -16,7 +14,7 @@ extension PlayerService {
         self.logger.info(
             "Ending playback after failed queue advance: \(reason), retryable continuation: \(hasRetryableMixContinuation)"
         )
-        await self.pause()
+        await self.pause(isAutomaticStop: true)
     }
 
     func clearQueueNavigationRecovery() {
@@ -29,8 +27,6 @@ extension PlayerService {
     }
 
     func scheduleQueueNavigationRecovery(for song: Song) {
-        // Source changes can report outgoing media while the requested track is
-        // still loading. Let the existing router attempt confirm or time out.
         guard !SingletonPlayerWebView.shared.isRouterNavigationPending(for: song.videoId) else {
             return
         }

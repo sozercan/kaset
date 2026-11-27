@@ -290,10 +290,8 @@ struct AuthServiceCookieRestoreTests {
         }
         await cookieReadEntered.wait()
 
-        // The Sign Out action cancels recovery before scheduling its async task.
         authService.cancelLoginStatusCheck()
         recovery.cancel()
-        // A queued cookie callback can run before that sign-out task starts.
         await releaseCookieRead.open()
         await recovery.value
         #expect(authService.state == .loggedOut)

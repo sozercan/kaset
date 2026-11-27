@@ -2,20 +2,14 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PodcastsAvailabilityServiceTests
-
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PodcastsAvailabilityServiceTests {
-    // MARK: - Initial state
-
     @Test
     func initialAvailabilityIsUnknown() {
         let service = PodcastsAvailabilityService()
         #expect(service.availability == .unknown)
     }
-
-    // MARK: - Probe outcomes
 
     @Test
     func probeWithNonEmptySectionsMarksAvailable() async {
@@ -51,9 +45,6 @@ struct PodcastsAvailabilityServiceTests {
 
         let result = await service.probe(for: "primary", using: client)
 
-        // Empty payload from a probe is not authoritative — leave the
-        // state alone. The lazy path will confirm via user-initiated
-        // load.
         #expect(result == .unknown)
         #expect(service.availability == .unknown)
     }
@@ -79,12 +70,9 @@ struct PodcastsAvailabilityServiceTests {
 
         let result = await service.probe(for: "primary", using: client)
 
-        // Transient failures must not flip a known-good state.
         #expect(result == .available)
         #expect(service.availability == .available)
     }
-
-    // MARK: - Account/session invalidation
 
     @Test
     func late404ProbeDoesNotOverrideNewerAccountAvailability() async {
@@ -137,8 +125,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .unknown)
     }
 
-    // MARK: - Lazy signals
-
     @Test
     func markUnavailableUpdatesState() {
         let service = PodcastsAvailabilityService()
@@ -157,8 +143,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .available)
     }
 
-    // MARK: - Reset
-
     @Test
     func resetClearsAvailability() {
         let service = PodcastsAvailabilityService()
@@ -170,8 +154,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .unknown)
     }
 }
-
-// MARK: - AsyncSignal
 
 @MainActor
 private final class AsyncSignal {

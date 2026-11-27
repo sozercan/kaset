@@ -2,55 +2,39 @@ import Foundation
 import Observation
 import os
 
-/// View model for the History view.
 @MainActor
 @Observable
 final class HistoryViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// History sections to display (grouped by time: Today, Yesterday, etc.).
     private(set) var sections: [HomeSection] = []
 
-    /// Whether more sections are available to load.
     private(set) var hasMoreSections: Bool = true
 
-    /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.history
     // swiftformat:disable modifierOrder
-    /// Explicit user-requested continuation task, cancelled in reset.
     @ObservationIgnored private var continuationTask: Task<Void, Never>?
     @ObservationIgnored private var continuationTaskID: UUID?
-    /// Task for delayed playback-driven refreshes, cancelled in deinit/reset.
     @ObservationIgnored private var playbackRefreshTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
-    /// Number of continuation pages currently represented in `sections`.
     private var continuationsLoaded = 0
 
-    /// Preserved continuation pages to skip after `getHistory()` rewinds the client cursor.
     private var pendingContinuationSkips = 0
 
-    /// Whether a user-visible continuation load is currently in flight.
     private var isLoadingMoreSections = false
 
-    /// Whether a refresh is currently rewinding the history cursor.
     private(set) var isRefreshingHistory = false
 
-    /// Monotonic token used to discard stale continuation results after refreshes/resets.
     private var loadGeneration = 0
 
-    /// Cached first page from the last successful history fetch.
     private var initialSections: [HomeSection] = []
 
-    /// Last playback video ID observed while History was mounted.
     private var lastSeenPlaybackVideoId: String?
 
-    /// Delay before refreshing after playback changes to allow history to propagate.
     static var playbackRefreshDelay: Duration = .seconds(3)
 
-    /// Retry delay when the first playback refresh does not update the first page.
     static var playbackRefreshRetryDelay: Duration = .seconds(2)
 
     init(client: any YTMusicClientProtocol) {
@@ -62,7 +46,6 @@ final class HistoryViewModel {
         self.playbackRefreshTask?.cancel()
     }
 
-    /// Loads history content with fast initial load.
     func load() async {
         guard self.loadingState != .loading,
               self.loadingState != .loadingMore
@@ -95,7 +78,6 @@ final class HistoryViewModel {
         }
     }
 
-    /// Resets local history state, used when switching accounts.
     func reset() {
         self.continuationTask?.cancel()
         self.continuationTask = nil
@@ -113,13 +95,10 @@ final class HistoryViewModel {
         self.lastSeenPlaybackVideoId = nil
     }
 
-    /// Records the currently observed playback without scheduling a refresh.
-    /// Used to establish a baseline after the initial history load completes.
     func syncObservedPlayback(videoId: String?) {
         self.lastSeenPlaybackVideoId = videoId
     }
 
-    /// Schedules a delayed refresh when playback changes to a new video.
     func schedulePlaybackRefreshIfNeeded(for videoId: String?) {
         guard let videoId else {
             self.lastSeenPlaybackVideoId = nil
@@ -140,7 +119,6 @@ final class HistoryViewModel {
         }
     }
 
-    /// Loads one additional history continuation page on explicit user demand.
     func loadMore() async {
         guard self.hasMoreSections,
               self.continuationTask == nil,
@@ -209,9 +187,6 @@ final class HistoryViewModel {
         }
     }
 
-    /// Refreshes history content while keeping existing data visible.
-    /// Skips update if data hasn't changed to avoid scroll jitter.
-    /// Returns true if data changed, false otherwise.
     @discardableResult
     func refresh() async -> Bool {
         guard !self.isRefreshingHistory else { return false }
@@ -229,9 +204,6 @@ final class HistoryViewModel {
             let shouldPreservePaginatedSections =
                 previousContinuationsLoaded > 0 && self.sections.count > response.sections.count
 
-            // Compare only the refreshed first page against the last successful first page.
-            // `getHistory()` rewinds the continuation cursor, so preserving already-loaded
-            // continuation pages requires skipping those pages when background loading restarts.
             if !self.sectionsChanged(self.initialSections, comparedTo: response.sections) {
                 self.initialSections = response.sections
                 self.hasMoreSections = self.client.hasMoreHistorySections
@@ -268,7 +240,6 @@ final class HistoryViewModel {
         }
     }
 
-    /// Refreshes after a playback change, retrying once if the first page is unchanged.
     func refreshAfterPlaybackChange() async {
         do {
             try await Task.sleep(for: Self.playbackRefreshDelay)
@@ -314,7 +285,6 @@ final class HistoryViewModel {
         self.continuationTaskID = nil
     }
 
-    /// Compares refreshed first-page sections using stable section and item identifiers.
     private func sectionsChanged(_ oldSections: [HomeSection], comparedTo newSections: [HomeSection]) -> Bool {
         guard oldSections.count == newSections.count else { return true }
 

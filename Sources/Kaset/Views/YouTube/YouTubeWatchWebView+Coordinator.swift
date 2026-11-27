@@ -1,10 +1,6 @@
 import WebKit
 
-// MARK: - YouTubeWatchWebView.Coordinator
-
 extension YouTubeWatchWebView {
-    // MARK: - Coordinator
-
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         let playerService: YouTubePlayerService
 
@@ -37,6 +33,8 @@ extension YouTubeWatchWebView {
                 self.handleStateUpdate(body, documentGeneration: messageDocumentGeneration)
             case "VIDEO_ENDED":
                 self.handleVideoEnded(body, documentGeneration: messageDocumentGeneration)
+            case "TOGGLE_FULLSCREEN":
+                YouTubeVideoWindowController.shared.toggleFullView(for: self.playerService)
             default:
                 return
             }
@@ -73,9 +71,6 @@ extension YouTubeWatchWebView {
                     documentGeneration: documentGeneration
                 )
             )
-            // WebKit has already admitted this main-frame message for the active
-            // document. Persist the recovery-only marker synchronously so a
-            // process-termination callback cannot invalidate the generation first.
             self.playerService.recordPostConclusionAutoplayTransitionIfNeeded(update)
             Task { @MainActor in
                 guard YouTubeWatchWebView.shared.documentGeneration.accepts(
@@ -154,9 +149,6 @@ extension YouTubeWatchWebView {
             )
             let eventIssuedAtMilliseconds = body["eventIssuedAtMilliseconds"] as? Double
             guard !endedDuringAd else { return }
-            // The outer bridge admission already validated WebView identity and
-            // document generation. Commit this terminal occurrence synchronously;
-            // a process-termination callback may invalidate the document next.
             let didAcceptEnd = self.playerService.handleVideoEnded(
                 videoId: videoId,
                 playbackOccurrence: playbackOccurrence,
@@ -248,14 +240,6 @@ extension YouTubeWatchWebView {
             }
             YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFinishNavigation(webView)
 
-            // A trusted interstitial (consent, sign-in) is allowed to commit
-            // here so the user can read and act on it, but the document-start
-            // blackout leaves it invisible and un-hit-testable. Reveal it, then
-            // fall through — it is not a playback URL, so the guard below returns.
-            //
-            // Trusted same-generation form POSTs are admitted unchanged by the
-            // navigation policy so their bodies survive; subsequent GET
-            // continuations are rebound with the generation token as before.
             if WebPlaybackDocumentGeneration.isTrustedIntermediaryURL(webView.url) {
                 webView.evaluateJavaScript(
                     YouTubeWatchWebView.revealInterstitialScript,
@@ -271,11 +255,6 @@ extension YouTubeWatchWebView {
                 "YouTube watch WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
             )
 
-            // The resume-seek for an identity-switch reload is applied by the
-            // observer's applyPendingSeek (gated on the <video> existing and being
-            // seekable), not here: at didFinish the element often does not exist
-            // yet, so a one-shot seek would be lost. Clear the Swift-side copy now
-            // that the per-load bootstrap has carried the value into the page.
             YouTubeWatchWebView.shared.pendingSeek = nil
 
             let savedVolume = self.playerService.volume

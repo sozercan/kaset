@@ -1,9 +1,3 @@
-/// Associates playback state with a navigation only while that object exists.
-///
-/// WebKit does not always deliver a terminal callback after `stopLoading()`.
-/// An `ObjectIdentifier` alone can then outlive its navigation and alias a later
-/// load. Weak keys preserve late-callback ownership without retaining cancelled
-/// navigations indefinitely.
 struct WebPlaybackNavigationMap<Navigation: AnyObject, Value>: Sequence {
     typealias Element = (key: Navigation, value: Value)
 

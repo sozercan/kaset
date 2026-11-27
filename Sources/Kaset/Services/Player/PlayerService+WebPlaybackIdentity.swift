@@ -1,21 +1,9 @@
 import Foundation
 
-// MARK: - Web Playback Identity
-
 @MainActor
 extension PlayerService {
     private static let nativeQueueAdvanceTimeout: Duration = .seconds(3)
 
-    /// Reconciles WebView metadata before playback state is applied.
-    ///
-    /// The page's `trackChanged` flag is advisory: YouTube can update its internal
-    /// video ID before the observer's title/artist state catches up, then report the
-    /// mismatched video with `trackChanged == false` on later ticks. Video identity
-    /// remains authoritative, so any mismatch must still pass through queue-drift
-    /// reconciliation.
-    ///
-    /// - Returns: Whether progress/play state from this observation belongs to the
-    ///   current Kaset queue target after reconciliation.
     func reconcileWebPlaybackMetadata(
         title: String,
         artist: String,
@@ -40,8 +28,6 @@ extension PlayerService {
                 || !artist.isEmpty && artist != self.currentTrack?.artistsDisplay
                 || thumbnailMetadataChanged)
 
-        // Media identity is authoritative for queue alignment. Textual metadata is
-        // applied only when the player-bar identity agrees with that media.
         let shouldReconcileMetadata = identitiesCoherent
             && (bridgeTrackChanged
                 || videoIdMismatch
@@ -96,9 +82,6 @@ extension PlayerService {
         return matchingIndices.count == 1 && matchingIndices[0] != self.currentIndex
     }
 
-    /// Whether an identity-bearing WebView playback observation belongs to
-    /// Kaset's current queue target. Once a target identity is known, transient
-    /// identityless ticks are rejected because they may belong to the outgoing video.
     func observedPlaybackMatchesCurrentTarget(videoId observedVideoId: String?) -> Bool {
         guard let expectedVideoId = self.expectedPlaybackVideoId else { return true }
         guard let observedVideoId = self.normalizedWebPlaybackVideoId(observedVideoId) else { return false }
@@ -135,8 +118,6 @@ extension PlayerService {
         return true
     }
 
-    /// Starts a bounded native handoff without changing the visible queue pointer.
-    /// The pointer moves only after the media-bound observer reports the expected target.
     func beginPendingNativeQueueAdvance(to index: Int) {
         guard let targetEntry = self.queueEntries[safe: index],
               let sourceVideoId = self.queue[safe: self.currentIndex]?.videoId
@@ -168,8 +149,6 @@ extension PlayerService {
         }
     }
 
-    /// Reconciles an authoritative media-bound observation during a native handoff.
-    /// - Returns: Whether the caller should continue applying this observation.
     func reconcilePendingNativeQueueAdvanceObservation(
         videoId: String?,
         shouldContinue: @escaping @MainActor () -> Bool = { true }
@@ -179,7 +158,6 @@ extension PlayerService {
         guard let videoId = self.normalizedWebPlaybackVideoId(videoId) else { return false }
 
         if videoId == pending.sourceVideoId {
-            // The outgoing element can emit a final pause/time update after `ended`.
             return false
         }
 
@@ -262,8 +240,6 @@ extension PlayerService {
             intent: intent,
             fetchesMetadata: false
         )
-        // Once this operation clears the pending handoff, callers must not fall
-        // through and apply a superseded transport action to newer playback state.
         return true
     }
 
@@ -407,13 +383,9 @@ extension PlayerService {
         let sourceIndex = pending.sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
         let targetIndex: Int?
         if let sourceIndex {
-            // When the source still exists, a nil expected successor means the
-            // queue now ends here. Do not turn that into a replay of the source.
             self.currentIndex = sourceIndex
             targetIndex = self.expectedQueueIndexAfterCurrentTrack()
         } else {
-            // Queue mutation helpers realign `currentIndex` after removing the source;
-            // that post-edit position is now authoritative.
             targetIndex = self.queue.indices.contains(self.currentIndex)
                 ? self.currentIndex
                 : self.queue.indices.first
@@ -426,7 +398,7 @@ extension PlayerService {
             self.logger.warning("Native queue advance fallback has no remaining target: \(reason)")
             self.shouldSuppressAutoplayAfterQueueEnd = true
             self.markPlaybackEnded()
-            await self.pause()
+            await self.pause(isAutomaticStop: true)
             return
         }
 
@@ -443,9 +415,6 @@ extension PlayerService {
             "Native queue advance to \(pending.targetVideoId) failed; loading current expected target \(targetSong.videoId): \(reason)"
         )
         self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
-        // The tracked WebView ID still describes the pre-handoff source, while
-        // the actual media may already be an unexpected target. Force navigation
-        // when IDs happen to match instead of restarting the wrong media in place.
         await self.loadQueueSongForNavigation(
             at: targetIndex,
             webLoadStrategy: .forceFullPageWhenSameVideoId,

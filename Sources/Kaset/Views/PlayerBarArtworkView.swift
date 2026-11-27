@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarArtworkView
-
 struct PlayerBarArtworkView<Content: View>: View {
     let width: CGFloat
     let height: CGFloat

@@ -2,9 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - SearchViewModelTests
-
-/// Tests for SearchViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct SearchViewModelTests {
@@ -222,8 +219,6 @@ struct SearchViewModelTests {
 
         self.viewModel.selectSuggestion(suggestion)
 
-        // Mirrors SearchView's onChange(of: query) callback, which can arrive after
-        // the click handler has already selected a suggestion and started search.
         self.viewModel.fetchSuggestions()
         try await Task.sleep(for: .milliseconds(250))
 

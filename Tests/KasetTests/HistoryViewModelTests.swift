@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for HistoryViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct HistoryViewModelTests {
@@ -202,7 +201,6 @@ struct HistoryViewModelTests {
         await self.viewModel.load()
 
         if case .error = self.viewModel.loadingState {
-            // Expected initial error state before retrying.
         } else {
             Issue.record("Expected error state after failed load")
         }

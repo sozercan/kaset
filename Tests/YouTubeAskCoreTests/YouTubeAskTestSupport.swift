@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import YouTubeAskCore
 
-// MARK: - YouTubeAskTestFixture
-
 enum YouTubeAskTestFixture {
     static func data(_ name: String) throws -> Data {
         let url = try #require(Bundle.module.url(forResource: name, withExtension: "json"))

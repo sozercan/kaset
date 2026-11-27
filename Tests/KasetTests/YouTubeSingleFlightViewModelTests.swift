@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeSingleFlightViewModelTests
-
 @Suite("YouTube non-Home view model single-flight", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeSingleFlightViewModelTests {
@@ -232,8 +230,6 @@ struct YouTubeSingleFlightViewModelTests {
         Issue.record("Timed out waiting for \(description)")
     }
 }
-
-// MARK: - SingleFlightYouTubeClient
 
 @MainActor
 private final class SingleFlightYouTubeClient: YouTubeClientProtocol {

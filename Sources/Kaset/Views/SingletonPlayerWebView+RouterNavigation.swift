@@ -2,8 +2,6 @@ import Foundation
 
 extension SingletonPlayerWebView {
     // swiftlint:disable function_body_length
-    /// Retries an AirPlay handoff that leaves the requested player unstarted.
-    /// The retry stays inside the current document so WebKit can reuse its receiver.
     nonisolated static func routerNavigationScript(videoId: String, generation: Int) -> String {
         let videoIdLiteral = Self.javaScriptStringLiteral(videoId)
         return """
@@ -11,7 +9,13 @@ extension SingletonPlayerWebView {
             const previousRetry = window.__kasetAirPlayNavigationRetry;
             previousRetry?.cancel();
             const app = document.querySelector('ytmusic-app');
-            if (!app || typeof app.resolveCommand !== 'function') return false;
+            const controller = app && (app.polymerController || app.inst);
+            const resolveCommand = app && typeof app.resolveCommand === 'function'
+                ? command => app.resolveCommand(command)
+                : controller && typeof controller.handleNavigationEndpoint === 'function'
+                    ? command => controller.handleNavigationEndpoint(command)
+                    : null;
+            if (!resolveCommand) return false;
 
             const videoId = \(videoIdLiteral);
             const video = document.querySelector('video');
@@ -72,8 +76,6 @@ extension SingletonPlayerWebView {
             function handlePlayerError(event) {
                 const code = typeof event === 'number' ? event : event && event.data;
                 if (code !== 150 || !isCurrentRequest() || didRetry || !targetIsUnstarted()) return;
-                // In the failing AirPlay handoff, error 5 precedes 150. Let
-                // YouTube's final error handlers settle before the one retry.
                 if (confirmedFailureAt === null) confirmedFailureAt = performance.now();
                 observeTarget();
             }
@@ -96,10 +98,8 @@ extension SingletonPlayerWebView {
                     if (now >= retryAt) {
                         didRetry = true;
                         stopObservingPlayer();
-                        // Keep ownership until media confirmation so a rapid skip
-                        // can inherit the handoff while the wireless flag is false.
                         try {
-                            app.resolveCommand({ watchEndpoint: { videoId: videoId } });
+                            resolveCommand({ watchEndpoint: { videoId: videoId } });
                         } catch (_) {
                             cancelRetry();
                         }
@@ -111,9 +111,6 @@ extension SingletonPlayerWebView {
                     confirmedFailureAt = null;
                 }
 
-                // YouTube can update track identity and media readiness after its
-                // state callback. Observe the pending target until confirmation,
-                // allowing normal loading a full second unless it reports failure.
                 observationTimer = setTimeout(observeTarget, nextObservationDelay);
             }
 
@@ -129,10 +126,57 @@ extension SingletonPlayerWebView {
                 observationTimer = setTimeout(observeTarget, 250);
             }
 
+            window.__kasetCleanStart?.finish();
+            const mutedDescriptor = typeof HTMLMediaElement === 'function'
+                && Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
+            if (video && mutedDescriptor && !video.muted
+                && typeof video.addEventListener === 'function') {
+                const cleanStart = { finish: finishCleanStart };
+                window.__kasetCleanStart = cleanStart;
+                const cleanStartDeadline = setTimeout(finishCleanStart, 4000);
+                let requestedMuted = false;
+                Object.defineProperty(video, 'muted', {
+                    configurable: true,
+                    get: () => requestedMuted,
+                    set: value => { requestedMuted = !!value; }
+                });
+                mutedDescriptor.set.call(video, true);
+
+                function rewindOnceAudible() {
+                    if (window.__kasetCleanStart !== cleanStart) return;
+                    let currentId = null;
+                    try {
+                        const data = api && api.getVideoData();
+                        currentId = data && (data.video_id || data.videoId);
+                    } catch (_) {}
+                    if (currentId !== videoId || isAdShowing() || video.currentTime < 0.25) return;
+                    if (video.currentTime > 1.5) {
+                        finishCleanStart();
+                        return;
+                    }
+                    video.removeEventListener('timeupdate', rewindOnceAudible);
+                    video.addEventListener('seeked', finishCleanStart, { once: true });
+                    video.currentTime = 0;
+                }
+
+                function finishCleanStart() {
+                    clearTimeout(cleanStartDeadline);
+                    video.removeEventListener('timeupdate', rewindOnceAudible);
+                    video.removeEventListener('seeked', finishCleanStart);
+                    if (window.__kasetCleanStart !== cleanStart) return;
+                    window.__kasetCleanStart = null;
+                    delete video.muted;
+                    mutedDescriptor.set.call(video, requestedMuted);
+                }
+
+                video.addEventListener('timeupdate', rewindOnceAudible);
+            }
+
             try {
-                app.resolveCommand({ watchEndpoint: { videoId: videoId } });
+                resolveCommand({ watchEndpoint: { videoId: videoId } });
                 return true;
             } catch (_) {
+                window.__kasetCleanStart?.finish();
                 cancelRetry();
                 return false;
             }

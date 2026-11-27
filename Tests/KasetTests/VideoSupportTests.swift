@@ -1,10 +1,8 @@
+import AppKit
 import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - VideoSupportTests
-
-/// Tests for Video Support functionality.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct VideoSupportTests {
@@ -16,8 +14,6 @@ struct VideoSupportTests {
         self.playerService = PlayerService()
     }
 
-    // MARK: - Initial State Tests
-
     @Test("currentTrackHasVideo initially false")
     func currentTrackHasVideoInitiallyFalse() {
         #expect(self.playerService.currentTrackHasVideo == false)
@@ -27,8 +23,6 @@ struct VideoSupportTests {
     func showVideoInitiallyFalse() {
         #expect(self.playerService.showVideo == false)
     }
-
-    // MARK: - Video Availability Tests
 
     @Test("updateVideoAvailability sets hasVideo correctly")
     func updateVideoAvailabilitySetsHasVideo() {
@@ -41,27 +35,18 @@ struct VideoSupportTests {
         #expect(self.playerService.currentTrackHasVideo == false)
     }
 
-    // MARK: - Video Window Behavior Tests
-
     @Test("showVideo stays open even when hasVideo becomes false")
     func showVideoStaysOpenWhenHasVideoChanges() {
-        // The video window should not auto-close based on hasVideo detection
-        // because detection is unreliable when video mode CSS is active.
-        // Only trackChanged should close the video window.
         self.playerService.updateVideoAvailability(hasVideo: true)
         self.playerService.showVideo = true
         #expect(self.playerService.showVideo == true)
 
-        // hasVideo becomes false (unreliable detection during video mode)
         self.playerService.updateVideoAvailability(hasVideo: false)
         #expect(self.playerService.showVideo == true, "Video window should NOT auto-close based on hasVideo")
     }
 
     @Test("showVideo can be enabled even when hasVideo is false")
     func showVideoCanBeEnabledWhenNoVideo() {
-        // We allow enabling showVideo even without hasVideo because:
-        // 1. hasVideo detection might lag behind
-        // 2. User explicitly requested video mode
         #expect(self.playerService.currentTrackHasVideo == false)
         self.playerService.showVideo = true
         #expect(self.playerService.showVideo == true, "showVideo should be allowed even if hasVideo is false")
@@ -69,17 +54,13 @@ struct VideoSupportTests {
 
     @Test("showVideo stays open when changing to another video track")
     func showVideoStaysOpenForVideoTrack() {
-        // Enable video with a video-capable track
         self.playerService.updateVideoAvailability(hasVideo: true)
         self.playerService.showVideo = true
         #expect(self.playerService.showVideo == true)
 
-        // Track changes but still has video
         self.playerService.updateVideoAvailability(hasVideo: true)
         #expect(self.playerService.showVideo == true, "Video window should stay open")
     }
-
-    // MARK: - Model Tests
 
     @Test("Song.hasVideo property exists and defaults to nil")
     func songHasVideoPropertyExists() {
@@ -122,22 +103,17 @@ struct VideoSupportTests {
         #expect(songWithoutVideo.hasVideo == false)
     }
 
-    // MARK: - Display Mode Tests
-
     @Test("SingletonPlayerWebView DisplayMode enum has all cases")
     func displayModeEnumHasAllCases() {
         let hidden = SingletonPlayerWebView.DisplayMode.hidden
         let miniPlayer = SingletonPlayerWebView.DisplayMode.miniPlayer
         let video = SingletonPlayerWebView.DisplayMode.video
 
-        // Just verify the enum cases exist
         #expect(hidden == .hidden)
         #expect(miniPlayer == .miniPlayer)
         #expect(video == .video)
     }
 }
-
-// MARK: - YouTubeVideoWindowFullscreenIntentStateTests
 
 @Suite(.tags(.service))
 struct YouTubeVideoWindowFullscreenIntentStateTests {
@@ -163,8 +139,6 @@ struct YouTubeVideoWindowFullscreenIntentStateTests {
         #expect(!secondExit)
     }
 }
-
-// MARK: - YouTubeVideoWindowFrameAutosaveStateTests
 
 @Suite(.tags(.service))
 struct YouTubeVideoWindowFrameAutosaveStateTests {
@@ -192,8 +166,6 @@ struct YouTubeVideoWindowFrameAutosaveStateTests {
     }
 }
 
-// MARK: - YouTubeVideoWindowResizeGuardTests
-
 @Suite(.tags(.service))
 @MainActor
 struct YouTubeVideoWindowResizeGuardTests {
@@ -205,7 +177,7 @@ struct YouTubeVideoWindowResizeGuardTests {
             for: NSSize(width: 800, height: 999),
             minContentSize: self.floor
         )
-        #expect(result == NSSize(width: 800, height: 450)) // 800 * 9/16
+        #expect(result == NSSize(width: 800, height: 450))
     }
 
     @Test("Floor is enforced on both axes")
@@ -219,22 +191,17 @@ struct YouTubeVideoWindowResizeGuardTests {
 
     @Test("Vertical-edge drag follows the proposed height")
     func heightDrivenFollowsHeight() {
-        // Current 800x450; user drags the bottom edge to make it taller. Width is
-        // unchanged, height grew — the clamp must follow the height, not snap it
-        // back to the old width-derived value. width = round(700 * 16/9) = 1244.
         let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
             for: NSSize(width: 800, height: 700),
             minContentSize: self.floor,
             current: NSSize(width: 800, height: 450)
         )
         #expect(result.height == 700)
-        #expect(result.width == 1244) // followed the height, not snapped to 800
+        #expect(result.width == 1244)
     }
 
     @Test("Horizontal-edge drag still follows the proposed width")
     func widthDrivenWithCurrent() {
-        // width unchanged-axis is the bigger delta, so drive off width:
-        // height = round(1000 * 9/16) = round(562.5) = 563.
         let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
             for: NSSize(width: 1000, height: 450),
             minContentSize: self.floor,
@@ -242,5 +209,26 @@ struct YouTubeVideoWindowResizeGuardTests {
         )
         #expect(result.width == 1000)
         #expect(result.height == 563)
+    }
+
+    @Test("Failed full screen exit reaches the controller until invalidated")
+    func failedExitForwardsUntilInvalidated() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 360),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        var failedExits = 0
+        let resizeGuard = YouTubeVideoWindowResizeGuard(
+            minContentSize: self.floor,
+            onDidFailToExitFullScreen: { _ in failedExits += 1 }
+        )
+
+        resizeGuard.windowDidFailToExitFullScreen(window)
+        resizeGuard.invalidate()
+        resizeGuard.windowDidFailToExitFullScreen(window)
+
+        #expect(failedExits == 1)
     }
 }

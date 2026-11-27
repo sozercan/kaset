@@ -3,13 +3,6 @@ import Foundation
 import os
 import WebKit
 
-// MARK: - WebExtensionHostedWebViewRole
-
-/// Browser-tab identity for Kaset-owned playback WebViews exposed to WebKit Web Extensions.
-///
-/// Kaset does not have browser tabs in its UI, but WebKit's extension runtime still
-/// needs a tab/window model so content scripts and extension APIs can resolve the
-/// `WKWebView` they operate on.
 enum WebExtensionHostedWebViewRole: String {
     case musicPlayer
     case youtubeWatch
@@ -173,8 +166,6 @@ enum WebExtensionHostedWebViewRole: String {
         }
     }
 
-    // MARK: - KasetWebExtensionTab
-
     @available(macOS 15.4, *)
     @MainActor
     final class KasetWebExtensionTab: NSObject, WKWebExtensionTab {
@@ -226,8 +217,6 @@ enum WebExtensionHostedWebViewRole: String {
             self.webView?.bounds.size ?? .zero
         }
     }
-
-    // MARK: - KasetWebExtensionWindow
 
     @available(macOS 15.4, *)
     @MainActor

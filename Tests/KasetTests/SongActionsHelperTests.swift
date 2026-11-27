@@ -10,9 +10,6 @@ private let realWorldArtistIdMismatchCases = [
     ),
 ]
 
-// MARK: - LibraryMutationSerialTests.SongActionsHelperTests
-
-/// Tests for SongActionsHelper library mutation flows.
 extension LibraryMutationSerialTests {
     @Suite(.tags(.viewModel), .timeLimit(.minutes(1)))
     @MainActor

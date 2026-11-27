@@ -267,7 +267,6 @@ extension LibraryMutationSerialTests {
             self.mockClient.songResponses[song.videoId] = song
 
             await SongActionsHelper.addToLibrary(song, playerService: playerService).value
-            // The second response reports the song removed again, as if changed in another client.
             await SongActionsHelper.addToLibrary(song, playerService: playerService).value
 
             #expect(self.mockClient.appliedEditSongLibraryStatusTokens == [["mock-add"], ["mock-add"]])

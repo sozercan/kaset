@@ -33,6 +33,8 @@ The catalog lives at `Sources/Kaset/Resources/Localizable.xcstrings`. Because cu
 
 When updating translations, regenerate the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` files from `Localizable.xcstrings` so SwiftPM builds and packaged app builds stay in sync.
 
+`PackageResourceLookup` looks for the SwiftPM resource bundle relative to the app module and executable, with a `.build` fallback for local runs. A language override uses its `.lproj` bundle when available. Development-region overrides can still resolve localized strings when there is no physical `.lproj`. Navigation titles re-resolve with `Bundle.localizedString(forKey:value:table:)` to read directly from the selected bundle.
+
 ### String Wrapping Patterns
 
 | Context | Pattern | Example |

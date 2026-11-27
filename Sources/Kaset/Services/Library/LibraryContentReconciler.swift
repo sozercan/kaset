@@ -1,8 +1,5 @@
 import Foundation
 
-// MARK: - LibraryContentSnapshot
-
-/// Visible Library content plus the ID indexes that power membership checks.
 struct LibraryContentSnapshot {
     var playlists: [Playlist]
     var albums: [Album]
@@ -39,13 +36,6 @@ struct LibraryContentSnapshot {
     }
 }
 
-// MARK: - LibraryContentReconciler
-
-/// Reconciles optimistic local Library mutations with eventually-consistent backend snapshots.
-///
-/// YouTube Music can lag or oscillate after add/remove operations. This module owns the
-/// optimistic pending state so callers can ask for visible Library content without knowing
-/// the stabilization rules.
 struct LibraryContentReconciler {
     struct Result {
         let snapshot: LibraryContentSnapshot
@@ -172,8 +162,6 @@ struct LibraryContentReconciler {
         }
     }
 
-    /// Removes a locally-created playlist without recording a backend removal.
-    /// Used when the account that owned the optimistic creation is no longer active.
     mutating func discardAddedPlaylist(_ playlistId: String, from snapshot: inout LibraryContentSnapshot) {
         let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         self.pendingAddedPlaylists.removeValue(forKey: playlistKey)

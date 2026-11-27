@@ -15,28 +15,20 @@ final class SyncedLyricsService {
         let result: LyricResult
     }
 
-    /// Current lyrics result.
     var currentLyrics: LyricResult = .unavailable
 
-    /// Which provider supplied the current lyrics.
     var activeProvider: String?
 
-    /// Loading state.
     var isLoading = false
 
-    /// All registered providers, ordered by priority.
     private let providers: [LyricsProvider]
 
-    /// Romanization service for transliterating non-Latin lyrics.
     private let romanizationService = RomanizationService()
 
-    /// In-memory cache keyed by videoId.
     private var cache: [String: LyricResult] = [:]
 
-    /// Base synced lyrics before romanization is applied for display.
     private var currentBaseSyncedLyrics: SyncedLyrics?
 
-    /// Monotonic identifier used to ignore stale in-flight searches.
     private var fetchGeneration = 0
 
     init(providers: [LyricsProvider] = [LRCLibProvider()]) {
@@ -68,10 +60,8 @@ final class SyncedLyricsService {
 
         self.isLoading = true
 
-        // Don't clear currentLyrics immediately to prevent flicker, but reset state when done
         var allResults: [ProviderResult] = []
 
-        // Fetch concurrently
         await withTaskGroup(of: ProviderResult?.self) { group in
             for (providerIndex, provider) in self.providers.enumerated() {
                 group.addTask {
@@ -107,10 +97,8 @@ final class SyncedLyricsService {
         self.applyResolvedLyrics(resolved, requestID: requestID)
     }
 
-    /// Fallback logic
     func fallbackToPlainLyrics(_ lyrics: Lyrics, videoId: String) {
         if case .synced = self.currentLyrics {
-            // Already synced, don't overwrite with plain
             return
         }
 

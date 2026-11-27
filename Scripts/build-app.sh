@@ -1,22 +1,17 @@
 #!/usr/bin/env bash
-# Build script to create Kaset.app bundle
 
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-# Load version info
 source "$ROOT/version.env"
 
-# Configuration
 CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
 SKIP_MAIN_ASSETS=${KASET_SKIP_MAIN_ASSETS:-0}
 APP_NAME="Kaset"
 RELEASE_BUNDLE_ID="com.sertacozercan.Kaset"
-# Debug bundles get their own sandbox container, so they never share the release
-# app's WebKit cookie jar, saved sign-in data, or preferences.
 if [[ "$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')" == "debug" ]]; then
   BUNDLE_ID="${RELEASE_BUNDLE_ID}.debug"
 else
@@ -27,11 +22,7 @@ MIN_MACOS_VERSION="15.4"
 BUILD_DIR="$ROOT/.build/app"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 
-# App Intents: the compiler records the intents, entities, and App Shortcuts it sees as
-# "const values", which appintentsmetadataprocessor turns into Metadata.appintents.
 APP_INTENTS_PROTOCOLS="$ROOT/Scripts/app-intents-const-protocols.json"
-# The protocol list goes to the frontend: Swift 6.2 (Xcode 26) has no driver-level
-# -const-gather-protocols-list, while every supported compiler accepts the frontend flag.
 APP_INTENTS_SWIFT_FLAGS=(
   -Xswiftc -emit-const-values
   -Xswiftc -Xfrontend -Xswiftc -const-gather-protocols-file
@@ -39,7 +30,6 @@ APP_INTENTS_SWIFT_FLAGS=(
 )
 APP_SHORTCUTS_CATALOG="$ROOT/Sources/Kaset/Resources/AppShortcuts.xcstrings"
 
-# Build for host architecture by default; allow overriding via ARCHES (e.g., "arm64 x86_64" for universal).
 ARCH_LIST=( ${ARCHES:-} )
 if [[ ${#ARCH_LIST[@]} -eq 0 ]]; then
   HOST_ARCH=$(uname -m)
@@ -50,7 +40,6 @@ if [[ ${#ARCH_LIST[@]} -eq 0 ]]; then
   esac
 fi
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
 
 build_config_dir_names() {
   local conf_lower
@@ -64,10 +53,6 @@ build_product_dir() {
   local arch="$1"
   local show_bin
 
-  # Xcode 27 / Swift 6.4 can emit SwiftPM products into an Xcode-style
-  # products directory (.build/out/Products/Release). Ask SwiftPM first so
-  # the packaging script follows the active toolchain instead of assuming one
-  # filesystem layout. Xcode 26/classic SwiftPM layouts are kept as fallbacks.
   show_bin=$(swift build -c "$CONF" --arch "$arch" --show-bin-path 2>/dev/null || true)
   if [[ -n "$show_bin" && -d "$show_bin" ]]; then
     echo "$show_bin"
@@ -121,18 +106,12 @@ stage_arch_product() {
     exit 1
   fi
 
-  # Some SwiftPM/Xcode layouts report the same --show-bin-path for each
-  # --arch build. Preserve each thin executable immediately after it is built so
-  # a later architecture build cannot overwrite the input that lipo needs.
   dest_dir=$(arch_staging_dir "$arch")
   mkdir -p "$dest_dir"
   cp "$source_path" "$dest_dir/$name"
   chmod +x "$dest_dir/$name"
 }
 
-# Copies the app module's const values for one architecture next to its staged binary.
-# Swift Build (Xcode 27+) writes them under .build/out/Intermediates.noindex; the native
-# SwiftPM build system (Xcode 26) writes them next to the module's objects.
 stage_app_intents_const_values() {
   local arch="$1"
   local dest_dir
@@ -152,8 +131,6 @@ stage_app_intents_const_values() {
     search_patterns+=(-o -path "*/${arch}-apple-macosx/${dir_name}/${APP_NAME}.build/*.swiftconstvalues")
   done < <(build_config_dir_names)
 
-  # Debug builds emit one file per source (Foo.swiftconstvalues with Swift Build,
-  # Foo.swift.swiftconstvalues natively); skip leftovers from deleted sources.
   source_names=" $(find "$ROOT/Sources/$APP_NAME" -name '*.swift' -exec basename {} .swift \; | tr '\n' ' ') "
 
   while IFS= read -r file; do
@@ -174,9 +151,6 @@ stage_app_intents_const_values() {
   fi
 }
 
-# Generates Contents/Resources/Metadata.appintents, which Shortcuts, Siri, and Spotlight
-# read to discover the app's intents. Xcode does this in an "Extract App Intents Metadata"
-# build phase that SwiftPM lacks, so run the same tool with the flags Xcode passes.
 generate_app_intents_metadata() {
   local arch="${ARCH_LIST[0]}"
   local work_dir="$BUILD_DIR/app-intents"
@@ -201,7 +175,6 @@ generate_app_intents_metadata() {
   sdk_root=$(xcrun --sdk macosx --show-sdk-path)
   xcode_build=$(xcodebuild -version | awk '/Build version/ { print $3 }')
 
-  # The staged thin binary matches the const values' architecture.
   xcrun appintentsmetadataprocessor \
     --toolchain-dir "$toolchain_dir" \
     --module-name "$APP_NAME" \
@@ -225,10 +198,6 @@ generate_app_intents_metadata() {
     exit 1
   fi
 
-  # Siri matches App Shortcut phrases through AppShortcuts.strings. Like Xcode's catalog, each
-  # App Shortcut is keyed by its first phrase and lists every phrase per language. Check that
-  # every shortcut in code has an entry in every shipped language and that no translation drops
-  # a placeholder, which would make the phrase unusable.
   python3 - "$work_dir/ExtractedAppShortcutsMetadata.stringsdata" "$APP_SHORTCUTS_CATALOG" <<'PY'
 import json
 import pathlib
@@ -332,8 +301,6 @@ verify_binary_arches() {
   done
 }
 
-# Compile an asset catalog into a given output directory.
-# Errors are intentionally NOT suppressed — a failed actool should stop the build.
 compile_asset_catalog() {
   local source_catalog="$1"
   local output_dir="$2"
@@ -368,7 +335,6 @@ emit_bundle_localizations_plist() {
   done
 }
 
-# Install binary (handles universal builds via lipo)
 install_binary() {
   local name="$1"
   local dest="$2"
@@ -391,14 +357,32 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
+fix_linked_sdk_version() {
+  local binary="$1"
+  local sdk_version recorded
+  sdk_version=$(xcrun --sdk macosx --show-sdk-version)
+  recorded=$(xcrun vtool -show-build "$binary" | awk '$1 == "sdk" { print $2 }' | sort -u | paste -sd ' ' -)
+  if [[ "$recorded" == "$sdk_version" ]]; then
+    return
+  fi
+  echo "  → Recording linked SDK $sdk_version (linker wrote ${recorded:-none})"
+  xcrun vtool -set-build-version macos "$MIN_MACOS_VERSION" "$sdk_version" -replace \
+    -output "$binary" "$binary"
+}
+
+resign_executable_ad_hoc() {
+  local binary="$1"
+  local staged="$BUILD_DIR/${binary##*/}.resigned"
+  cp "$binary" "$staged"
+  codesign --force --sign - --preserve-metadata=identifier,entitlements,flags "$staged"
+  mv "$staged" "$binary"
+}
+
 echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
 
-# Clean previous build
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-# Build for each architecture. Stage the executable after each build because
-# some SwiftPM layouts reuse one products directory for every --arch build.
 for ARCH in "${ARCH_LIST[@]}"; do
   echo "  → Building for $ARCH..."
   swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME" "${APP_INTENTS_SWIFT_FLAGS[@]}"
@@ -406,23 +390,19 @@ for ARCH in "${ARCH_LIST[@]}"; do
   stage_app_intents_const_values "$ARCH"
 done
 
-# Create app bundle structure
 echo "📦 Creating app bundle..."
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 mkdir -p "$APP_BUNDLE/Contents/Frameworks"
 
-# ── Executable ───────────────────────────────────────────────────────────────
 
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-# Create PkgInfo
 echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
 
-# ── AppleScript definition ───────────────────────────────────────────────────
 
 SDEF_PATH="$ROOT/Sources/Kaset/Resources/Kaset.sdef"
 if [[ -f "$SDEF_PATH" ]]; then
@@ -430,37 +410,23 @@ if [[ -f "$SDEF_PATH" ]]; then
   cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
 fi
 
-# ── App Intents (Shortcuts, Siri, Spotlight) ─────────────────────────────────
 
 echo "🎯 Extracting App Intents metadata..."
 generate_app_intents_metadata
 
-# App Shortcut phrases are localized from their own table, AppShortcuts.strings, in the
-# main bundle. The catalog is excluded from SwiftPM resources like Localizable.xcstrings.
 echo "  → Compiling App Shortcuts phrase catalog: $(basename "$APP_SHORTCUTS_CATALOG")"
 xcrun xcstringstool compile "$APP_SHORTCUTS_CATALOG" \
   --output-directory "$APP_BUNDLE/Contents/Resources"
 
-# ── App icon and main asset catalog ──────────────────────────────────────────
-# AppIcon.icon is an Icon Composer package (macOS 26+). actool consumes it
-# directly and produces Assets.car with full dark/light appearance layers.
-# The top-level Assets.car also needs AccentColor because Info.plist references
-# NSAccentColorName from the main bundle.
 
 ICON_SOURCE="$ROOT/Sources/Kaset/Resources/AppIcon.icon"
 APP_ASSET_CATALOG="$ROOT/Sources/Kaset/Resources/Assets.xcassets"
 
-# Copy the .icon bundle into the app for Liquid Glass dark/light switching
 if [[ -d "$ICON_SOURCE" ]]; then
   echo "🎨 Copying AppIcon.icon bundle..."
   cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
 fi
 
-# Compile AppIcon.icon and AccentColor into Contents/Resources/Assets.car.
-# Xcode 26's actool currently fails on macOS 15 runners while processing
-# Icon Composer assets because it loads newer AVFCore/CoreMedia symbols.
-# UI-test CI can opt out via KASET_SKIP_MAIN_ASSETS=1; release builds should
-# keep compiling these assets so AppIcon/AccentColor remain complete.
 if [[ "$SKIP_MAIN_ASSETS" == "1" ]]; then
   echo "⚠️  Skipping main asset catalog compilation (KASET_SKIP_MAIN_ASSETS=1)."
 elif [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun &>/dev/null; then
@@ -485,7 +451,6 @@ else
   echo "⚠️  Warning: $ICON_SOURCE or $APP_ASSET_CATALOG not found. App will have incomplete assets."
 fi
 
-# ── Sparkle.framework ────────────────────────────────────────────────────────
 
 SPARKLE_FRAMEWORK=""
 for arch in "${ARCH_LIST[@]}"; do
@@ -513,9 +478,9 @@ else
   echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
 fi
 
-# ── SwiftPM resource bundles ──────────────────────────────────────────────────
-# Kaset_Kaset.bundle contains Assets.xcassets compiled for Bundle.module.
-# It is kept separate from the top-level Assets.car produced above.
+fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+resign_executable_ad_hoc "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+
 
 FIRST_ARCH="${ARCH_LIST[0]}"
 PREFERRED_BUILD_DIR=$(build_product_dir "$FIRST_ARCH")
@@ -534,8 +499,6 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
     bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
     echo "  → Copying resource bundle: $bundle_name"
     cp -R "$bundle" "$APP_BUNDLE/Contents/Resources/"
-    # Compile into the bundle's own dir only — NOT into Contents/Resources,
-    # which would overwrite the AppIcon Assets.car compiled above.
     if [[ -d "$bundle_dest/Assets.xcassets" ]] && command -v actool &>/dev/null; then
       echo "    ↳ Compiling bundle asset catalog"
       compile_asset_catalog "$bundle_dest/Assets.xcassets" "$bundle_dest"
@@ -572,7 +535,6 @@ if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
   done
 fi
 
-# ── Info.plist ────────────────────────────────────────────────────────────────
 
 APP_LOCALIZATIONS_PLIST=$(emit_bundle_localizations_plist "$APP_BUNDLE/Contents/Resources" "$DEVELOPMENT_LOCALIZATION")
 
@@ -626,7 +588,6 @@ ${APP_LOCALIZATIONS_PLIST}
     <key>LSUIElement</key>
     <false/>
 
-    <!-- URL Scheme Registration -->
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
@@ -641,7 +602,6 @@ ${APP_LOCALIZATIONS_PLIST}
         </dict>
     </array>
 
-    <!-- Sparkle Auto-Update Configuration -->
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
@@ -655,19 +615,16 @@ ${APP_LOCALIZATIONS_PLIST}
     <key>SUEnableInstallerLauncherService</key>
     <true/>
 
-    <!-- AppleScript Support -->
     <key>NSAppleScriptEnabled</key>
     <true/>
     <key>OSAScriptingDefinition</key>
     <string>Kaset.sdef</string>
 
-    <!-- Core Audio process tap (Equalizer) - macOS 14.2+ TCC requires these -->
     <key>NSAudioCaptureUsageDescription</key>
     <string>Kaset processes its own music output through a built-in equalizer. This permission only covers Kaset's own playback — no other app's audio is captured.</string>
     <key>NSScreenCaptureUsageDescription</key>
     <string>Kaset taps its own audio output (not the screen) so the built-in equalizer can apply effects to your music. No screen content is recorded.</string>
 
-    <!-- Build Metadata -->
     <key>KasetBuildTimestamp</key>
     <string>${BUILD_TIMESTAMP}</string>
     <key>KasetGitCommit</key>
@@ -676,12 +633,10 @@ ${APP_LOCALIZATIONS_PLIST}
 </plist>
 PLIST
 
-# ── Strip extended attributes ─────────────────────────────────────────────────
 
 xattr -cr "$APP_BUNDLE" 2>/dev/null || true
 find "$APP_BUNDLE" -name '._*' -delete 2>/dev/null || true
 
-# ── Code signing ──────────────────────────────────────────────────────────────
 
 if [[ "$SIGNING_MODE" == "unsigned" || "$SIGNING_MODE" == "none" ]]; then
   echo "🔓 Skipping code signing."
@@ -737,7 +692,6 @@ esac
 
 resign() { codesign "${CODESIGN_ARGS[@]}" "$1"; }
 
-# Sign Sparkle components innermost-first
 SPARKLE="$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
 if [[ -d "$SPARKLE" ]]; then
   echo "  → Signing Sparkle.framework..."
@@ -762,7 +716,6 @@ fi
 if [[ -f "$ROOT/Kaset.entitlements" ]]; then
   ENTITLEMENTS="$ROOT/Kaset.entitlements"
   if [[ "$BUNDLE_ID" != "$RELEASE_BUNDLE_ID" ]]; then
-    # Sparkle's installer services are named after the bundle identifier.
     ENTITLEMENTS="$BUILD_DIR/Kaset.entitlements"
     sed "s/${RELEASE_BUNDLE_ID//./\\.}-sp/${BUNDLE_ID}-sp/g" "$ROOT/Kaset.entitlements" > "$ENTITLEMENTS"
   fi

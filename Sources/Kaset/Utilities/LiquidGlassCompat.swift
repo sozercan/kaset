@@ -1,15 +1,5 @@
 import SwiftUI
 
-// MARK: - CompatGlassTransition
-
-// Liquid Glass compatibility shims so the app can build and run on macOS 15
-// (Sequoia) while preserving the Liquid Glass look on macOS 26+ (Tahoe).
-//
-// On macOS 26+ the helpers forward to Apple's real APIs (`.glassEffect`,
-// `GlassEffectContainer`, etc.). On macOS 15, and when the debug-only legacy
-// UI switch is enabled, they fall back to `.ultraThinMaterial` backgrounds and
-// plain containers.
-
 enum CompatGlassTransition {
     case materialize
 }
@@ -27,25 +17,14 @@ extension View {
         self.modifier(CompatGlassTransitionModifier(transition: transition))
     }
 
-    /// Apply `.glassProminent` on macOS 26+, `.borderedProminent` fallback otherwise.
     func compatGlassProminentButton() -> some View {
         self.modifier(CompatGlassProminentButtonModifier())
     }
 
-    /// Give the sidebar a translucent frosted appearance.
-    ///
-    /// On macOS 26 the floating Liquid Glass sidebar is automatic, so this hides
-    /// the `List`'s opaque material to reveal it. On the legacy macOS 15 path it
-    /// instead hides the list background and lays an `.ultraThinMaterial` behind
-    /// the sidebar — the same material the player bar uses — so the panel reads
-    /// as a blurred, translucent surface (vibrant over the window) rather than a
-    /// flat opaque column.
     func compatTranslucentSidebar() -> some View {
         self.modifier(CompatTranslucentSidebarModifier())
     }
 }
-
-// MARK: - CompatGlassModifier
 
 private struct CompatGlassModifier<S: Shape>: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -82,8 +61,6 @@ private struct CompatGlassModifier<S: Shape>: ViewModifier {
     }
 }
 
-// MARK: - CompatGlassIDModifier
-
 private struct CompatGlassIDModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
@@ -98,8 +75,6 @@ private struct CompatGlassIDModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - CompatGlassTransitionModifier
 
 private struct CompatGlassTransitionModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -118,8 +93,6 @@ private struct CompatGlassTransitionModifier: ViewModifier {
     }
 }
 
-// MARK: - CompatGlassProminentButtonModifier
-
 private struct CompatGlassProminentButtonModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
@@ -131,8 +104,6 @@ private struct CompatGlassProminentButtonModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - CompatGlassContainer
 
 struct CompatGlassContainer<Content: View>: View {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -149,19 +120,13 @@ struct CompatGlassContainer<Content: View>: View {
     }
 }
 
-// MARK: - CompatTranslucentSidebarModifier
-
 private struct CompatTranslucentSidebarModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
-            // macOS 26: reveal the system floating Liquid Glass.
             content.scrollContentBackground(.hidden)
         } else {
-            // Legacy macOS 15: drop the opaque list material and lay an
-            // `.ultraThinMaterial` behind the sidebar so it reads as a blurred,
-            // translucent panel (the same material the player bar uses).
             content
                 .scrollContentBackground(.hidden)
                 .background(.ultraThinMaterial)

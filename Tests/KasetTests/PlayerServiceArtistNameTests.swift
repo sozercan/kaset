@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for normalizing WebView-reported artist bylines.
 @Suite(.tags(.service))
 @MainActor
 struct PlayerServiceArtistNameTests {

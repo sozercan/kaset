@@ -12,12 +12,10 @@ struct AppLocalizationTests {
             .deletingLastPathComponent()
     }
 
-    /// Helper to find the specific `.lproj` bundle for direct string verification.
     private func localizedBundle(for localization: String) -> Bundle? {
         AppLocalization.bundle(forLocalization: localization)
     }
 
-    /// Helper to read a localized string from a specific locale bundle.
     private func localizedValue(key: String, localeIdentifier: String) -> String {
         guard let lprojBundle = self.localizedBundle(for: localeIdentifier) else {
             return key
@@ -33,7 +31,6 @@ struct AppLocalizationTests {
         return try #require(catalog["strings"] as? [String: Any])
     }
 
-    /// Helper to read a localized value directly from the source string catalog.
     private func sourceCatalogValue(key: String, localeIdentifier: String) throws -> String {
         let strings = try self.sourceCatalogStrings()
         let entry = try #require(strings[key] as? [String: Any])
@@ -68,7 +65,6 @@ struct AppLocalizationTests {
 
     @Test("Supported localization resources have matching key sets")
     func supportedLocalizationResourcesHaveMatchingKeySets() throws {
-        // English uses the catalog's source values and only has two format-order overrides.
         let localeCodes = SettingsManager.ContentLanguage.allCases
             .compactMap(\.languageCode)
             .filter { $0 != "en" }
@@ -196,12 +192,6 @@ struct AppLocalizationTests {
         }
     }
 
-    /// Guards against a recurrence of the French column misalignment fixed in
-    /// this PR (introduced by #160, where the `fr` values were shifted onto the
-    /// wrong keys). Asserts representative keys map to their known-good French
-    /// values both in the source catalog and via the runtime `.lproj` override
-    /// bundle, so a future shift fails CI rather than shipping silently —
-    /// mirrors `indonesianSourceCatalogMapsAffectedStrings`.
     @Test("French source catalog maps affected strings correctly")
     func frenchSourceCatalogMapsAffectedStrings() throws {
         let expectedValues = [
@@ -219,9 +209,6 @@ struct AppLocalizationTests {
         }
     }
 
-    /// Verifies the renamed account-status key resolves through the runtime
-    /// `.lproj` override bundles (not just the catalog), since the per-language
-    /// `.lproj` files are the source the language override reads at runtime.
     @Test("Renamed signed-in status resolves in lproj override bundles")
     func renamedSignedInStatusResolvesInLprojBundles() {
         let expected = [
@@ -262,10 +249,6 @@ struct AppLocalizationTests {
         }
     }
 
-    /// The two Chinese locales are distinguished by script, so a mix-up would
-    /// still produce plausible-looking Chinese. Assert on strings whose
-    /// simplified and traditional forms differ in wording, not just in
-    /// character shape, so a swapped or machine-converted file fails here.
     @Test("Chinese locales use script-appropriate vocabulary")
     func chineseLocalesUseScriptAppropriateVocabulary() {
         let expectedValues = [
@@ -352,9 +335,6 @@ struct AppLocalizationTests {
         #expect(self.localizedValue(key: "Liked Music", localeIdentifier: "ja") == "高く評価した曲")
     }
 
-    /// Mirrors `indonesianSourceCatalogMapsAffectedStrings` for Japanese:
-    /// asserts representative keys map to their Japanese values both in the
-    /// source catalog and via the runtime `.lproj` override bundle.
     @Test("Japanese source catalog maps affected strings correctly")
     func japaneseSourceCatalogMapsAffectedStrings() throws {
         let expectedValues = [

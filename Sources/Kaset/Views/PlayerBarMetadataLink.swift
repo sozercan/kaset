@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarMetadataButton
-
 struct PlayerBarMetadataButton: View {
     let text: String
     let isEnabled: Bool
@@ -11,23 +9,19 @@ struct PlayerBarMetadataButton: View {
 
     var body: some View {
         if self.isEnabled {
-            PlayerBarMetadataLinkLabel(text: self.text, isLoading: self.isLoading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
-                .onTapGesture(perform: self.action)
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction {
-                    self.action()
-                }
-                .playerBarMetadataAccessibilityIdentifier(self.accessibilityIdentifier)
+            Button(action: self.action) {
+                PlayerBarMetadataLinkLabel(text: self.text, isLoading: self.isLoading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .playerBarMetadataAccessibilityIdentifier(self.accessibilityIdentifier)
         } else {
             PlayerBarMetadataLinkLabel(text: self.text, isLoading: false)
                 .playerBarMetadataAccessibilityIdentifier(self.accessibilityIdentifier)
         }
     }
 }
-
-// MARK: - PlayerBarMetadataLinkLabel
 
 private struct PlayerBarMetadataLinkLabel: View {
     let text: String
@@ -62,8 +56,6 @@ private struct PlayerBarMetadataLinkLabel: View {
         }
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

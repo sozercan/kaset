@@ -1,9 +1,6 @@
 import Foundation
 
-/// A custom URLProtocol that intercepts network requests for testing.
-/// Allows tests to provide mock responses without making real network calls.
 final class MockURLProtocol: URLProtocol {
-    /// Handler type for processing requests.
     typealias RequestHandler = @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
 
     private static let sessionIDHeader = "X-Kaset-MockURLProtocol-Session-ID"
@@ -11,8 +8,6 @@ final class MockURLProtocol: URLProtocol {
     // swiftlint:disable:next modifier_order
     private nonisolated(unsafe) static var handlersBySessionID: [String: RequestHandler] = [:]
 
-    /// Legacy fallback handler for older tests. Prefer `makeMockSession(handler:)`
-    /// so parallel suites cannot clear or replace each other's handler.
     nonisolated(unsafe) static var requestHandler: RequestHandler?
 
     override static func canInit(with _: URLRequest) -> Bool {
@@ -44,11 +39,8 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    override func stopLoading() {
-        // No-op
-    }
+    override func stopLoading() {}
 
-    /// Creates a URLSession configured to use this mock protocol.
     static func makeMockSession(handler: RequestHandler? = nil) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MockURLProtocol.self]
@@ -64,7 +56,6 @@ final class MockURLProtocol: URLProtocol {
         return URLSession(configuration: configuration)
     }
 
-    /// Sets the request handler associated with a specific mock session.
     static func setRequestHandler(for session: URLSession, _ handler: @escaping RequestHandler) {
         self.handlersLock.withLock {
             guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
@@ -75,7 +66,6 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    /// Removes the request handler associated with a specific mock session.
     static func reset(session: URLSession) {
         self.handlersLock.withLock {
             guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
@@ -86,8 +76,6 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    /// Resets the legacy fallback request handler.
-    /// Per-session handlers are isolated and must be cleared with `reset(session:)`.
     static func reset() {
         self.handlersLock.withLock {
             Self.requestHandler = nil

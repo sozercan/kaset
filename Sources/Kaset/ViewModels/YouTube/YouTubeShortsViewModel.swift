@@ -1,26 +1,15 @@
 import Foundation
 import Observation
 
-/// View model for the dedicated Shorts surface.
-///
-/// Shorts ride along in the home feed response (Kaset strips them from the
-/// regular grid); this surfaces them on their own page.
 @MainActor
 @Observable
 final class YouTubeShortsViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Shorts to display.
     private(set) var shorts: [YouTubeVideo] = []
 
-    /// Invalidates stale in-flight loads when a newer one starts
-    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
 
-    /// The single in-flight load, shared by concurrent `load()` callers so
-    /// SwiftUI `.task` restarts coalesce onto one run instead of duplicating the
-    /// Shorts request.
     private var loadTask: Task<Void, Never>?
 
     let client: any YouTubeClientProtocol
@@ -60,8 +49,6 @@ final class YouTubeShortsViewModel {
             self.loadingState = .loaded
         } catch {
             guard runID == self.loadGeneration else { return }
-            // A cancelled load (view went away mid-flight) is not an
-            // error; reset so the next task run reloads.
             if error is CancellationError {
                 self.loadingState = .idle
                 return

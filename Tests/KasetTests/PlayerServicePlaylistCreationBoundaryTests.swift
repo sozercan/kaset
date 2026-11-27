@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PlayerServicePlaylistCreationBoundaryTests
-
 extension LibraryMutationSerialTests {
     @Suite(.tags(.service), .timeLimit(.minutes(1)))
     @MainActor

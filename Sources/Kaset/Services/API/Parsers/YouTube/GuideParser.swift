@@ -1,16 +1,6 @@
 import Foundation
 
-/// Parses the YouTube `guide` response (sidebar structure).
-///
-/// Signed in, the guide contains a subscriptions section whose
-/// `guideEntryRenderer`s point at `UC…` channel browse IDs with channel
-/// avatars — that list is the user's subscribed channels.
 enum GuideParser {
-    /// Extracts subscribed channels from a guide response.
-    ///
-    /// Scoped to `guideSubscriptionsSectionRenderer`: the rest of the guide
-    /// also contains `UC…` entries for YouTube's own system channels
-    /// (Music, Shopping, Live) which are NOT user subscriptions.
     static func subscribedChannels(_ data: [String: Any]) -> [YouTubeChannel] {
         guard let subscriptionsSection = firstSubscriptionsSection(in: data) else {
             return []
@@ -22,8 +12,6 @@ enum GuideParser {
         var seen = Set<String>()
         return channels.filter { seen.insert($0.channelId).inserted }
     }
-
-    // MARK: - Private
 
     private static func firstSubscriptionsSection(in value: Any) -> [String: Any]? {
         if let dict = value as? [String: Any] {
@@ -51,7 +39,6 @@ enum GuideParser {
                 if let channel = channel(fromGuideEntry: entry) {
                     channels.append(channel)
                 }
-                // Entries can nest (collapsible sections keep children inside).
                 for nested in entry.values {
                     Self.collect(in: nested, into: &channels)
                 }
@@ -73,7 +60,6 @@ enum GuideParser {
             (entry["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any]
         )?["browseId"] as? String
 
-        // Only channel entries — guide also lists Home/Library/etc.
         guard let browseId, browseId.hasPrefix("UC") else {
             return nil
         }

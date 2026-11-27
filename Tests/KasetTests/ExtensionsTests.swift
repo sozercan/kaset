@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for utility extensions.
 @Suite(.tags(.model))
 struct ExtensionsTests {
-    // MARK: - Collection Safe Subscript Tests
-
     @Test("Safe subscript returns value for valid indices")
     func arraySafeSubscriptInBounds() {
         let array = [1, 2, 3, 4, 5]
@@ -37,8 +34,6 @@ struct ExtensionsTests {
         #expect(array[safe: 4] == "o")
         #expect(array[safe: 5] == nil)
     }
-
-    // MARK: - TimeInterval Formatted Duration Tests
 
     @Test(
         "Formats seconds correctly",
@@ -84,8 +79,6 @@ struct ExtensionsTests {
         #expect(TimeInterval(65.9).formattedDuration == "1:05")
     }
 
-    // MARK: - URL High Quality Thumbnail Tests
-
     @Test("Upgrades ytimg URL to high quality")
     func highQualityThumbnailYtimg() throws {
         let url = try #require(URL(string: "https://i.ytimg.com/vi/abc/w60-h60-l90-rj"))
@@ -115,8 +108,6 @@ struct ExtensionsTests {
         let highQuality = url.highQualityThumbnailURL
         #expect(highQuality?.absoluteString == "https://i.ytimg.com/vi/abc/w400-h400-l90-rj")
     }
-
-    // MARK: - String Truncated Tests
 
     @Test("Returns full string when shorter than limit")
     func stringTruncatedShorterThanLimit() {

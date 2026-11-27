@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Verifies the packaged Kaset.app has the release-critical settings that are
-# easy to regress when building outside Xcode.
 
 set -euo pipefail
 
@@ -89,7 +87,6 @@ installer_xpc = app_path / "Contents/Frameworks/Sparkle.framework/Versions/B/XPC
 if not installer_xpc.exists():
     errors.append(f"Sparkle Installer.xpc is missing at {installer_xpc}")
 
-# Shortcuts, Siri, and Spotlight discover App Intents only from this generated metadata.
 app_intents_metadata = app_path / "Contents/Resources/Metadata.appintents/extract.actionsdata"
 if not app_intents_metadata.exists():
     errors.append(f"App Intents metadata is missing at {app_intents_metadata}")

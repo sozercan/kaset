@@ -2,23 +2,10 @@ import os
 import SwiftUI
 import WebKit
 
-// MARK: - YouTubeWatchWebView
-
-/// Manages the single WebView used for regular YouTube video playback.
-///
-/// Parallel to `SingletonPlayerWebView` (music) but tuned to youtube.com
-/// watch pages: its own observer script (`#movie_player` instead of
-/// `ytmusic-*` selectors), its own message handler name (`youtubePlayer`),
-/// and a chrome-hiding extraction that leaves only the video surface
-/// visible so the page can dock into native Kaset views.
-///
-/// Exactly one of music/video produces audio at a time — `PlaybackArbiter`
-/// enforces the handoff.
 @MainActor
 final class YouTubeWatchWebView {
     static let shared = YouTubeWatchWebView()
 
-    /// Creates an isolated wrapper for tests that exercise WebView lifecycle state.
     static func makeTestInstance(webView: WKWebView? = nil) -> YouTubeWatchWebView {
         let instance = YouTubeWatchWebView()
         instance.webView = webView
@@ -33,19 +20,10 @@ final class YouTubeWatchWebView {
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
 
-    /// Seek position (seconds) to apply once the next page finishes loading.
-    /// Used to resume a video at its prior position after a forced reload (e.g.
-    /// an account/session-identity switch), since the `<video>` element does not
-    /// exist until the new document loads. Cleared on apply.
     var pendingSeek: Double?
 
-    /// Monotonic counter for `load(videoId:)` calls. The pre-navigation pause is
-    /// async, so a newer load can be requested before an older one's callback
-    /// issues `webView.load`. The callback captures the generation and bails if
-    /// superseded, so a stale reload can't navigate over a newer selection.
     private var loadGeneration = 0
 
-    /// Tracks which full-page watch document may publish playback bridge events.
     private(set) var documentGeneration = WebPlaybackDocumentGeneration()
     var documentNavigations = WebPlaybackNavigationMap<WKNavigation, WebPlaybackTrackedNavigation>()
     private var cancelledDocumentNavigations = WebPlaybackNavigationMap<WKNavigation, WebPlaybackCancelledNavigation>()
@@ -60,7 +38,6 @@ final class YouTubeWatchWebView {
 
     private init() {}
 
-    /// Get or create the watch WebView.
     func getWebView(
         webKitManager: WebKitManager,
         playerService: YouTubePlayerService,
@@ -96,7 +73,6 @@ final class YouTubeWatchWebView {
         self.webKitManager = webKitManager
         webKitManager.registerExtensionHostWebView(newWebView, role: .youtubeWatch)
 
-        // Kill the white flash between page navigations.
         newWebView.underPageBackgroundColor = .black
 
         #if DEBUG
@@ -110,7 +86,6 @@ final class YouTubeWatchWebView {
         return newWebView
     }
 
-    /// Ensures the WebView fills the given container (reparenting if needed).
     func ensureInHierarchy(
         container: NSView,
         expectedVideoId: String? = nil,
@@ -130,25 +105,15 @@ final class YouTubeWatchWebView {
         webView.autoresizingMask = [.width, .height]
     }
 
-    /// Loads a watch page for the given video, skipping if it is already current.
     func loadVideo(videoId: String) {
         guard videoId != self.currentVideoId else {
             self.logger.debug("YouTube video \(videoId) already loaded, skipping")
             return
         }
-        // A normal (non-reload) load starts a fresh video: drop any pending
-        // resume-seek left over from an interrupted identity-switch reload, so it
-        // cannot be injected into a different video's document.
         self.pendingSeek = nil
         self.load(videoId: videoId)
     }
 
-    /// Forces a full reload of the given video even when it is already current,
-    /// optionally resuming at `resumeAt` seconds once the new page loads.
-    ///
-    /// Used after an account/session-identity switch: the page identity lives in
-    /// the served document, so the in-flight watch page must be re-fetched under
-    /// the new session for subsequent watch-history pings to attribute correctly.
     func reloadVideo(videoId: String, resumeAt seconds: Double? = nil) {
         self.logger.info("Force-reloading YouTube video under new session identity: \(videoId)")
         self.pendingSeek = seconds
@@ -217,9 +182,6 @@ final class YouTubeWatchWebView {
             didCancelDocumentNavigation = true
         }
         if didCancelDocumentNavigation, let webView = self.webView {
-            // PlayerService already owns the newly selected video. Re-authorizing
-            // the outgoing document would split native/WebView identity, so keep
-            // the selected video as a deferred reload for explicit resume.
             self.pauseSurvivingDocument(webView)
             self.currentVideoId = nil
             self.pendingSeek = nil
@@ -284,10 +246,6 @@ final class YouTubeWatchWebView {
             self.handlePendingDocumentNavigationFailure(webView: webView)
             return
         }
-        // Do not wait for WebContent to acknowledge suppression. A provisional
-        // process can defer the callback for seconds during rapid replacement;
-        // document-generation gates reject stale bridge events and the immediate
-        // navigation tears down outgoing media.
         webView.evaluateJavaScript(
             WebPlaybackDocumentGeneration.mediaSuppressionScript,
             completionHandler: nil
@@ -305,7 +263,6 @@ final class YouTubeWatchWebView {
         )
     }
 
-    /// Stops playback and blanks the page (called when video playback is closed).
     func tearDown() {
         let blankURL = self.beginBlankDocumentNavigation()
         guard let webView else { return }
@@ -332,8 +289,6 @@ final class YouTubeWatchWebView {
 }
 
 extension YouTubeWatchWebView {
-    // MARK: - User Scripts
-
     private func beginBlankDocumentNavigation() -> URL? {
         self.documentNavigations.removeAll()
         self.cancelledDocumentNavigations.removeAll()
@@ -848,13 +803,19 @@ extension YouTubeWatchWebView {
         )
         contentController.addUserScript(playbackRate)
 
-        // Black from first paint — no YouTube layout flash before extraction.
         let blackout = WKUserScript(
             source: Self.blackoutScript,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
         contentController.addUserScript(blackout)
+
+        let fullscreenRedirect = WKUserScript(
+            source: Self.fullscreenRedirectScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(fullscreenRedirect)
 
         let observer = WKUserScript(
             source: Self.observerScript,

@@ -3,37 +3,6 @@ import FoundationModels
 import Testing
 @testable import Kaset
 
-// MARK: - MusicIntentIntegrationTests
-
-/// Integration tests that call the actual Apple Intelligence LLM.
-///
-/// These tests validate that natural language prompts are correctly parsed
-/// into the production command-bar stage-1 parse schema. They require macOS 26+
-/// with Apple Intelligence.
-///
-/// ## Flakiness Mitigation
-///
-/// LLM outputs are inherently non-deterministic. These tests mitigate flakiness by:
-/// 1. **Retry logic**: Each test retries up to 3 times before failing
-/// 2. **Relaxed matching**: Checks multiple fields (e.g., mood OR subject) for expected content
-/// 3. **Case-insensitive**: All string comparisons are lowercased
-/// 4. **Fresh sessions**: Each attempt uses a new `LanguageModelSession` to avoid context drift
-///
-/// ## Running These Tests
-///
-/// Run only integration tests:
-/// ```bash
-/// xcodebuild test -scheme Kaset -destination 'platform=macOS' \
-///   -only-testing:KasetTests/MusicIntentIntegrationTests
-/// ```
-///
-/// Run all unit tests (integration tests auto-skip if AI unavailable):
-/// ```bash
-/// xcodebuild test -scheme Kaset -destination 'platform=macOS' \
-///   -only-testing:KasetTests
-/// ```
-/// macOS 26+ gate. `SystemLanguageModel` is unavailable on macOS 15,
-/// so this returns false there and the suite is skipped entirely.
 private func isAppleIntelligenceAvailable() -> Bool {
     if #available(macOS 26.0, *) {
         SystemLanguageModel.default.availability == .available
@@ -42,8 +11,6 @@ private func isAppleIntelligenceAvailable() -> Bool {
     }
 }
 
-// MARK: - MusicIntentIntegrationTests
-
 @Suite(
     .tags(.integration, .slow),
     .serialized,
@@ -51,15 +18,8 @@ private func isAppleIntelligenceAvailable() -> Bool {
 )
 @MainActor
 struct MusicIntentIntegrationTests {
-    // MARK: - Constants
-
-    /// Maximum number of retry attempts for flaky LLM calls.
     private static let maxRetries = 3
 
-    // MARK: - Test Helpers
-
-    /// Parses a natural language prompt into a `CommandBarParseResult` using the shipped prompt.
-    /// Creates a fresh session per call to avoid context window overflow.
     private func parseIntent(from prompt: String) async throws -> CommandBarParseResult {
         let session = LanguageModelSession(
             instructions: FoundationModelsPromptLibrary.commandBarInstructions(
@@ -70,13 +30,6 @@ struct MusicIntentIntegrationTests {
         return response.content
     }
 
-    /// Retries a test assertion up to `maxRetries` times to handle LLM non-determinism.
-    ///
-    /// - Parameters:
-    ///   - maxAttempts: Maximum number of attempts (defaults to `maxRetries`)
-    ///   - operation: The async operation that returns a value to validate
-    ///   - validate: A closure that validates the result and throws if invalid
-    /// - Throws: The last validation error if all attempts fail
     private func withRetry<T>(
         maxAttempts: Int = maxRetries,
         operation: () async throws -> T,
@@ -88,11 +41,10 @@ struct MusicIntentIntegrationTests {
             do {
                 let result = try await operation()
                 try validate(result)
-                return // Success
+                return
             } catch {
                 lastError = error
                 if attempt < maxAttempts {
-                    // Brief delay before retry to avoid rate limiting
                     try await Task.sleep(for: .milliseconds(500))
                 }
             }
@@ -100,8 +52,6 @@ struct MusicIntentIntegrationTests {
 
         throw lastError!
     }
-
-    // MARK: - Basic Actions (Parameterized)
 
     @Test("Parses playback control commands", arguments: [
         (prompt: "Play music", expectedAction: CommandBarAction.play),
@@ -119,8 +69,6 @@ struct MusicIntentIntegrationTests {
             #expect(intent.action == expectedAction)
         }
     }
-
-    // MARK: - Content Queries (Parameterized)
 
     @Test("Parses mood-based queries", arguments: [
         (prompt: "Play something chill", expected: "chill"),
@@ -195,7 +143,6 @@ struct MusicIntentIntegrationTests {
             try await self.parseIntent(from: prompt)
         } validate: { intent in
             #expect(intent.action == .play)
-            // LLM may place activity keywords in activity, mood, genre, or subject fields
             let combined = "\(intent.activity) \(intent.mood) \(intent.genre) \(intent.subject)"
                 .lowercased()
             #expect(
@@ -204,8 +151,6 @@ struct MusicIntentIntegrationTests {
             )
         }
     }
-
-    // MARK: - Complex Query
 
     @Test("Parses complex multi-component query")
     func parseComplexQuery() async throws {
@@ -231,8 +176,6 @@ struct MusicIntentIntegrationTests {
         }
     }
 
-    // MARK: - Shuffle Commands
-
     @Test("Parses shuffle commands", arguments: [
         (prompt: "Shuffle my library", expected: "library"),
         (prompt: "Shuffle play my music", expected: ""),
@@ -251,8 +194,6 @@ struct MusicIntentIntegrationTests {
             }
         }
     }
-
-    // MARK: - Navigation Commands
 
     @Test("Parses previous track command")
     func parsePreviousCommand() async throws {
@@ -274,8 +215,6 @@ struct MusicIntentIntegrationTests {
         }
     }
 
-    // MARK: - Rating Commands
-
     @Test("Parses dislike command")
     func parseDislikeCommand() async throws {
         try await self.withRetry {
@@ -284,8 +223,6 @@ struct MusicIntentIntegrationTests {
             #expect(intent.action == .dislike)
         }
     }
-
-    // MARK: - Multi-Attribute Queries
 
     @Test("Parses query with artist and mood")
     func parseArtistWithMood() async throws {
@@ -330,8 +267,6 @@ struct MusicIntentIntegrationTests {
         }
     }
 
-    // MARK: - Edge Cases
-
     @Test("Handles ambiguous play command")
     func handleAmbiguousPlay() async throws {
         try await self.withRetry {
@@ -346,7 +281,6 @@ struct MusicIntentIntegrationTests {
         try await self.withRetry {
             try await self.parseIntent(from: "Put on some tunes")
         } validate: { intent in
-            // Should interpret as play
             #expect(intent.action == .play)
         }
     }

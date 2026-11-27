@@ -18,6 +18,8 @@ Kaset provides keyboard control for playback and navigation while preserving sta
 
 Mute is still available from the Playback menu and AppleScript, but Kaset intentionally does not assign a default mute shortcut so the native macOS minimize shortcut (`⌘M`) continues to work.
 
+`Space` also toggles playback while the sidebar or the queue panel has focus in the main window. It still types a space in text fields, and a focused button or card keeps `Space` for activation.
+
 Playback shortcuts are source-aware where both sources implement an equivalent action: play/pause, skip, seek, and volume route to regular YouTube when a YouTube video was the last active playback source. Shuffle, repeat, queue, and lyrics remain YouTube Music concepts.
 
 ## Navigation
@@ -40,6 +42,9 @@ surfaces and `⌘3` goes to Playlists.
 With macOS Keyboard navigation enabled, `Tab` moves between shelf cards and each
 song's Like/Unlike control. `⇧Tab` moves in reverse. `Return` or `Space` activates
 the focused card or toggles the focused Like/Unlike control.
+
+On a YouTube video, `F` or double-clicking the video toggles Kaset's full screen
+player, the same as the player bar's full screen button.
 
 With **Show Controls on Video** on (Settings → YouTube), any key press outside a
 text field reveals the watch page's on-video controls for a few seconds. With

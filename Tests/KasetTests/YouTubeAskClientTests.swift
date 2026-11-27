@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeAskClientTests
-
 @Suite("YouTube Ask client", .serialized, .tags(.api))
 struct YouTubeAskClientTests {
     @Test("Watch page reuses one next request and exposes strict direct chips")
@@ -407,7 +405,6 @@ struct YouTubeAskClientTests {
             _ = try await client.loadAskConversation(from: #require(page.askBootstrap))
             Issue.record("Expected YTMusicError.authExpired")
         } catch YTMusicError.authExpired {
-            // Expected shared authentication-expiry contract.
         } catch {
             Issue.record("Expected YTMusicError.authExpired, got \(type(of: error))")
         }
@@ -767,8 +764,6 @@ struct YouTubeAskClientTests {
         """#.utf8
     )
 }
-
-// MARK: - LockedValues
 
 private final class LockedValues<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()

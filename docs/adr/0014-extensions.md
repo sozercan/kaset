@@ -23,6 +23,8 @@ Add user-managed **Extensions**, backed by `ExtensionsManager`:
 
 A new **Extensions** tab is added to the Settings window (`ExtensionsSettingsView`). No extension is bundled or loaded automatically by the app.
 
+Permission review covers the access requested at load time, including content-script URL matches, not optional permissions. Put cookie access first so that access to sign-in data is not buried among other rows. Group permissions without a plain-language description into one “Other access requested” row, with the exact permissions available in Technical details.
+
 ## Architecture
 
 ```

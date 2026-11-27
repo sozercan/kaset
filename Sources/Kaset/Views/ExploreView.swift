@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Explore view displaying new releases, charts, and moods & genres.
 struct ExploreView: View {
     @State var viewModel: ExploreViewModel
     @Environment(PlayerService.self) private var playerService
@@ -53,8 +52,6 @@ struct ExploreView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .explore)
     }
 
-    // MARK: - Views
-
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
@@ -74,8 +71,6 @@ struct ExploreView: View {
                     }
                 }
             }
-            // Edge-to-edge so shelves slide under the glass sidebar; resting
-            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
         .accessibilityIdentifier(AccessibilityID.Explore.scrollView)
@@ -109,8 +104,6 @@ struct ExploreView: View {
         )
     }
 
-    // MARK: - Actions
-
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,
               SongActionsHelper.canQuickPlayPlaylist(playlist)
@@ -130,7 +123,6 @@ struct ExploreView: View {
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {
         case let .song(song):
-            // Play the song and fetch similar songs (radio queue) in the background
             Task {
                 await self.playerService.playWithRadio(song: song)
             }

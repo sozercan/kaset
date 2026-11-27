@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// New Releases view displaying recently released music.
 struct NewReleasesView: View {
     @State var viewModel: NewReleasesViewModel
     @Environment(PlayerService.self) private var playerService
@@ -53,8 +52,6 @@ struct NewReleasesView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .newReleases)
     }
 
-    // MARK: - Views
-
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
@@ -74,8 +71,6 @@ struct NewReleasesView: View {
                     }
                 }
             }
-            // Edge-to-edge so shelves slide under the glass sidebar; resting
-            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
     }
@@ -107,8 +102,6 @@ struct NewReleasesView: View {
             }
         )
     }
-
-    // MARK: - Actions
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,

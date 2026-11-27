@@ -1,13 +1,5 @@
-// AccountRowView.swift
-// Kaset
-//
-// A single account row component for the account switcher.
-
 import SwiftUI
 
-/// A single account row component displaying account info.
-///
-/// Shows the account avatar, name, handle, account type, and selection state.
 struct AccountRowView: View {
     let account: UserAccount
     let isSelected: Bool
@@ -18,19 +10,15 @@ struct AccountRowView: View {
     var body: some View {
         Button(action: self.onSelect) {
             HStack(spacing: 12) {
-                // Avatar
                 self.avatarView
 
-                // Account info
                 VStack(alignment: .leading, spacing: 2) {
-                    // Name
                     Text(self.account.name)
                         .font(.body)
                         .fontWeight(self.isSelected ? .semibold : .regular)
                         .lineLimit(1)
                         .foregroundStyle(.primary)
 
-                    // Handle (if available)
                     if let handle = account.handle {
                         Text(handle)
                             .font(.caption)
@@ -41,10 +29,8 @@ struct AccountRowView: View {
 
                 Spacer()
 
-                // Account type
                 self.typeLabel
 
-                // Selection checkmark
                 if self.isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
@@ -67,8 +53,6 @@ struct AccountRowView: View {
         .accessibilityAddTraits(self.isSelected ? [.isButton, .isSelected] : .isButton)
         .accessibilityHint("Double-tap to switch to this account")
     }
-
-    // MARK: - Avatar View
 
     private var avatarView: some View {
         Group {
@@ -98,8 +82,6 @@ struct AccountRowView: View {
             }
     }
 
-    // MARK: - Type Label
-
     private var typeLabel: some View {
         Text(self.account.typeLabel)
             .font(.caption2)
@@ -107,8 +89,6 @@ struct AccountRowView: View {
             .foregroundStyle(.tertiary)
             .fixedSize()
     }
-
-    // MARK: - Background
 
     @ViewBuilder
     private var rowBackground: some View {
@@ -127,8 +107,6 @@ struct AccountRowView: View {
         }
     }
 
-    // MARK: - Accessibility
-
     private var accessibilityLabel: String {
         var label = self.account.name
 
@@ -145,8 +123,6 @@ struct AccountRowView: View {
         return label
     }
 }
-
-// MARK: - Preview
 
 #Preview("Primary Account - Selected") {
     let account = UserAccount(

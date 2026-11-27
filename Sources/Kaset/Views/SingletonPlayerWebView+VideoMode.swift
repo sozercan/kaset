@@ -1,10 +1,7 @@
 import SwiftUI
 import WebKit
 
-// MARK: - SingletonPlayerWebView Video Mode Extension
-
 extension SingletonPlayerWebView {
-    /// Updates WebView size based on display mode.
     func updateDisplayMode(_ mode: DisplayMode) {
         guard let webView, self.displayMode != mode else { return }
         DiagnosticsLogger.player.info("SingletonPlayerWebView.updateDisplayMode: \(String(describing: mode), privacy: .public)")
@@ -12,28 +9,22 @@ extension SingletonPlayerWebView {
 
         switch mode {
         case .hidden:
-            // WebView stays in hierarchy but tiny
             webView.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
             self.removeVideoModeCSS()
         case .miniPlayer:
             webView.frame = CGRect(x: 0, y: 0, width: 160, height: 90)
             self.removeVideoModeCSS()
         case .video:
-            // Immediately inject blackout CSS to hide web UI while we prepare video
             self.injectBlackoutCSS()
-            // Full size - parent container determines size
-            // Defer injection until container has valid bounds (SwiftUI layout)
             self.waitForValidBoundsAndInject()
         }
     }
 
-    /// Injects a temporary blackout overlay to hide the web UI during video mode setup.
     func injectBlackoutCSS() {
         guard let webView else { return }
 
         let script = """
             (function() {
-                // Create blackout overlay if it doesn't exist
                 if (!document.getElementById('kaset-blackout')) {
                     const blackout = document.createElement('div');
                     blackout.id = 'kaset-blackout';
@@ -53,11 +44,10 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script) { _, _ in }
     }
 
-    /// Waits for the WebView's superview to have valid (non-zero) bounds, then injects CSS.
     func waitForValidBoundsAndInject(attempts: Int = 0) {
         guard let webView else { return }
 
-        let maxAttempts = 20 // 2 seconds max (20 * 100ms)
+        let maxAttempts = 20
         if let superview = webView.superview, superview.bounds.width > 0, superview.bounds.height > 0 {
             webView.frame = superview.bounds
             webView.autoresizingMask = [.width, .height]
@@ -68,7 +58,6 @@ extension SingletonPlayerWebView {
                 self?.waitForValidBoundsAndInject(attempts: attempts + 1)
             }
         } else {
-            // Fall back to current bounds anyway
             if let superview = webView.superview {
                 webView.frame = superview.bounds
                 webView.autoresizingMask = [.width, .height]
@@ -77,12 +66,9 @@ extension SingletonPlayerWebView {
         }
     }
 
-    /// Injects CSS to hide YouTube Music UI and show only the video.
-    /// Called when entering video mode or when page reloads while in video mode.
     func injectVideoModeCSS() {
         guard let webView else { return }
 
-        // First, let's debug what's in the DOM
         let debugScript = """
             (function() {
                 const video = document.querySelector('video');
@@ -120,20 +106,15 @@ extension SingletonPlayerWebView {
             if let dict = result as? [String: Any] {
                 DiagnosticsLogger.player.info("Video mode debug result (Info): \(String(describing: dict), privacy: .public)")
             }
-            // Now click the Video tab
             self?.clickVideoTabAndInjectCSS()
         }
     }
 
-    /// Clicks the Video tab and then injects CSS.
     func clickVideoTabAndInjectCSS() {
         guard let webView else { return }
 
-        // The Song/Video toggle is different from the tabs
-        // It appears as a segmented control near the top of the player page
         let clickVideoTabScript = """
             (function() {
-                // Method 1: Internal State Enforcement (Most robust)
                 const playerPage = document.querySelector('ytmusic-player-page');
                 if (playerPage && typeof playerPage.videoMode !== 'undefined') {
                     if (playerPage.videoMode !== true) {
@@ -147,7 +128,6 @@ extension SingletonPlayerWebView {
                     return { clicked: false, message: 'Already in video mode (property)' };
                 }
 
-                // Method 2: Click the AV Switcher (Native feel)
                 const switcher = document.querySelector('ytmusic-av-switcher');
                 if (switcher) {
                     const videoBtn = switcher.querySelector('#video-button');
@@ -158,7 +138,6 @@ extension SingletonPlayerWebView {
                     }
                 }
 
-                // Method 3: Fallback Button Search
                 const allButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
                 for (const btn of allButtons) {
                     const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
@@ -178,21 +157,18 @@ extension SingletonPlayerWebView {
         """
 
         webView.evaluateJavaScript(clickVideoTabScript) { [weak self] result, _ in
-            // Log if Video tab wasn't found (YouTube UI may have changed)
             if let resultDict = result as? [String: Any],
                let clicked = resultDict["clicked"] as? Bool,
                !clicked
             {
                 let msg = resultDict["message"] as? String ?? "unknown"
                 self?.logger.warning("Video tab not found: \(msg, privacy: .public)")
-                // Fallback: Remove blackout if we can't find the toggle, so user at least sees SOMETHING
                 self?.removeBlackoutOnly()
             } else if result == nil {
                 self?.logger.warning("Video tab script returned nil result - blackout may persist")
                 self?.removeBlackoutOnly()
             }
 
-            // Wait a moment for the video mode to activate, then inject CSS
             Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(500))
                 self?.injectVideoModeStyles()
@@ -200,16 +176,13 @@ extension SingletonPlayerWebView {
         }
     }
 
-    /// Helper to remove blackout overlay on failures
     private func removeBlackoutOnly() {
         self.webView?.evaluateJavaScript("const b = document.getElementById('kaset-blackout'); if (b) b.remove();")
     }
 
-    /// Actually injects the CSS styles for video mode.
     func injectVideoModeStyles() {
         guard let webView else { return }
 
-        // Use superview frame since that's the actual container size
         _ = webView.superview?.frame ?? .zero
 
         let script = Self.videoContainerScriptInPlace()
@@ -237,14 +210,11 @@ extension SingletonPlayerWebView {
     }
 
     // swiftlint:disable function_body_length
-    /// Generates the JavaScript to hide UI and show only video in-place.
     private static func videoContainerScriptInPlace() -> String {
         """
         (function() {
             'use strict';
 
-            // 1. Create a global style to hide EVERYTHING by default
-            // Then specifically un-hide only the player tree.
             const styleId = 'kaset-video-mode-style-v2';
             let style = document.getElementById(styleId);
             if (!style) {
@@ -254,12 +224,10 @@ extension SingletonPlayerWebView {
             }
 
             style.textContent = `
-                /* Hide everything by default */
                 html, body, * {
                     visibility: hidden !important;
                 }
 
-                /* Show precisely the ancestor chain and its required layout */
                 .kaset-visible {
                     visibility: visible !important;
                     display: block !important;
@@ -270,7 +238,6 @@ extension SingletonPlayerWebView {
                     z-index: 2147483640 !important;
                 }
 
-                /* Ensure containers don't clip the video */
                 .kaset-visible {
                     width: 100vw !important;
                     height: 100vh !important;
@@ -280,7 +247,6 @@ extension SingletonPlayerWebView {
                     overflow: visible !important;
                 }
 
-                /* The actual video element gets highest priority */
                 video.kaset-visible, .video-stream.kaset-visible {
                     z-index: 2147483647 !important;
                     object-fit: contain !important;
@@ -301,9 +267,6 @@ extension SingletonPlayerWebView {
                 previousState.stop();
             }
 
-            // 2. Use a bounded warmup plus event-driven enforcement. The first
-            // frames catch YouTube Music's delayed player construction, then the
-            // observers below re-apply only when the player tree/layout changes.
             const maxWarmupFrames = 30;
             const state = {
                 active: true,
@@ -506,7 +469,6 @@ extension SingletonPlayerWebView {
             enforce();
             state.restartWarmup(maxWarmupFrames);
 
-            // Remove the extraction container if it exists from previous attempts
             const oldContainer = document.getElementById('kaset-video-container');
             if (oldContainer) {
                 const video = oldContainer.querySelector('video');
@@ -525,7 +487,6 @@ extension SingletonPlayerWebView {
     private static func videoModeRemovalScript() -> String {
         """
             (function() {
-                // Remove blackout overlay
                 const blackout = document.getElementById('kaset-blackout');
                 if (blackout) blackout.remove();
 
@@ -535,17 +496,13 @@ extension SingletonPlayerWebView {
                 }
                 delete window.__kasetVideoModeState;
 
-                // Remove the in-place style
                 const style = document.getElementById('kaset-video-mode-style-v2');
                 if (style) style.remove();
 
-                // Stop any older loop that predates the state object.
                 window.__kasetVideoModeActive = false;
 
-                // Remove all visibility markers.
                 document.querySelectorAll('.kaset-visible').forEach(el => el.classList.remove('kaset-visible'));
 
-                // Remove video styles manually too
                 const videos = document.querySelectorAll('video');
                 for (const video of videos) {
                     video.style.setProperty('width', '', '');
@@ -555,7 +512,6 @@ extension SingletonPlayerWebView {
                     video.style.setProperty('visibility', '', '');
                 }
 
-                // Restore body
                 document.body.style.overflow = '';
                 document.body.style.background = '';
             })();
@@ -577,8 +533,6 @@ extension SingletonPlayerWebView {
                     return { success: true, method: 'state' };
                 }
 
-                // Re-apply videoMode property if it drifted. This preserves the
-                // old refresh behavior for pages injected before the state object.
                 const playerPage = document.querySelector('ytmusic-player-page');
                 if (playerPage && typeof playerPage.videoMode !== 'undefined' && playerPage.videoMode !== true) {
                     playerPage.videoMode = true;
@@ -594,7 +548,6 @@ extension SingletonPlayerWebView {
 
     // swiftlint:enable function_body_length
 
-    /// Removes the video container and restores the video to its original location.
     func removeVideoModeCSS() {
         guard let webView else { return }
 
@@ -602,19 +555,15 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Re-injects video mode after resize or other layout changes.
-    /// Ensures the video container fills the entire viewport.
     func refreshVideoModeCSS() {
         guard self.displayMode == .video, let webView else { return }
 
-        // Use superview frame since that's the actual container size
         let superviewFrame = webView.superview?.frame ?? webView.frame
         let width = Int(superviewFrame.width)
         let height = Int(superviewFrame.height)
 
         guard width > 0, height > 0 else { return }
 
-        // Update the video UI to ensure everything stays hidden and centered
         let refreshScript = Self.videoModeRefreshScript()
         webView.evaluateJavaScript(refreshScript) { result, _ in
             if let dict = result as? [String: Any],

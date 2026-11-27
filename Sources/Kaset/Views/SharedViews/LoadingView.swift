@@ -1,11 +1,5 @@
 import SwiftUI
 
-// MARK: - FixedProgressView
-
-/// A ProgressView wrapper with explicit frame sizing to prevent AppKit Auto Layout constraint warnings.
-/// The standard ProgressView on macOS can produce spurious warnings like:
-/// "has a maximum length that doesn't satisfy min <= max"
-/// This wrapper provides a fixed frame to avoid these layout ambiguity issues.
 struct FixedProgressView: View {
     let controlSize: ControlSize
     let scale: CGFloat
@@ -40,17 +34,11 @@ struct FixedProgressView: View {
     }
 }
 
-// MARK: - LoadingView
-
-/// Reusable loading indicator view with optional message.
-/// Includes a pulsing animation for visual feedback.
 struct LoadingView: View {
     let message: String
 
-    /// Whether to show skeleton placeholders instead of just a spinner.
     let showSkeleton: Bool
 
-    /// Number of skeleton sections to show.
     let skeletonSectionCount: Int
 
     init(
@@ -93,9 +81,6 @@ struct LoadingView: View {
     }
 }
 
-// MARK: - HomeLoadingView
-
-/// A specialized loading view for the home screen with skeleton sections.
 struct HomeLoadingView: View {
     var body: some View {
         ScrollView {

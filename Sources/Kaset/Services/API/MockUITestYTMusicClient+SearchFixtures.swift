@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Mock UI-Test Search Fixtures
-
 extension MockUITestYTMusicClient {
     static func parseSearchResults() -> SearchResponse? {
         guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockSearchResultsKey),

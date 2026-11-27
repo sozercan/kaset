@@ -18,8 +18,6 @@ struct PlaybackScrobbleTrackerTests {
         .init(percent: percent, minSeconds: minSeconds, allowsUnknownDuration: allowsUnknownDuration)
     }
 
-    // MARK: - Accumulation
-
     @Test("First observation establishes a baseline without accumulating")
     func firstObservationIsBaseline() {
         var tracker = self.makeTracker()
@@ -60,7 +58,6 @@ struct PlaybackScrobbleTrackerTests {
     func wallClockGapIgnored() {
         var tracker = self.makeTracker()
         tracker.accumulate(progress: 0, isPlaying: true, now: self.epoch)
-        // Only 1s of progress, but 60s of wall clock elapsed (app was suspended).
         tracker.accumulate(progress: 1, isPlaying: true, now: self.epoch.addingTimeInterval(60))
         #expect(tracker.accumulatedPlayTime == 0)
     }
@@ -72,20 +69,15 @@ struct PlaybackScrobbleTrackerTests {
         tracker.accumulate(progress: 1, isPlaying: true, now: self.epoch.addingTimeInterval(1))
         #expect(abs(tracker.accumulatedPlayTime - 1) < 0.001)
 
-        // Pause for a while.
         tracker.accumulate(progress: 1, isPlaying: false, now: self.epoch.addingTimeInterval(2))
-        // Resume: the first tick after resume re-establishes the baseline, no jump counted.
         tracker.accumulate(progress: 1.5, isPlaying: true, now: self.epoch.addingTimeInterval(120))
         #expect(abs(tracker.accumulatedPlayTime - 1) < 0.001)
     }
-
-    // MARK: - Threshold
 
     @Test("Percent threshold qualifies at half of a known duration")
     func percentThreshold() {
         var tracker = self.makeTracker()
         var now = self.epoch
-        // Accumulate 100s over a 200s track (>= 50%).
         for step in 0 ... 100 {
             now = self.epoch.addingTimeInterval(TimeInterval(step))
             tracker.accumulate(progress: TimeInterval(step), isPlaying: true, now: now)
@@ -97,7 +89,6 @@ struct PlaybackScrobbleTrackerTests {
     func minSecondsCap() {
         var tracker = self.makeTracker()
         var now = self.epoch
-        // 240s accumulated on a 3600s track: below 50% but hits the 240s cap.
         for step in 0 ... 240 {
             now = self.epoch.addingTimeInterval(TimeInterval(step))
             tracker.accumulate(progress: TimeInterval(step), isPlaying: true, now: now)
@@ -127,8 +118,6 @@ struct PlaybackScrobbleTrackerTests {
         #expect(tracker.meetsThreshold(duration: nil, thresholds: self.thresholds(allowsUnknownDuration: false)) == false)
         #expect(tracker.meetsThreshold(duration: nil, thresholds: self.thresholds(allowsUnknownDuration: true)))
     }
-
-    // MARK: - Latches & Reset
 
     @Test("Scrobbled and now-playing flags latch")
     func latches() {

@@ -1,10 +1,6 @@
 import SwiftUI
 
-// MARK: - ContextMenuNavigate
-
 typealias ContextMenuNavigate = (any Hashable) -> Void
-
-// MARK: - ContextMenuNavigationButton
 
 private struct ContextMenuNavigationButton<Value: Hashable>: View {
     let value: Value
@@ -28,7 +24,6 @@ private struct ContextMenuNavigationButton<Value: Hashable>: View {
 }
 
 extension Album {
-    /// Albums open in the playlist detail view.
     func detailPlaylist(fallbackThumbnailURL: URL? = nil) -> Playlist {
         Playlist(
             id: self.id,
@@ -44,8 +39,6 @@ extension Album {
     }
 }
 
-// MARK: - PlayContextMenuButton
-
 private struct PlayContextMenuButton: View {
     let action: () -> Void
 
@@ -56,17 +49,14 @@ private struct PlayContextMenuButton: View {
     }
 }
 
-// MARK: - SongLibraryToggle
-
 struct SongLibraryToggle {
     let isInLibrary: Bool
     let toggle: () -> Void
 }
 
-// MARK: - SongContextMenu
-
 struct SongContextMenu: View {
     let song: Song
+    var queueEntryID: UUID?
     let client: (any YTMusicClientProtocol)?
     var play: (() -> Void)?
     var libraryToggle: SongLibraryToggle?
@@ -94,7 +84,7 @@ struct SongContextMenu: View {
             Divider()
         }
 
-        StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
+        StartRadioContextMenu.menuItem(for: self.song, queueEntryID: self.queueEntryID, playerService: self.playerService)
 
         if self.authService.hasPersonalAccount {
             self.libraryButton
@@ -162,8 +152,6 @@ struct SongContextMenu: View {
     }
 }
 
-// MARK: - AlbumContextMenu
-
 struct AlbumContextMenu: View {
     let album: Album
     let client: any YTMusicClientProtocol
@@ -206,8 +194,6 @@ struct AlbumContextMenu: View {
         ShareContextMenu.menuItem(for: self.album)
     }
 }
-
-// MARK: - PlaylistContextMenu
 
 struct PlaylistContextMenu: View {
     let playlist: Playlist
@@ -291,8 +277,6 @@ struct PlaylistContextMenu: View {
     }
 }
 
-// MARK: - ArtistContextMenu
-
 struct ArtistContextMenu: View {
     let artist: Artist
     var navigate: ContextMenuNavigate?
@@ -316,8 +300,6 @@ struct ArtistContextMenu: View {
     }
 }
 
-// MARK: - PodcastShowContextMenu
-
 struct PodcastShowContextMenu: View {
     let show: PodcastShow
     var navigate: ContextMenuNavigate?
@@ -339,8 +321,6 @@ struct PodcastShowContextMenu: View {
         ShareContextMenu.menuItem(for: self.show)
     }
 }
-
-// MARK: - EpisodeContextMenu
 
 struct EpisodeContextMenu: View {
     let episode: PodcastEpisode
@@ -384,8 +364,6 @@ struct EpisodeContextMenu: View {
     }
 }
 
-// MARK: - HomeSectionItemContextMenu
-
 struct HomeSectionItemContextMenu: View {
     let item: HomeSectionItem
     let client: any YTMusicClientProtocol
@@ -399,7 +377,6 @@ struct HomeSectionItemContextMenu: View {
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .playlist(playlist):
-            // Mood and genre tiles arrive as playlists but open a category page.
             if playlist.resolvedMoodCategoryEndpoint == nil {
                 PlaylistContextMenu(playlist: playlist, client: self.client, navigate: self.navigate)
             }
@@ -408,8 +385,6 @@ struct HomeSectionItemContextMenu: View {
         }
     }
 }
-
-// MARK: - SearchResultItemContextMenu
 
 struct SearchResultItemContextMenu: View {
     let item: SearchResultItem

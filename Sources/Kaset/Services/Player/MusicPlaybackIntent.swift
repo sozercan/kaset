@@ -1,17 +1,8 @@
 import Foundation
 
-// MARK: - MusicPlaybackIntent
-
-/// Opaque ownership token for one native Music playback intent.
-///
-/// Web document/media generations reject stale bridge traffic. This token is the
-/// complementary native fence: async API work and scheduled corrective actions
-/// may mutate playback only while the user intent that created them is current.
 struct MusicPlaybackIntent: Equatable {
     let generation: UInt64
 }
-
-// MARK: - MusicRemoteTransportCommand
 
 enum MusicRemoteTransportCommand: Equatable {
     case play
@@ -23,10 +14,6 @@ enum MusicRemoteTransportCommand: Equatable {
     case absoluteSeek(position: TimeInterval)
 }
 
-// MARK: - MusicPlaybackReservation
-
-/// A non-mutating snapshot reserved before parsing or API resolution. It can be
-/// claimed exactly while no newer native playback intent has been created.
 struct MusicPlaybackReservation: Equatable {
     let playbackGeneration: UInt64
     let reservationGeneration: UInt64
@@ -35,29 +22,21 @@ struct MusicPlaybackReservation: Equatable {
     let videoID: String?
 }
 
-// MARK: - MusicQueueMetadataOwner
-
 enum MusicQueueMetadataOwner: Equatable {
     case active
     case none
     case entry(UUID)
 }
 
-// MARK: - MusicAccountMutationOwner
-
 struct MusicAccountMutationOwner: Hashable {
     let accountID: String
     let sessionGeneration: UInt64
 }
 
-// MARK: - MusicLibraryConfirmedState
-
 struct MusicLibraryConfirmedState: Equatable {
     let isInLibrary: Bool
     let feedbackTokens: FeedbackTokens?
 }
-
-// MARK: - MusicPlaybackRestoreClock
 
 struct MusicPlaybackRestoreClock: Equatable {
     let progress: TimeInterval
@@ -463,7 +442,6 @@ extension PlayerService {
         currentVideoID: String?,
         playbackStateObservationSequence: Int
     ) -> (progress: TimeInterval, duration: TimeInterval)? {
-        // Rejected stale observations also advance the sequence, without updating the clock.
         if self.playbackStateObservationSequence != playbackStateObservationSequence,
            self.playbackStateVideoId == currentVideoID
         {
@@ -552,7 +530,6 @@ extension PlayerService {
             && self.activePlaybackQueueEntryID == self.currentQueueEntryID
     }
 
-    /// Whether no track, pending video or episode is loaded, so any queue has not started playing yet.
     var hasNoLoadedMusicPlayback: Bool {
         self.currentTrack == nil
             && self.pendingPlayVideoId == nil
