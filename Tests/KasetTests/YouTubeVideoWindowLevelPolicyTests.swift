@@ -29,6 +29,21 @@ struct YouTubeVideoWindowLevelPolicyTests {
         #expect(YouTubeVideoWindowFullscreenPhase.exiting.blocksWindowedControls)
     }
 
+    @Test("Only the entering and exiting phases count as transitions")
+    func fullscreenPhaseTransitions() {
+        #expect(!YouTubeVideoWindowFullscreenPhase.windowed.isTransitioning)
+        #expect(YouTubeVideoWindowFullscreenPhase.entering.isTransitioning)
+        #expect(!YouTubeVideoWindowFullscreenPhase.fullscreen.isTransitioning)
+        #expect(YouTubeVideoWindowFullscreenPhase.exiting.isTransitioning)
+    }
+
+    @Test("A failed transition settles on the window's actual full screen state")
+    func settledPhaseEndsTransition() {
+        #expect(YouTubeVideoWindowFullscreenPhase.settled(isFullScreen: true) == .fullscreen)
+        #expect(YouTubeVideoWindowFullscreenPhase.settled(isFullScreen: false) == .windowed)
+        #expect(!YouTubeVideoWindowFullscreenPhase.settled(isFullScreen: true).isTransitioning)
+    }
+
     @Test("Float on Top controls require a windowed floating surface")
     func controlAvailability() {
         #expect(YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(

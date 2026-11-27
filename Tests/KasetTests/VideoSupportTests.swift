@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import Kaset
@@ -208,5 +209,26 @@ struct YouTubeVideoWindowResizeGuardTests {
         )
         #expect(result.width == 1000)
         #expect(result.height == 563)
+    }
+
+    @Test("Failed full screen exit reaches the controller until invalidated")
+    func failedExitForwardsUntilInvalidated() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 360),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        var failedExits = 0
+        let resizeGuard = YouTubeVideoWindowResizeGuard(
+            minContentSize: self.floor,
+            onDidFailToExitFullScreen: { _ in failedExits += 1 }
+        )
+
+        resizeGuard.windowDidFailToExitFullScreen(window)
+        resizeGuard.invalidate()
+        resizeGuard.windowDidFailToExitFullScreen(window)
+
+        #expect(failedExits == 1)
     }
 }

@@ -64,6 +64,10 @@ enum YouTubeVideoWindowFullscreenPhase: Equatable {
     var isTransitioning: Bool {
         self == .entering || self == .exiting
     }
+
+    static func settled(isFullScreen: Bool) -> Self {
+        isFullScreen ? .fullscreen : .windowed
+    }
 }
 
 @MainActor
@@ -123,6 +127,9 @@ final class YouTubeVideoWindowController {
             minContentSize: Self.minContentSize,
             onDidFailToEnterFullScreen: { [weak self] window in
                 self?.handleFailedFullscreenEntry(window)
+            },
+            onDidFailToExitFullScreen: { [weak self] window in
+                self?.handleFailedFullscreenExit(window)
             }
         )
         self.resizeGuard = resizeGuard
@@ -230,6 +237,12 @@ final class YouTubeVideoWindowController {
         self.fullscreenIntent.cancelReturnInlineOnExit()
         self.applyDesiredWindowedLevel(to: window)
         self.youtubePlayerService?.windowFullscreenPhase = .windowed
+    }
+
+    private func handleFailedFullscreenExit(_ window: NSWindow) {
+        self.youtubePlayerService?.windowFullscreenPhase = .settled(
+            isFullScreen: window.styleMask.contains(.fullScreen)
+        )
     }
 
     private func applyFrameAutosaveTransition(
@@ -407,22 +420,30 @@ struct YouTubeVideoWindowFrameAutosaveState: Equatable {
 final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
     private let minContentSize: NSSize
     private var onDidFailToEnterFullScreen: ((NSWindow) -> Void)?
+    private var onDidFailToExitFullScreen: ((NSWindow) -> Void)?
 
     init(
         minContentSize: NSSize,
-        onDidFailToEnterFullScreen: ((NSWindow) -> Void)? = nil
+        onDidFailToEnterFullScreen: ((NSWindow) -> Void)? = nil,
+        onDidFailToExitFullScreen: ((NSWindow) -> Void)? = nil
     ) {
         self.minContentSize = minContentSize
         self.onDidFailToEnterFullScreen = onDidFailToEnterFullScreen
+        self.onDidFailToExitFullScreen = onDidFailToExitFullScreen
         super.init()
     }
 
     func invalidate() {
         self.onDidFailToEnterFullScreen = nil
+        self.onDidFailToExitFullScreen = nil
     }
 
     func windowDidFailToEnterFullScreen(_ window: NSWindow) {
         self.onDidFailToEnterFullScreen?(window)
+    }
+
+    func windowDidFailToExitFullScreen(_ window: NSWindow) {
+        self.onDidFailToExitFullScreen?(window)
     }
 
     static func normalizedContentSize(
