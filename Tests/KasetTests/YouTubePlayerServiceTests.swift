@@ -1568,6 +1568,7 @@ extension YouTubePlayerServiceTests {
 
         self.sut.selectPlaybackRate(4)
         #expect(self.sut.playbackRate == 2)
+        #expect(self.controller.playbackRates == [1.5, 2])
 
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
         #expect(self.sut.playbackRate == 2)
