@@ -264,10 +264,10 @@ struct KasetApp: App {
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
                     let signOutSequence = self.authService.signOutSequence
                     guard await self.authService.checkLoginStatusForStartup(
-                              expectedState: startupState
-                          ), !Task.isCancelled,
-                          self.authService.startupState == startupState,
-                          self.authService.signOutSequence == signOutSequence
+                        expectedState: startupState
+                    ), !Task.isCancelled,
+                    self.authService.startupState == startupState,
+                    self.authService.signOutSequence == signOutSequence
                     else { return }
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
                     if !self.didCompleteStartupPlaybackCleanup {
