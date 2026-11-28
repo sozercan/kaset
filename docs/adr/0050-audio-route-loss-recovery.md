@@ -1,0 +1,174 @@
+# ADR-0050: Audio Route Loss Recovery and Now Playing Ownership
+
+## Status
+
+Accepted
+
+## Context
+
+Media keys (F8) stopped controlling playback after Bluetooth headphones disconnected and
+reconnected. Clicking Play in Kaset's window restored them. The behavior was reproduced with a
+timestamped file trace (see `docs/common-bug-patterns.md`) rather than inferred; three separate
+defects turned out to stack.
+
+### 1. WebKit's Now Playing session survives a route loss as a zombie
+
+WebKit registers its own Now Playing client with the system, independent of the app's
+`MPNowPlayingInfoCenter`. When the audio route disappears, that registration outlives the media
+session it described: Control Center still shows its card, and the card still captures the media
+keys — but its transport actions do nothing. Pressing the card's own play button is a no-op,
+while Kaset's card next to it works.
+
+The registration cannot be withdrawn from the app side. Clearing `navigator.mediaSession`
+metadata and `playbackState` was tried and only blanks the card's contents; WebKit keeps the
+registration as long as a media element that has played still exists. The only thing that
+rebinds the session to a live route is playback actually running again — which is exactly what
+the manual "click Play" workaround did.
+
+### 2. A route-loss pause was recorded as a deliberate user pause
+
+macOS stops playback on a vanished route by sending the app an ordinary `pause` remote command,
+indistinguishable from the user pressing Pause. Kaset's handler set
+`isExplicitPauseIntentActive`, whose purpose is to stop YouTube's autoplay from overriding a
+user's pause. With it set, `applyObservedPlaybackState` re-pauses the page the instant anything
+resumes it — so even a media key that did reach a healthy session started playback and had it
+killed a moment later.
+
+### 3. The native Now Playing claim could never be released
+
+`NowPlayingManager` published a tagged minimal claim while paused so media keys still reached
+Kaset (ADR-less, from #387). Its hands-off branch waited for "WebKit to atomically replace the
+app-wide metadata" before standing down. WebKit never does that — it does not write
+`MPNowPlayingInfoCenter` at all — so the claim was never withdrawn and Kaset kept a second,
+permanently stale Control Center entry once it had paused even once.
+
+## Decision
+
+**Resume playback when the audio route returns**, scoped precisely to playback the route loss
+itself stopped. This restores what the user was listening to and, as a direct consequence,
+rebinds WebKit's media session so the media keys work again for everything afterward.
+
+Supporting decisions:
+
+- **Classify the pause at its source.** `MusicPauseOrigin` distinguishes `.user` from
+  `.routeLoss(at:)`. Only a user pause records the standing intent to stay paused.
+- **Identify a route loss by a device disappearing**, not by any output change. A manual output
+  switch or a device being added must not arm recovery. `DefaultOutputDeviceMonitor` remembers
+  the previous default device and checks both device-list membership and
+  `kAudioDevicePropertyDeviceIsAlive` — Core Audio can mark a device dead before dropping its
+  ID.
+- **Attribute from both sides.** Core Audio's listener timestamps a change immediately but only
+  publishes it after several synchronous device queries, while the `pause` it provokes drains
+  independently. Either can win. A pause that arrives first is treated as the user's but keeps
+  its admission instant, and the route event re-attributes it when it lands — the route event is
+  the thing that arrives late, not the pause. Classifying only at admission would leave the
+  explicit-pause intent set with no way to undo it, which is precisely the original failure.
+- **Anchor timing to command admission.** Remote commands drain onto the MainActor
+  asynchronously, so both the classification window and the recovery marker use the ingress
+  admission instant. Dating either to handling time lets a busy main actor misclassify a real
+  route pause, or sort the marker after a reconnect that already happened.
+- **Bound recovery by intent, not by a timer.** The marker is retired by a user pause, by a
+  request to play something, or by playback actually starting — never by elapsed time. A resume can therefore only ever continue
+  exactly what the route loss interrupted, so reconnecting an hour later is still the same
+  interrupted song. It deliberately survives *issuing* a resume so the second attempt can retry
+  while the route is still settling.
+- **Arm recovery only for playback the pause stopped.** macOS can send its route-loss `pause` to
+  an app that is already paused (by the user, by WebKit handling a media key, by the page's own
+  controls, or at the end of a track). Arming then would resume music nobody was listening to.
+  Only a pause that took the player out of playing or awaiting-confirmation leaves a marker.
+- **Resume only when the lost device comes back.** Each route event records the default device
+  after the change, and a disappearance also records the device that was lost. When a pause
+  claims a disappearance, the claim remembers that lost device, keyed by the pause's admission
+  instant. A later event counts as a restoration only if its new default is the lost device,
+  including when that happens because the fallback output itself disappeared. A manual switch to
+  another output, or a second notification for the fallback output the system chose, therefore
+  never resumes playback. The same test decides whether output came back between a
+  disappearance and a pause, so a repeated fallback notification does not turn a route-loss
+  pause into the user's. Devices are
+  identified by `kAudioDevicePropertyDeviceUID`, captured while the device is the default and
+  falling back to the `AudioDeviceID` when the UID is unavailable, because a reconnected
+  Bluetooth device can come back under a new object ID and a vanished device may no longer
+  answer property queries.
+- **Make the disappearance one-shot.** A disappearance explains at most one pause. Only the
+  newest disappearance before a command can explain it, and the lost device coming back between the
+  disappearance and the command makes the pause the user's. Otherwise a user pressing Pause right
+  after the system already paused for the same disconnect would also read as system-driven and a
+  later reconnect would resume against it. The claim happens when the player executes the pause,
+  not when the command is admitted, so a stale pause refused at admission or discarded with a
+  superseded batch leaves the disappearance for the pause that actually lands. The claim still
+  uses the captured admission instant.
+- **Keep a log, not the latest pair.** Classification runs after an unbounded hop, so a
+  disconnect, reconnect, and second disconnect can all land before a queued pause is judged. The
+  route timeline is reconstructed as of the admission instant, bounded to 30 seconds and 32
+  events. The listener stamps arrival before taking the record's lock, runs its Core Audio
+  queries under that lock (a `nil` listener queue delivers callbacks unserialized), and clamps a
+  stamp that predates the previous event forward so the log stays ordered with the baseline it
+  was compared against.
+- **Order the late attribution.** The re-attribution checks for a pending unattributed pause
+  before claiming the disappearance, so a route event handled before the pause drains does not
+  consume the disappearance that the admission classification still needs. Whichever of the
+  route event and the pause lands second performs the attribution, and installing a route-loss
+  marker itself schedules a resume check in case the reconnect was handled first.
+- **Retry the resume.** A returning device is not usable the instant Core Audio reports it, and
+  WebKit settles route changes in stages, so the resume is attempted at 500 ms and 2 s after the
+  latest route event. Bursts of notifications collapse into the latest request. Each attempt first
+  drains captured remote commands and waits for the queued transport batch, repeating until none
+  is left, because the resume
+  starts a new playback intent that would discard a pause the user pressed just before it.
+- **Treat a route-loss pause as explicit for Start Radio.** A refresh that lands after the queue
+  ended advances to the first recommendation only if no explicit pause happened meanwhile. A
+  route-loss pause counts, so a disconnect never starts a new track on the fallback output. A
+  route-loss pause during playback leaves the player paused rather than ended, so the refresh
+  still applies its queue and recovery resumes on reconnect.
+- **Keep the monitor independent of the equalizer.** `EqualizerService` has its own device
+  listener, but it only runs while the equalizer is enabled; playback correctness must not depend
+  on that setting.
+- **Release the native claim whenever WebKit owns the card**, since the event it was waiting for
+  does not exist. WebKit's Now Playing client and Kaset's `MPNowPlayingInfoCenter` entry are
+  separate clients, so a claim left in place survives as a competing entry and the most recently
+  updated one owns the media keys. Only metadata carrying Kaset's service identifier is cleared.
+
+## Consequences
+
+### Positive
+
+- Media keys work after a Bluetooth disconnect/reconnect without touching the app.
+- Reconnecting headphones continues the interrupted track, matching AirPods behavior elsewhere.
+- Exactly one Control Center entry during playback instead of a stale duplicate.
+
+### Negative
+
+- Playback restarts on its own when a route returns. This is a deliberate behavior change; it is
+  narrowly scoped to a pause the system imposed, and any user transport action retires it.
+- Reconnecting to a different output than the one that was lost does not resume, even if the
+  user would have liked it to. Pressing Play still works.
+- Classification rests on a 1.5s correlation window between a device disappearing and the `pause`
+  command (measured at 40–60ms). It is a heuristic, not a signal the OS provides.
+
+### Out of scope: the YouTube video source
+
+Only the music player recovers. When `PlaybackArbiter` routes media keys to
+`YouTubePlayerService`, the same system pause still reaches `handleRemotePause` unclassified, no
+recovery marker is recorded, and reconnecting cannot rebind that video's WebKit media session —
+so the media-key failure described above remains for video playback.
+
+This is a gap, not a regression: nothing about the video path changed. It is left out because it
+needs its own recovery marker and resume path in a separate service, and none of it could be
+verified against the reproduction that drove this work, which was music-only. Shipping an
+unverified parallel implementation alongside a verified one was judged worse than recording the
+gap. It deserves its own change, reproduced and traced the same way.
+
+### Known limitation
+
+`DefaultOutputDeviceMonitor` watches only which device is the *default output*. A route change
+within one device — some Macs expose speakers and the headphone jack as data sources on the same
+built-in device — leaves that selection untouched and goes unseen, so recovery does not arm.
+Covering it requires listening on the current device's output data source and retargeting those
+listeners on every default-device change. Bluetooth always swaps the device itself. A missed
+change degrades to the previous behavior rather than misbehaving.
+
+## References
+
+- ADR-0001: WebView-Based Playback
+- ADR-0026: Generation-Scoped Web Playback Bridge
+- `docs/common-bug-patterns.md` — the trace workflow that localized this

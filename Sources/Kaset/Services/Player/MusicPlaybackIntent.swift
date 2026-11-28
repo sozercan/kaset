@@ -4,9 +4,15 @@ struct MusicPlaybackIntent: Equatable {
     let generation: UInt64
 }
 
+enum MusicPauseOrigin: Equatable {
+    case user
+    case unattributedRemote(admittedAt: ContinuousClock.Instant)
+    case routeLoss(at: ContinuousClock.Instant)
+}
+
 enum MusicRemoteTransportCommand: Equatable {
     case play
-    case pause
+    case pause(admittedAt: ContinuousClock.Instant)
     case togglePlayPause
     case next
     case previous
@@ -215,9 +221,15 @@ extension PlayerService {
             case .play:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.resume(intent: intent)
-            case .pause:
+            case let .pause(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
-                await self.pause(intent: intent)
+                if self.claimsRouteLossPause(admittedAt) {
+                    await self.pause(intent: intent, origin: .routeLoss(at: admittedAt))
+                    NowPlayingManager.shared.resumeAfterRouteRestoredSoon()
+                } else {
+                    await self.pause(intent: intent, origin: .unattributedRemote(admittedAt: admittedAt))
+                    NowPlayingManager.shared.attributeRouteLossPauseIfPending()
+                }
             case .togglePlayPause:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.playPause(intent: intent)

@@ -294,6 +294,7 @@ extension PlayerService {
         self.shouldResumeAfterInterruption = !startsPaused
         self.isAwaitingPlaybackConfirmation = !startsPaused
         self.isExplicitPauseIntentActive = startsPaused
+        self.unattributedRemotePauseAt = nil
         self.state = startsPaused ? .paused : .loading
         return targetProgress
     }

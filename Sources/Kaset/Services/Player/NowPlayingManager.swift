@@ -99,6 +99,14 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
 }
 
 @MainActor
+protocol NowPlayingInfoCenter: AnyObject {
+    var nowPlayingInfo: [String: Any]? { get set }
+    var playbackState: MPNowPlayingPlaybackState { get set }
+}
+
+extension MPNowPlayingInfoCenter: NowPlayingInfoCenter {}
+
+@MainActor
 @Observable
 final class NowPlayingManager {
     static let shared = NowPlayingManager()
@@ -115,6 +123,13 @@ final class NowPlayingManager {
     private let remoteMusicCommandIngress = RemoteMusicCommandIngress()
     private static let defaultSkipInterval: TimeInterval = 15
     nonisolated static let nativeClaimServiceIdentifier = "com.sertacozercan.Kaset.native-now-playing-claim"
+
+    @ObservationIgnored private var routeRestoreTask: Task<Void, Never>?
+    @ObservationIgnored private var routeRestoreGeneration: UInt64 = 0
+    private static let routeRestoreDelays: [Duration] = [
+        .milliseconds(500),
+        .milliseconds(2000),
+    ]
 
     private init() {}
 
@@ -153,8 +168,11 @@ final class NowPlayingManager {
         }
 
         switch state {
-        case .playing, .buffering, .loading:
+        case .playing, .buffering:
             return .handsOff
+        case .loading:
+            guard let track else { return .release }
+            return .claim(title: track.title, artist: track.artist, playbackState: .playing)
         case .idle, .paused, .ended, .error:
             guard let track else { return .release }
             return .claim(title: track.title, artist: track.artist, playbackState: .paused)
@@ -175,21 +193,26 @@ final class NowPlayingManager {
     }
 
     private func applyNowPlayingClaim(_ claim: NowPlayingClaim) {
-        let center = MPNowPlayingInfoCenter.default()
+        self.isAssertingNativeClaim = Self.applyClaim(
+            claim,
+            isAssertingNativeClaim: self.isAssertingNativeClaim,
+            to: MPNowPlayingInfoCenter.default()
+        )
+    }
+
+    @discardableResult
+    static func applyClaim(
+        _ claim: NowPlayingClaim,
+        isAssertingNativeClaim: Bool,
+        to center: any NowPlayingInfoCenter
+    ) -> Bool {
         switch claim {
-        case .handsOff:
-            guard self.isAssertingNativeClaim else { return }
-            guard Self.isNativeClaim(center.nowPlayingInfo) else {
-                self.isAssertingNativeClaim = false
-                return
-            }
-            center.playbackState = .playing
-        case .release:
-            guard self.isAssertingNativeClaim else { return }
-            self.isAssertingNativeClaim = false
-            guard Self.isNativeClaim(center.nowPlayingInfo) else { return }
+        case .handsOff, .release:
+            guard isAssertingNativeClaim else { return false }
+            guard self.isNativeClaim(center.nowPlayingInfo) else { return false }
             center.playbackState = .stopped
             center.nowPlayingInfo = nil
+            return false
         case let .claim(title, artist, playbackState):
             var info: [String: Any] = [
                 MPMediaItemPropertyTitle: title,
@@ -203,7 +226,7 @@ final class NowPlayingManager {
             case .playing: .playing
             case .paused: .paused
             }
-            self.isAssertingNativeClaim = true
+            return true
         }
     }
 
@@ -260,9 +283,53 @@ final class NowPlayingManager {
         self.logger.info("NowPlayingManager configured")
 
         self.observeSettingsChanges()
+        self.observeOutputDeviceChanges()
 
         self.updateNowPlayingClaim()
         self.restartNowPlayingObservation()
+    }
+
+    private func observeOutputDeviceChanges() {
+        DefaultOutputDeviceMonitor.shared.start { [weak self] in
+            self?.handleOutputDeviceChange()
+        }
+    }
+
+    private func handleOutputDeviceChange() {
+        self.attributeRouteLossPauseIfPending()
+        self.resumeAfterRouteRestoredSoon()
+    }
+
+    func attributeRouteLossPauseIfPending() {
+        guard let playerService = self.playerService else { return }
+        playerService.reattributeRemotePauseToRouteLoss(claim: playerService.claimsRouteLossPause)
+        guard playerService.routeLossPauseAt != nil else { return }
+        self.resumeAfterRouteRestoredSoon()
+    }
+
+    func resumeAfterRouteRestoredSoon() {
+        self.routeRestoreGeneration &+= 1
+        let generation = self.routeRestoreGeneration
+        self.routeRestoreTask?.cancel()
+        self.routeRestoreTask = Task { @MainActor [weak self] in
+            defer {
+                if self?.routeRestoreGeneration == generation {
+                    self?.routeRestoreTask = nil
+                }
+            }
+            var elapsed = Duration.zero
+            for delay in Self.routeRestoreDelays {
+                try? await Task.sleep(for: delay - elapsed)
+                elapsed = delay
+                guard !Task.isCancelled,
+                      let self,
+                      self.routeRestoreGeneration == generation
+                else { return }
+                await self.playerService?.resumeAfterRouteRestored { [weak self] in
+                    self?.drainRemoteMusicCommandIngress()
+                }
+            }
+        }
     }
 
     func configureYouTubeRouting(
@@ -442,7 +509,11 @@ final class NowPlayingManager {
                     issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
                 )
             } else {
-                self.enqueueMusicRemoteCommand(.pause, capturedCommand: capturedCommand, player: player)
+                self.enqueueMusicRemoteCommand(
+                    .pause(admittedAt: capturedCommand.admittedAt),
+                    capturedCommand: capturedCommand,
+                    player: player
+                )
             }
         case .togglePlayPause:
             if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
@@ -499,6 +570,8 @@ final class NowPlayingManager {
             }
         }
     }
+
+    nonisolated static let routeLossPauseWindow = Duration.milliseconds(1500)
 
     private func handleNextPreviousMediaKey(
         direction: RemoteMusicCommandDirection,

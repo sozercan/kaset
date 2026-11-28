@@ -96,6 +96,21 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var isAwaitingPlaybackConfirmation = false
     var isExplicitPauseIntentActive = false
 
+    @ObservationIgnored var routeLossPauseAt: ContinuousClock.Instant?
+
+    @ObservationIgnored var unattributedRemotePauseAt: ContinuousClock.Instant?
+
+    @ObservationIgnored var hasAudioRouteReturned: @MainActor (ContinuousClock.Instant) -> Bool = {
+        DefaultOutputDeviceMonitor.shared.routeRestored(since: $0)
+    }
+
+    @ObservationIgnored var claimsRouteLossPause: @MainActor (ContinuousClock.Instant) -> Bool = {
+        DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
+            admittedAt: $0,
+            within: NowPlayingManager.routeLossPauseWindow
+        )
+    }
+
     var currentTrack: Song? {
         didSet {
             self.driveNowPlayingTracklistProvider()

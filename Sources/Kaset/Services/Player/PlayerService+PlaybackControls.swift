@@ -187,6 +187,8 @@ extension PlayerService {
         intent: MusicPlaybackIntent
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        self.routeLossPauseAt = nil
+        self.unattributedRemotePauseAt = nil
         self.beginPlaybackNavigation()
         if !isQueueNavigationRecovery {
             self.clearQueueNavigationRecovery()
@@ -360,6 +362,8 @@ extension PlayerService {
         guard shouldHideMiniPlayer || didStartPlayback || shouldRecordInteraction else { return }
 
         self.showMiniPlayer = false
+        self.routeLossPauseAt = nil
+        self.unattributedRemotePauseAt = nil
         self.state = .playing
 
         if shouldRecordInteraction {
@@ -467,16 +471,36 @@ extension PlayerService {
         await self.pause(intent: intent, isAutomaticStop: isAutomaticStop)
     }
 
-    func pause(intent: MusicPlaybackIntent, isAutomaticStop: Bool = false) async {
+    func pause(
+        intent: MusicPlaybackIntent,
+        origin: MusicPauseOrigin = .user,
+        isAutomaticStop: Bool = false
+    ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        self.logger.debug("Pausing playback")
+        self.logger.debug("Pausing playback (origin: \(String(describing: origin)))")
         if !isAutomaticStop {
             self.explicitPauseGeneration &+= 1
         }
         self.clearQueueNavigationRecovery()
-        self.shouldResumeAfterInterruption = false
+        let stopsPlayback = self.isPlaying || self.isAwaitingPlaybackConfirmation
         self.isAwaitingPlaybackConfirmation = false
-        self.isExplicitPauseIntentActive = true
+        switch origin {
+        case .user:
+            self.shouldResumeAfterInterruption = false
+            self.isExplicitPauseIntentActive = true
+            self.routeLossPauseAt = nil
+            self.unattributedRemotePauseAt = nil
+        case let .unattributedRemote(admittedAt):
+            self.shouldResumeAfterInterruption = false
+            self.isExplicitPauseIntentActive = true
+            self.routeLossPauseAt = nil
+            self.unattributedRemotePauseAt = stopsPlayback ? admittedAt : nil
+        case let .routeLoss(at):
+            self.unattributedRemotePauseAt = nil
+            if stopsPlayback {
+                self.routeLossPauseAt = at
+            }
+        }
 
         if self.isPendingRestoredLoadDeferred {
             self.state = .paused
@@ -512,6 +536,35 @@ extension PlayerService {
         await self.resume(intent: intent)
     }
 
+    func reattributeRemotePauseToRouteLoss(claim: (ContinuousClock.Instant) -> Bool) {
+        guard let admittedAt = self.unattributedRemotePauseAt,
+              !self.isPlaying,
+              claim(admittedAt)
+        else { return }
+        self.unattributedRemotePauseAt = nil
+        self.shouldResumeAfterInterruption = true
+        self.isExplicitPauseIntentActive = false
+        self.routeLossPauseAt = admittedAt
+        self.logger.info("Re-attributed a remote pause to the audio route loss that caused it")
+    }
+
+    func resumeAfterRouteRestored(drainRemoteCommands: @MainActor () -> Void = {}) async {
+        drainRemoteCommands()
+        while let pendingRemoteCommands = self.remoteMusicTransportTask {
+            await pendingRemoteCommands.value
+            drainRemoteCommands()
+            guard self.remoteMusicTransportTask != pendingRemoteCommands else { break }
+        }
+        guard !Task.isCancelled,
+              self.routeLossPauseAt.map({ self.hasAudioRouteReturned($0) }) == true,
+              !self.isPlaying,
+              !self.isExplicitPauseIntentActive,
+              self.currentTrack != nil || self.pendingPlayVideoId != nil
+        else { return }
+        self.logger.info("Audio route restored — resuming playback paused by the route loss")
+        await self.resume()
+    }
+
     // swiftlint:disable:next cyclomatic_complexity
     func resume(intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
@@ -519,6 +572,7 @@ extension PlayerService {
             return
         }
         self.logger.debug("Resuming playback")
+        self.unattributedRemotePauseAt = nil
         self.isStoppingPlayback = false
         self.shouldResumeAfterInterruption = true
         self.isAwaitingPlaybackConfirmation = true

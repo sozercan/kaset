@@ -4,13 +4,25 @@ import Testing
 @testable import Kaset
 
 @Suite("Now playing claim", .serialized, .tags(.service))
+@MainActor
 struct NowPlayingClaimTests {
-    @Test("Actively playing or starting yields hands-off (WebKit owns the card)")
+    @Test("Started playback yields hands-off (WebKit owns the card)")
     func activePlaybackIsHandsOff() {
         let track = (title: "Song", artist: "Artist")
         #expect(NowPlayingManager.desiredClaim(state: .playing, track: track, activeVideo: nil) == .handsOff)
         #expect(NowPlayingManager.desiredClaim(state: .buffering, track: track, activeVideo: nil) == .handsOff)
-        #expect(NowPlayingManager.desiredClaim(state: .loading, track: track, activeVideo: nil) == .handsOff)
+    }
+
+    @Test("A starting track keeps a playing claim until WebKit publishes its card")
+    func startingPlaybackKeepsClaimUntilHandover() {
+        let track = (title: "Song", artist: "Artist")
+        let expected = NowPlayingManager.NowPlayingClaim.claim(
+            title: "Song",
+            artist: "Artist",
+            playbackState: .playing
+        )
+        #expect(NowPlayingManager.desiredClaim(state: .loading, track: track, activeVideo: nil) == expected)
+        #expect(NowPlayingManager.desiredClaim(state: .loading, track: nil, activeVideo: nil) == .release)
     }
 
     @Test("Not playing with a track yields a minimal claim")
@@ -93,6 +105,71 @@ struct NowPlayingClaimTests {
         ) == expected)
     }
 
+    @Test("Hands-off and release both withdraw Kaset's entry so only one card can exist")
+    func nonClaimDecisionsWithdrawTheEntry() {
+        let track = (title: "Song", artist: "Artist")
+        let playingClaim = NowPlayingManager.desiredClaim(state: .playing, track: track, activeVideo: nil)
+        let emptyClaim = NowPlayingManager.desiredClaim(state: .idle, track: nil, activeVideo: nil)
+
+        #expect(playingClaim == .handsOff)
+        #expect(emptyClaim == .release)
+        for claim in [playingClaim, emptyClaim] {
+            switch claim {
+            case .handsOff, .release:
+                break
+            case .claim:
+                Issue.record("Playback and empty states must not publish a native claim")
+            }
+        }
+    }
+
+    @Test("Handing the card to WebKit withdraws our entry")
+    func handsOffClearsOwnedMetadata() {
+        let center = MockNowPlayingInfoCenter()
+        NowPlayingManager.applyClaim(
+            .claim(title: "Song", artist: "Artist", playbackState: .paused),
+            isAssertingNativeClaim: false,
+            to: center
+        )
+        #expect(NowPlayingManager.isNativeClaim(center.nowPlayingInfo))
+
+        let stillAsserting = NowPlayingManager.applyClaim(
+            .handsOff,
+            isAssertingNativeClaim: true,
+            to: center
+        )
+
+        #expect(stillAsserting == false)
+        #expect(center.nowPlayingInfo == nil)
+        #expect(center.playbackState == .stopped)
+    }
+
+    @Test("Releasing with nothing to play withdraws our entry too")
+    func releaseClearsOwnedMetadata() {
+        let center = MockNowPlayingInfoCenter()
+        NowPlayingManager.applyClaim(
+            .claim(title: "Song", artist: "Artist", playbackState: .paused),
+            isAssertingNativeClaim: false,
+            to: center
+        )
+
+        NowPlayingManager.applyClaim(.release, isAssertingNativeClaim: true, to: center)
+
+        #expect(center.nowPlayingInfo == nil)
+    }
+
+    @Test("A card we do not own is never cleared")
+    func withdrawalLeavesForeignMetadataAlone() {
+        let center = MockNowPlayingInfoCenter()
+        center.nowPlayingInfo = [MPMediaItemPropertyTitle: "Someone else's card"]
+        center.playbackState = .playing
+
+        NowPlayingManager.applyClaim(.handsOff, isAssertingNativeClaim: true, to: center)
+
+        #expect(center.nowPlayingInfo?.isEmpty == false)
+        #expect(center.playbackState == .playing)
+    }
+
     @Test("Only tagged native metadata is treated as Kaset's claim")
     func nativeClaimOwnershipTag() {
         let nativeInfo: [String: Any] = [
@@ -104,4 +181,10 @@ struct NowPlayingClaimTests {
         #expect(NowPlayingManager.isNativeClaim(webKitInfo) == false)
         #expect(NowPlayingManager.isNativeClaim(nil) == false)
     }
+}
+
+@MainActor
+final class MockNowPlayingInfoCenter: NowPlayingInfoCenter {
+    var nowPlayingInfo: [String: Any]?
+    var playbackState: MPNowPlayingPlaybackState = .unknown
 }

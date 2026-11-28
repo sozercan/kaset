@@ -626,6 +626,84 @@ struct PlayerServiceStartRadioRaceTests {
         #expect(self.playerService.currentTrack?.videoId == recommended.videoId)
     }
 
+    @Test("A route-loss pause during Start Radio still applies the radio queue and keeps recovery armed")
+    func routeLossPauseDuringStartRadioKeepsRecovery() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 60, duration: 240)
+
+        let radioGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = radioGate
+        let refresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        guard self.mockClient.getRadioQueueVideoIds.count == 1 else {
+            await radioGate.open()
+            await refresh.value
+            Issue.record("The Start Radio request never reached the mock client")
+            return
+        }
+
+        self.mockClient.getRadioQueueGate = nil
+        let lostAt = ContinuousClock.now
+        await self.playerService.pause(
+            intent: self.playerService.currentMusicPlaybackIntent,
+            origin: .routeLoss(at: lostAt)
+        )
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        await radioGate.open()
+        await refresh.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, recommended.videoId])
+        #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.routeLossPauseAt == lostAt)
+        #expect(self.playerService.isExplicitPauseIntentActive == false)
+    }
+
+    @Test("A route-loss pause after the queue ends keeps Start Radio from starting on the fallback output")
+    func routeLossPauseAfterQueueEndStopsStartRadio() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 239, duration: 240)
+
+        let radioGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = radioGate
+        let refresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        guard self.mockClient.getRadioQueueVideoIds.count == 1 else {
+            await radioGate.open()
+            await refresh.value
+            Issue.record("The Start Radio request never reached the mock client")
+            return
+        }
+
+        self.mockClient.getRadioQueueGate = nil
+        await self.playerService.finishPlaybackAfterFailedQueueAdvance(reason: "test")
+        await self.playerService.pause(
+            intent: self.playerService.currentMusicPlaybackIntent,
+            origin: .routeLoss(at: .now)
+        )
+        #expect(self.playerService.state == .ended)
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        await radioGate.open()
+        await refresh.value
+
+        #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(self.playerService.state == .ended)
+    }
+
     @Test("Only explicit pauses advance the explicit pause generation")
     func automaticStopsDoNotCountAsExplicitPauses() async {
         let songs = TestFixtures.makeSongs(count: 1)
