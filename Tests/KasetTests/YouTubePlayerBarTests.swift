@@ -47,7 +47,7 @@ struct YouTubePlayerBarTests {
             showsFloatOnTopControl: true
         )
 
-        #expect(standardBreakpoint == 580)
+        #expect(standardBreakpoint == 614)
         #expect(pinnedWindowBreakpoint - standardBreakpoint == 34)
     }
 
@@ -58,7 +58,7 @@ struct YouTubePlayerBarTests {
         let pinnedSignedIn = YouTubePlayerBar.optionsWidth(showsFloatOnTopControl: true, showsWatchLaterControl: true)
         let pinnedSignedOut = YouTubePlayerBar.optionsWidth(showsFloatOnTopControl: true, showsWatchLaterControl: false)
 
-        #expect(signedIn == 210)
+        #expect(signedIn == 244)
         #expect(signedIn - signedOut == 34)
         #expect(pinnedSignedIn - signedIn == 34)
         #expect(pinnedSignedOut == signedIn)

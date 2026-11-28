@@ -281,6 +281,10 @@ extension YouTubeWatchWebView {
                 """,
                 completionHandler: nil
             )
+            webView.evaluateJavaScript(
+                YouTubeWatchWebView.playbackRateScript(rate: self.playerService.playbackRate),
+                completionHandler: nil
+            )
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

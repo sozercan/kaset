@@ -87,6 +87,9 @@ final class YouTubeVideoWindowController {
 
     private var fullscreenIntent = YouTubeVideoWindowFullscreenIntentState()
 
+    private var fullViewSourceFrame: NSRect?
+    private var usesTransientFullViewFrame = false
+
     private init() {}
 
     func show(youtubePlayerService: YouTubePlayerService, authService: AuthService) {
@@ -94,6 +97,7 @@ final class YouTubeVideoWindowController {
 
         if let existingWindow = self.window {
             self.isClosing = false
+            self.fullViewSourceFrame = nil
             existingWindow.title = youtubePlayerService.currentVideo?.title ?? "YouTube"
             self.syncWindowState()
             existingWindow.orderFront(nil)
@@ -136,21 +140,14 @@ final class YouTubeVideoWindowController {
         window.delegate = resizeGuard
         window.contentMinSize = Self.minContentSize
         window.backgroundColor = .black
-        window.setFrameAutosaveName(self.frameAutosaveKey)
         window.identifier = NSUserInterfaceItemIdentifier(AccessibilityID.YouTubeContent.videoWindow)
 
-        if !window.setFrameUsingName(self.frameAutosaveKey) {
-            self.positionAtDefaultLocation(window: window)
-        }
-        let currentContent = window.contentRect(forFrameRect: window.frame).size
-        let normalized = YouTubeVideoWindowResizeGuard.normalizedContentSize(
-            for: currentContent,
-            minContentSize: Self.minContentSize
-        )
-        if abs(currentContent.width - normalized.width) > 1
-            || abs(currentContent.height - normalized.height) > 1
-        {
-            window.setContentSize(normalized)
+        if let sourceFrame = self.fullViewSourceFrame {
+            self.fullViewSourceFrame = nil
+            self.usesTransientFullViewFrame = true
+            window.setFrame(sourceFrame, display: false)
+        } else {
+            self.applySavedFrame(to: window)
         }
 
         window.orderFront(nil)
@@ -222,17 +219,24 @@ final class YouTubeVideoWindowController {
     }
 
     @objc private func windowDidExitFullScreen(_ notification: Notification) {
+        let returnsInline = self.fullscreenIntent.consumeReturnInlineOnExit()
         if let window = notification.object as? NSWindow {
-            self.applyFrameAutosaveTransition(.didExitFullScreen, to: window)
+            if !returnsInline {
+                self.leaveTransientFullViewFrame(window)
+            }
+            if !self.usesTransientFullViewFrame {
+                self.applyFrameAutosaveTransition(.didExitFullScreen, to: window)
+            }
             self.applyDesiredWindowedLevel(to: window)
         }
         self.youtubePlayerService?.windowFullscreenPhase = .windowed
-        if self.fullscreenIntent.consumeReturnInlineOnExit() {
+        if returnsInline {
             self.youtubePlayerService?.requestPopIn()
         }
     }
 
     private func handleFailedFullscreenEntry(_ window: NSWindow) {
+        self.leaveTransientFullViewFrame(window)
         self.applyFrameAutosaveTransition(.didFailToEnterFullScreen, to: window)
         self.fullscreenIntent.cancelReturnInlineOnExit()
         self.applyDesiredWindowedLevel(to: window)
@@ -243,6 +247,29 @@ final class YouTubeVideoWindowController {
         self.youtubePlayerService?.windowFullscreenPhase = .settled(
             isFullScreen: window.styleMask.contains(.fullScreen)
         )
+    }
+
+    private func applySavedFrame(to window: NSWindow) {
+        window.setFrameAutosaveName(self.frameAutosaveKey)
+        if !window.setFrameUsingName(self.frameAutosaveKey) {
+            self.positionAtDefaultLocation(window: window)
+        }
+        let currentContent = window.contentRect(forFrameRect: window.frame).size
+        let normalized = YouTubeVideoWindowResizeGuard.normalizedContentSize(
+            for: currentContent,
+            minContentSize: Self.minContentSize
+        )
+        if abs(currentContent.width - normalized.width) > 1
+            || abs(currentContent.height - normalized.height) > 1
+        {
+            window.setContentSize(normalized)
+        }
+    }
+
+    private func leaveTransientFullViewFrame(_ window: NSWindow) {
+        guard self.usesTransientFullViewFrame else { return }
+        self.usesTransientFullViewFrame = false
+        self.applySavedFrame(to: window)
     }
 
     private func applyFrameAutosaveTransition(
@@ -275,6 +302,7 @@ final class YouTubeVideoWindowController {
               !player.windowFullscreenPhase.isTransitioning
         else { return }
         if player.surfaceLocation == .inline {
+            self.fullViewSourceFrame = Self.inlineVideoScreenFrame()
             player.popOutToWindow()
             self.isPoppingOutToFullView = true
             Task { @MainActor in
@@ -306,7 +334,7 @@ final class YouTubeVideoWindowController {
     }
 
     private func saveFrameIfRestorable(_ window: NSWindow) {
-        guard !window.styleMask.contains(.fullScreen) else { return }
+        guard !window.styleMask.contains(.fullScreen), !self.usesTransientFullViewFrame else { return }
         window.saveFrame(usingName: self.frameAutosaveKey)
     }
 
@@ -329,6 +357,8 @@ final class YouTubeVideoWindowController {
     private func performCleanup() {
         self.youtubePlayerService?.windowFullscreenPhase = .windowed
         self.fullscreenIntent.cancelReturnInlineOnExit()
+        self.fullViewSourceFrame = nil
+        self.usesTransientFullViewFrame = false
         if let window = self.window {
             NotificationCenter.default.removeObserver(
                 self,
@@ -357,6 +387,14 @@ final class YouTubeVideoWindowController {
         self.window = nil
         self.hostingView = nil
         self.isClosing = false
+    }
+
+    private static func inlineVideoScreenFrame() -> NSRect? {
+        guard let webView = YouTubeWatchWebView.shared.webView,
+              let window = webView.window,
+              !webView.bounds.isEmpty
+        else { return nil }
+        return window.convertToScreen(webView.convert(webView.bounds, to: nil))
     }
 
     private func positionAtDefaultLocation(window: NSWindow) {

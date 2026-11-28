@@ -17,6 +17,7 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
     private(set) var markCurrentPlaybackOccurrenceEndedCount = 0
     private(set) var commandLog: [String] = []
     private(set) var volumes: [Double] = []
+    private(set) var playbackRates: [Double] = []
     private(set) var tearDownCount = 0
     private(set) var prepareCount = 0
     private(set) var cancelPendingLoadCount = 0
@@ -91,6 +92,10 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
 
     func setVolume(_ volume: Double) {
         self.volumes.append(volume)
+    }
+
+    func setPlaybackRate(_ rate: Double) {
+        self.playbackRates.append(rate)
     }
 
     func showAirPlayPicker(at _: CGPoint?) {}
@@ -1548,6 +1553,27 @@ extension YouTubePlayerServiceTests {
         self.sut.selectQuality("hd1080")
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
         #expect(self.sut.userPinnedQuality == nil)
+    }
+
+    @Test("Playback rate selection forwards, clamps, and persists across videos")
+    func playbackRateSelection() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.sut.selectPlaybackRate(1.5)
+        #expect(self.sut.playbackRate == 1.5)
+        #expect(self.controller.playbackRates == [1.5])
+
+        self.sut.selectPlaybackRate(1.5)
+        #expect(self.controller.playbackRates == [1.5])
+
+        self.sut.selectPlaybackRate(4)
+        #expect(self.sut.playbackRate == 2)
+        #expect(self.controller.playbackRates == [1.5, 2])
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
+        #expect(self.sut.playbackRate == 2)
+        #expect(YouTubePlayerService.playbackRateDisplayName(2, locale: Locale(identifier: "en_US_POSIX")) == "2×")
+        #expect(YouTubePlayerService.playbackRateDisplayName(1.25, locale: Locale(identifier: "en_US_POSIX")) == "1.25×")
     }
 
     @Test("Playback options do not duplicate Auto and remain unavailable when empty")

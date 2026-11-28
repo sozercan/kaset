@@ -4,10 +4,10 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
-    private static let baseYouTubeOptionsWidth: CGFloat = 210
+    private static let baseYouTubeOptionsWidth: CGFloat = 244
     private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
-    private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
+    private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 614
 
     private static let hiddenDetailsLeadingInset: CGFloat = 16
 
@@ -68,7 +68,7 @@ struct YouTubePlayerBar: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .compatGlass(interactive: true, in: .capsule)
+            .compatGlass(in: .capsule)
             .compatGlassID("youtubePlayerBar", in: self.playerNamespace)
         }
         .padding(.horizontal, 16)
@@ -163,7 +163,7 @@ struct YouTubePlayerBar: View {
                         )
                     }
                 }
-                .frame(width: 129, height: 29, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 29, maxHeight: 29, alignment: .leading)
             }
 
             if self.hasPersonalAccount {
@@ -350,12 +350,18 @@ struct YouTubePlayerBar: View {
             PlayerBarIconButton(
                 action: self.openYouTubeFullView,
                 accessibilityID: AccessibilityID.YouTubeContent.watchFullView,
-                accessibilityLabel: String(localized: "Full view"),
+                accessibilityLabel: self.youtubePlayer.isWindowFullscreen
+                    ? String(localized: "Exit full view")
+                    : String(localized: "Full view"),
                 icon: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 15, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.primary)
+                    Image(
+                        systemName: self.youtubePlayer.isWindowFullscreen
+                            ? "arrow.down.right.and.arrow.up.left"
+                            : "arrow.up.left.and.arrow.down.right"
+                    )
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(.primary)
                 }
             )
             .disabled(self.youtubePlayer.currentVideo == nil)
@@ -403,6 +409,7 @@ struct YouTubePlayerBar: View {
             .disabled(self.youtubePlayer.currentVideo == nil)
 
             self.compactCaptionsMenu
+            self.compactPlaybackRateMenu
             self.compactQualityMenu
 
             if self.showsFloatOnTopControl {
@@ -454,6 +461,29 @@ struct YouTubePlayerBar: View {
         .disabled(self.youtubePlayer.currentVideo == nil)
     }
 
+    private var compactPlaybackRateMenu: some View {
+        PlayerBarIconMenu(
+            isSelected: self.youtubePlayer.playbackRate != 1,
+            accessibilityID: AccessibilityID.YouTubeContent.playbackSpeedButton,
+            accessibilityLabel: String(localized: "Playback speed")
+        ) {
+            Picker(String(localized: "Playback speed"), selection: self.playbackRateSelection) {
+                ForEach(YouTubePlayerService.playbackRateOptions, id: \.self) { rate in
+                    Text(verbatim: YouTubePlayerService.playbackRateDisplayName(rate))
+                        .tag(rate)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } icon: {
+            Image(systemName: "gauge.with.needle")
+                .font(.system(size: 16, weight: .regular))
+                .frame(width: 16, height: 16)
+                .foregroundStyle(self.youtubePlayer.playbackRate == 1 ? .primary : Self.brandAccent)
+        }
+        .disabled(self.youtubePlayer.currentVideo == nil)
+    }
+
     private var compactQualityMenu: some View {
         PlayerBarIconMenu(
             accessibilityID: AccessibilityID.YouTubeContent.qualityButton,
@@ -480,6 +510,13 @@ struct YouTubePlayerBar: View {
         Binding(
             get: { self.youtubePlayer.activeCaptionLanguageCode },
             set: { self.youtubePlayer.selectCaptionTrack(languageCode: $0) }
+        )
+    }
+
+    private var playbackRateSelection: Binding<Double> {
+        Binding(
+            get: { self.youtubePlayer.playbackRate },
+            set: { self.youtubePlayer.selectPlaybackRate($0) }
         )
     }
 
@@ -788,4 +825,5 @@ extension AccessibilityID.YouTubeContent {
     static let watchFullView = "youtubeContent.watchFullView"
     static let captionsButton = "youtubeContent.captionsButton"
     static let qualityButton = "youtubeContent.qualityButton"
+    static let playbackSpeedButton = "youtubeContent.playbackSpeedButton"
 }
