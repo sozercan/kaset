@@ -438,17 +438,23 @@ struct LoginSheet: View {
         self.isCheckingLogin = true
         defer { self.isCheckingLogin = false }
 
-        try? await Task.sleep(for: .milliseconds(300))
-        guard !Task.isCancelled, self.isActive else { return }
-
-        guard await self.webKitManager.getSAPISID() != nil,
-              await self.webKitManager.hasLoginCookieSnapshotChanged(transaction)
+        let readinessObserver = LoginCookieReadinessObserver(
+            webKitManager: self.webKitManager,
+            authService: self.authService
+        )
+        let isReady = await readinessObserver.waitUntilReady(
+            expectedAttemptID: loginAttemptID,
+            transaction: transaction,
+            timeout: .seconds(5),
+            pollInterval: .milliseconds(50)
+        )
+        guard isReady,
+              !Task.isCancelled,
+              self.isActive,
+              self.loginAttemptID == loginAttemptID
         else {
             return
         }
-
-        try? await Task.sleep(for: .milliseconds(200))
-        guard !Task.isCancelled, self.isActive else { return }
 
         let completionGate = LoginCompletionGate(
             webKitManager: self.webKitManager,
@@ -529,6 +535,73 @@ private func clearFailedLogin(
             await webKitManager.clearAllData()
         }
     )
+}
+
+@MainActor
+struct LoginCookieReadinessObserver {
+    let webKitManager: any WebKitManagerProtocol
+    let authService: any AuthServiceProtocol
+
+    func waitUntilReady(
+        expectedAttemptID: LoginAttemptID,
+        transaction: CookieBackupTransaction,
+        timeout: Duration = .seconds(5),
+        pollInterval: Duration = .milliseconds(50)
+    ) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        var lastSnapshotDigest: String?
+        var stableObservations = 0
+
+        while !Task.isCancelled {
+            guard self.authService.activeLoginAttemptID == expectedAttemptID else {
+                return false
+            }
+
+            let hasSAPISID = await self.webKitManager.getSAPISID() != nil
+            guard !Task.isCancelled, self.authService.activeLoginAttemptID == expectedAttemptID else {
+                return false
+            }
+
+            if hasSAPISID, await self.webKitManager.hasLoginCookieSnapshotChanged(transaction) {
+                let cookies = await self.webKitManager.getAllCookies()
+                    .filter { KeychainCookieStorage.isValidAuthCookie($0) }
+                let cookieNames = Set(cookies.map(\.name))
+                let hasSessionCookie = cookieNames.contains("SID") || cookieNames.contains("__Secure-3PSID")
+                guard hasSessionCookie else {
+                    lastSnapshotDigest = nil
+                    stableObservations = 0
+                    guard ContinuousClock.now < deadline else {
+                        return false
+                    }
+                    try? await Task.sleep(for: pollInterval)
+                    continue
+                }
+                let digest = cookies
+                    .map { "\($0.domain)|\($0.path)|\($0.name)|\($0.value)" }
+                    .sorted()
+                    .joined(separator: "\n")
+                if digest == lastSnapshotDigest {
+                    stableObservations += 1
+                    if stableObservations >= 2 {
+                        return true
+                    }
+                } else {
+                    lastSnapshotDigest = digest
+                    stableObservations = 1
+                }
+            } else {
+                lastSnapshotDigest = nil
+                stableObservations = 0
+            }
+
+            guard ContinuousClock.now < deadline else {
+                return false
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
+
+        return false
+    }
 }
 
 @MainActor

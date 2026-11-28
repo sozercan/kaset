@@ -683,3 +683,8 @@
 "Talk to a companion app" = "Связываться с приложением-компаньоном";
 "Request a connection to its companion app." = "Запрашивать подключение к своему приложению-компаньону.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Оно сможет читать и передавать информацию, которая отображается, пока вы вошли в аккаунт. Включайте его, только если доверяете ему.";
+"Applying..." = "Применение...";
+"Remove Suggested Tracks" = "Удалить предложенные треки";
+"This playlist cannot be edited." = "Этот плейлист нельзя редактировать.";
+"Selected tracks cannot be removed from this playlist." = "Выбранные треки нельзя удалить из этого плейлиста.";
+"Could not remove all suggested tracks from the playlist." = "Не удалось удалить все предложенные треки из плейлиста.";

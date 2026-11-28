@@ -3,15 +3,17 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct RefinePlaylistSheet: View {
     let tracks: [Song]
+    let canApplyRemovals: Bool
     @Binding var isProcessing: Bool
     @Binding var changes: PlaylistChanges?
     @Binding var partialChanges: PlaylistChanges.PartiallyGenerated?
     @Binding var errorMessage: String?
     let onRefine: (String) async -> Void
-    let onApply: () -> Void
+    let onApplyRemovals: ([String]) async -> String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var promptText = ""
+    @State private var isApplying = false
     @FocusState private var isPromptFocused: Bool
 
     var body: some View {
@@ -27,6 +29,7 @@ struct RefinePlaylistSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+                .disabled(self.isApplying)
                 .accessibilityLabel(String(localized: "Close"))
             }
             .padding()
@@ -46,6 +49,7 @@ struct RefinePlaylistSheet: View {
             }
         }
         .frame(width: 500, height: 400)
+        .interactiveDismissDisabled(self.isApplying)
         .onAppear {
             self.isPromptFocused = true
         }
@@ -217,26 +221,46 @@ struct RefinePlaylistSheet: View {
                 .padding(.horizontal)
             }
 
+            if let error = self.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal)
+            }
+
             Divider()
+
+            let removableIds = changes.removals.filter { videoId in
+                self.tracks.contains { $0.videoId == videoId && $0.playlistSetVideoId != nil }
+            }
+            let canApply = self.canApplyRemovals && !removableIds.isEmpty
 
             HStack {
                 Button(String(localized: "Try Again")) {
                     self.changes = nil
                     self.errorMessage = nil
                 }
+                .disabled(self.isApplying)
 
                 Spacer()
 
-                Button(String(localized: "Cancel")) {
+                Button(String(localized: "Close")) {
                     self.dismiss()
                 }
                 .keyboardShortcut(.escape)
+                .disabled(self.isApplying)
 
-                Button(String(localized: "Apply Changes")) {
-                    self.onApply()
+                if canApply {
+                    Button(self.isApplying ? String(localized: "Applying...") : String(localized: "Remove Suggested Tracks")) {
+                        Task {
+                            self.isApplying = true
+                            self.errorMessage = await self.onApplyRemovals(removableIds)
+                            self.isApplying = false
+                        }
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(self.isApplying)
                 }
-                .buttonStyle(.glassProminent)
-                .disabled(changes.removals.isEmpty && changes.reorderedIds == nil)
             }
             .padding()
         }

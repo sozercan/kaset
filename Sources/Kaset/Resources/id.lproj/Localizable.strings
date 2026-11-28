@@ -683,3 +683,8 @@
 "Talk to a companion app" = "Berkomunikasi dengan aplikasi pendamping";
 "Request a connection to its companion app." = "Meminta koneksi ke aplikasi pendampingnya.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Ekstensi ini dapat membaca dan membagikan informasi yang ditampilkan saat Anda masuk. Aktifkan hanya jika Anda memercayainya.";
+"Applying..." = "Menerapkan...";
+"Remove Suggested Tracks" = "Hapus Lagu yang Disarankan";
+"This playlist cannot be edited." = "Playlist ini tidak dapat diedit.";
+"Selected tracks cannot be removed from this playlist." = "Lagu yang dipilih tidak dapat dihapus dari playlist ini.";
+"Could not remove all suggested tracks from the playlist." = "Tidak dapat menghapus semua lagu yang disarankan dari playlist.";

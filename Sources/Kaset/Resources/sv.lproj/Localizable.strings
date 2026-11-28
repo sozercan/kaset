@@ -683,3 +683,8 @@
 "Talk to a companion app" = "Kommunicera med en tillhörande app";
 "Request a connection to its companion app." = "Begära en anslutning till sin tillhörande app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Det kan läsa och dela information som visas medan du är inloggad. Aktivera det bara om du litar på det.";
+"Applying..." = "Tillämpar...";
+"Remove Suggested Tracks" = "Ta bort föreslagna spår";
+"This playlist cannot be edited." = "Den här spellistan kan inte redigeras.";
+"Selected tracks cannot be removed from this playlist." = "Valda spår kan inte tas bort från den här spellistan.";
+"Could not remove all suggested tracks from the playlist." = "Det gick inte att ta bort alla föreslagna spår från spellistan.";

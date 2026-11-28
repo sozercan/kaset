@@ -237,23 +237,29 @@ struct ExtensionsSettingsView: View {
         }
     }
 
+    static func restartHelperArguments(pid: Int32, bundleURL: URL) -> [String] {
+        [
+            "-c",
+            "pid=\"$1\"; app=\"$2\"; while kill -0 \"$pid\" 2>/dev/null; do sleep 0.05; done; exec /usr/bin/open -n \"$app\"",
+            "kaset-restart",
+            String(pid),
+            bundleURL.path,
+        ]
+    }
+
     private func restartApp() {
         DiagnosticsLogger.extensions.info("Restarting app...")
         let url = Bundle.main.bundleURL
-        let shellScript = "sleep 0.5; open '\(url.path)'"
+        let pid = ProcessInfo.processInfo.processIdentifier
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", shellScript]
+        task.arguments = Self.restartHelperArguments(pid: pid, bundleURL: url)
         do {
             try task.run()
             NSApplication.shared.terminate(nil)
         } catch {
             DiagnosticsLogger.extensions.error("Failed to run restart script: \(error.localizedDescription)")
-            let fallbackTask = Process()
-            fallbackTask.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            fallbackTask.arguments = [url.path]
-            try? fallbackTask.run()
-            NSApplication.shared.terminate(nil)
+            self.extensionError = error.localizedDescription
         }
     }
 }

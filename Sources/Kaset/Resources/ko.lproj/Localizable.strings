@@ -683,3 +683,8 @@
 "Talk to a companion app" = "도우미 앱과 통신";
 "Request a connection to its companion app." = "확장 프로그램의 도우미 앱에 연결을 요청합니다.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "로그인한 동안 표시되는 정보를 읽고 공유할 수 있습니다. 신뢰할 수 있는 경우에만 켜세요.";
+"Applying..." = "적용 중...";
+"Remove Suggested Tracks" = "추천 트랙 제거";
+"This playlist cannot be edited." = "이 재생목록은 편집할 수 없습니다.";
+"Selected tracks cannot be removed from this playlist." = "선택한 트랙을 이 재생목록에서 제거할 수 없습니다.";
+"Could not remove all suggested tracks from the playlist." = "재생목록에서 추천 트랙을 모두 제거할 수 없습니다.";

@@ -41,25 +41,69 @@ struct ExtensionOptionsView: NSViewRepresentable {
         webView.isInspectable = true
 
         webView.navigationDelegate = context.coordinator
-        webView.load(URLRequest(url: self.page.url))
+        context.coordinator.load(page: self.page, into: webView)
         return webView
     }
 
-    func updateNSView(_ webView: WKWebView, context _: Context) {
-        if webView.url != self.page.url, !webView.isLoading {
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(100))
-                DiagnosticsLogger.extensions.info("ExtensionOptionsView loading URL: \(self.page.url.absoluteString)")
-                webView.load(URLRequest(url: self.page.url))
-            }
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        let coordinator = context.coordinator
+        guard coordinator.loadedPageID != self.page.id || coordinator.loadedURL != self.page.url else {
+            return
         }
+        coordinator.load(page: self.page, into: webView)
     }
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
 
+    @MainActor
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        private(set) var loadedPageID: String?
+        private(set) var loadedURL: URL?
+        private var activeNavigation: WKNavigation?
+        private var pendingLoadTask: Task<Void, Never>?
+
+        deinit {
+            self.pendingLoadTask?.cancel()
+        }
+
+        func load(
+            page: WebKitManager.ExtensionPage,
+            into webView: WKWebView,
+            isContextReady: @escaping @MainActor (String) -> Bool = { WebKitManager.shared.extensionPage(forExtensionId: $0) != nil }
+        ) {
+            self.loadedPageID = page.id
+            self.loadedURL = page.url
+            self.activeNavigation = nil
+            self.pendingLoadTask?.cancel()
+
+            let targetID = page.id
+            let targetURL = page.url
+            self.pendingLoadTask = Task { @MainActor [weak self, weak webView] in
+                guard let self, let webView else { return }
+                let deadline = ContinuousClock.now + .seconds(5)
+                while !isContextReady(targetID), ContinuousClock.now < deadline {
+                    if Task.isCancelled {
+                        return
+                    }
+                    try? await Task.sleep(for: .milliseconds(25))
+                }
+                guard !Task.isCancelled,
+                      self.loadedPageID == targetID,
+                      self.loadedURL == targetURL
+                else { return }
+                guard isContextReady(targetID) else {
+                    DiagnosticsLogger.extensions.warning("ExtensionOptionsView timed out waiting for extension context readiness")
+                    self.loadedPageID = nil
+                    self.loadedURL = nil
+                    return
+                }
+                DiagnosticsLogger.extensions.info("ExtensionOptionsView loading URL: \(targetURL.absoluteString)")
+                self.activeNavigation = webView.load(URLRequest(url: targetURL))
+            }
+        }
+
         func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "optionsDebug" {
                 DiagnosticsLogger.extensions.info("Options Console: \(String(describing: message.body))")
@@ -74,17 +118,28 @@ struct ExtensionOptionsView: NSViewRepresentable {
             DiagnosticsLogger.extensions.info("Options page: Navigation committed.")
         }
 
-        func webView(_: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: Error) {
+        func webView(_: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             let nsError = error as NSError
             DiagnosticsLogger.extensions.error("Options page navigation failed (Code \(nsError.code)): \(error.localizedDescription)")
+            guard navigation === self.activeNavigation else { return }
+            self.activeNavigation = nil
+            self.loadedPageID = nil
+            self.loadedURL = nil
         }
 
-        func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
+        func webView(_: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             let nsError = error as NSError
             DiagnosticsLogger.extensions.error("Options page load failed (Code \(nsError.code)): \(error.localizedDescription)")
+            guard navigation === self.activeNavigation else { return }
+            self.activeNavigation = nil
+            self.loadedPageID = nil
+            self.loadedURL = nil
         }
 
-        func webView(_: WKWebView, didFinish _: WKNavigation!) {
+        func webView(_: WKWebView, didFinish navigation: WKNavigation!) {
+            if navigation === self.activeNavigation {
+                self.activeNavigation = nil
+            }
             DiagnosticsLogger.extensions.info("Options page loaded successfully.")
         }
     }

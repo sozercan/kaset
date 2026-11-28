@@ -683,3 +683,8 @@
 "Talk to a companion app" = "Communiceren met een bijbehorende app";
 "Request a connection to its companion app." = "Een verbinding aanvragen met de bijbehorende app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "De extensie zou informatie kunnen lezen en delen die wordt getoond terwijl je bent ingelogd. Schakel deze alleen in als je de extensie vertrouwt.";
+"Applying..." = "Toepassen...";
+"Remove Suggested Tracks" = "Voorgestelde nummers verwijderen";
+"This playlist cannot be edited." = "Deze afspeellijst kan niet worden bewerkt.";
+"Selected tracks cannot be removed from this playlist." = "Geselecteerde nummers kunnen niet uit deze afspeellijst worden verwijderd.";
+"Could not remove all suggested tracks from the playlist." = "Kon niet alle voorgestelde nummers uit de afspeellijst verwijderen.";

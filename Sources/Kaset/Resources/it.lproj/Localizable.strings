@@ -683,3 +683,8 @@
 "Talk to a companion app" = "Comunicare con un’app complementare";
 "Request a connection to its companion app." = "Richiedere una connessione alla propria app complementare.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Potrebbe leggere e condividere le informazioni mostrate mentre hai eseguito l’accesso. Attivala solo se ti fidi.";
+"Applying..." = "Applicazione...";
+"Remove Suggested Tracks" = "Rimuovi brani suggeriti";
+"This playlist cannot be edited." = "Questa playlist non può essere modificata.";
+"Selected tracks cannot be removed from this playlist." = "I brani selezionati non possono essere rimossi da questa playlist.";
+"Could not remove all suggested tracks from the playlist." = "Impossibile rimuovere tutti i brani suggeriti dalla playlist.";
