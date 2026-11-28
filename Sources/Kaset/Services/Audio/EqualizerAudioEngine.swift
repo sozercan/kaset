@@ -1,17 +1,27 @@
 import AudioToolbox
 import CoreAudio
 import Foundation
+import Synchronization
 
 final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     private static let fallbackSampleRate: Float64 = 48000
 
     private static let tapChannelCount: Int = 2
 
+    struct RenderParameters: Equatable {
+        let preampLinear: Float
+        let wetMixTarget: Float
+
+        static let unity = Self(preampLinear: 1, wetMixTarget: 1)
+    }
+
     private(set) var isRunning: Bool = false
 
-    // swiftformat:disable modifierOrder
-    nonisolated(unsafe) private(set) var hasObservedAudio: Bool = false
-    // swiftformat:enable modifierOrder
+    private let hasObservedAudioStorage = Atomic<Bool>(false)
+
+    var hasObservedAudio: Bool {
+        self.hasObservedAudioStorage.load(ordering: .acquiring)
+    }
 
     private let tapHelper = ProcessTapHelper()
 
@@ -21,9 +31,12 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
     private let filters: [BiquadFilter]
 
-    private var preampLinear: Float = 1
-
-    private var wetMixTarget: Float = 1
+    private let parameterSlots: UnsafeMutablePointer<RenderParameters>
+    private let publishedParameterSlot = Atomic<Int>(0)
+    private let readerReservedParameterSlot = Atomic<Int>(-1)
+    private let parameterWriterLock = NSLock()
+    private var writerParameterSlot = 0
+    private var cachedRenderParameters = RenderParameters.unity
 
     private var wetMix: Float = 1
 
@@ -39,6 +52,8 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     init(bands: [EQBand] = EQBand.defaultBands) {
         self.bands = bands
         self.filters = bands.map { _ in BiquadFilter() }
+        self.parameterSlots = UnsafeMutablePointer<RenderParameters>.allocate(capacity: 3)
+        self.parameterSlots.initialize(repeating: .unity, count: 3)
     }
 
     deinit {
@@ -49,12 +64,14 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 AudioDeviceDestroyIOProcID(aggregateID, procID)
             }
         }
+        self.parameterSlots.deinitialize(count: 3)
+        self.parameterSlots.deallocate()
     }
 
     func start() -> Result<Void, StartFailure> {
         guard !self.isRunning else { return .success(()) }
 
-        self.hasObservedAudio = false
+        self.hasObservedAudioStorage.store(false, ordering: .releasing)
 
         self.envStereo = 0
         self.envMono = 0
@@ -126,14 +143,27 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         self.tapHelper.stop()
         self.renderFormat = nil
         self.isRunning = false
-        self.hasObservedAudio = false
+        self.hasObservedAudioStorage.store(false, ordering: .releasing)
     }
 
     func apply(settings: EQSettings) {
         let sampleRate = Float(self.renderFormat?.mSampleRate ?? Self.fallbackSampleRate)
         let totalGainDB = settings.preampDB + settings.autoTrimDB
-        self.preampLinear = powf(10, totalGainDB / 20)
-        self.wetMixTarget = settings.isEnabled ? 1 : 0
+        let params = RenderParameters(
+            preampLinear: powf(10, totalGainDB / 20),
+            wetMixTarget: settings.isEnabled ? 1 : 0
+        )
+        self.parameterWriterLock.lock()
+        let published = self.writerParameterSlot
+        let reserved = self.readerReservedParameterSlot.load(ordering: .sequentiallyConsistent)
+        var nextSlot = (published + 1) % 3
+        if nextSlot == reserved {
+            nextSlot = (nextSlot + 1) % 3
+        }
+        self.parameterSlots[nextSlot] = params
+        self.publishedParameterSlot.store(nextSlot, ordering: .sequentiallyConsistent)
+        self.writerParameterSlot = nextSlot
+        self.parameterWriterLock.unlock()
         for (index, band) in self.bands.enumerated() {
             guard index < settings.bandGainsDB.count else { break }
             let gainDB = settings.bandGainsDB[index]
@@ -184,16 +214,17 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
                 continue
             }
             dst.update(from: src, count: frames)
-            if !self.hasObservedAudio,
+            if !self.hasObservedAudioStorage.load(ordering: .relaxed),
                UnsafeBufferPointer(start: src, count: frames).contains(where: { $0 != 0 })
             {
-                self.hasObservedAudio = true
+                self.hasObservedAudioStorage.store(true, ordering: .releasing)
             }
         }
 
-        let gain = self.preampLinear
+        let publishedParams = self.readPublishedRenderParameters()
+        let gain = publishedParams.preampLinear
         var mix = self.wetMix
-        let target = self.wetMixTarget
+        let target = publishedParams.wetMixTarget
         let filters = self.filters
         let filterCount = filters.count
 
@@ -255,6 +286,26 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         }
 
         self.wetMix = mix
+    }
+
+    func readPublishedRenderParameters(
+        onSlotReserved: (() -> Void)? = nil
+    ) -> RenderParameters {
+        var index = self.publishedParameterSlot.load(ordering: .acquiring)
+        for _ in 0 ..< 4 {
+            self.readerReservedParameterSlot.store(index, ordering: .sequentiallyConsistent)
+            let confirmed = self.publishedParameterSlot.load(ordering: .sequentiallyConsistent)
+            if confirmed == index {
+                onSlotReserved?()
+                let snapshot = self.parameterSlots[index]
+                self.readerReservedParameterSlot.store(-1, ordering: .releasing)
+                self.cachedRenderParameters = snapshot
+                return snapshot
+            }
+            index = confirmed
+        }
+        self.readerReservedParameterSlot.store(-1, ordering: .releasing)
+        return self.cachedRenderParameters
     }
 
     private static let crossfadeAlpha: Float = 0.002
