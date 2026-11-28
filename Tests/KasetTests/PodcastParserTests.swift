@@ -365,6 +365,115 @@ struct PodcastParserTests {
         ]
     }
 
+    @Test("Parse multi-row episode recognizes structured progress and played state without English text")
+    func parseMultiRowEpisodePlayedSignals() throws {
+        let items: [[String: Any]] = [
+            self.makeMultiRowItem(
+                videoId: "nested-played",
+                extra: [
+                    "playbackProgress": [
+                        "musicPlaybackProgressRenderer": [
+                            "playbackProgressPercentage": 100,
+                            "playedText": ["runs": [["text": " • "], ["text": "Oynatıldı"]]],
+                        ],
+                    ],
+                ]
+            ),
+            self.makeMultiRowItem(
+                videoId: "nested-unplayed-with-template",
+                extra: [
+                    "playbackProgress": [
+                        "musicPlaybackProgressRenderer": [
+                            "playbackProgressPercentage": 0,
+                            "playedText": ["runs": [["text": " • "], ["text": "Played"]]],
+                        ],
+                    ],
+                ]
+            ),
+            self.makeMultiRowItem(
+                videoId: "localized-played-only",
+                extra: [
+                    "playedText": ["runs": [["text": "再生済み"]]],
+                ]
+            ),
+            self.makeMultiRowItem(
+                videoId: "playback-state-played",
+                extra: [
+                    "playbackState": "PLAYBACK_STATE_PLAYED",
+                ]
+            ),
+            self.makeMultiRowItem(
+                videoId: "explicit-unplayed-with-text",
+                extra: [
+                    "isPlayed": false,
+                    "playedText": ["runs": [["text": "Played"]]],
+                ]
+            ),
+            self.makeMultiRowItem(
+                videoId: "explicit-unplayed-with-state",
+                extra: [
+                    "isPlayed": false,
+                    "playbackState": "PLAYED",
+                ]
+            ),
+        ]
+
+        let response: [String: Any] = [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "title": ["runs": [["text": "Episodes"]]],
+                                            "contents": items,
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        let sections = PodcastParser.parseDiscovery(response)
+        let episodes = sections.flatMap(\.items).compactMap { item -> PodcastEpisode? in
+            if case let .episode(episode) = item {
+                return episode
+            }
+            return nil
+        }
+        let byId = Dictionary(uniqueKeysWithValues: episodes.map { ($0.id, $0) })
+
+        #expect(try #require(byId["nested-played"]).isPlayed == true)
+        #expect(try #require(byId["nested-played"]).playbackProgress == 1.0)
+        #expect(try #require(byId["nested-unplayed-with-template"]).isPlayed == false)
+        #expect(try #require(byId["nested-unplayed-with-template"]).playbackProgress == 0.0)
+        #expect(try #require(byId["localized-played-only"]).isPlayed == true)
+        #expect(try #require(byId["playback-state-played"]).isPlayed == true)
+        #expect(try #require(byId["explicit-unplayed-with-text"]).isPlayed == false)
+        #expect(try #require(byId["explicit-unplayed-with-text"]).playbackProgress == 0.0)
+        #expect(try #require(byId["explicit-unplayed-with-state"]).isPlayed == false)
+        #expect(try #require(byId["explicit-unplayed-with-state"]).playbackProgress == 0.0)
+    }
+
+    private func makeMultiRowItem(
+        videoId: String,
+        extra: [String: Any]
+    ) -> [String: Any] {
+        var renderer: [String: Any] = [
+            "title": ["runs": [["text": "Episode \(videoId)"]]],
+            "onTap": ["watchEndpoint": ["videoId": videoId]],
+        ]
+        for (key, value) in extra {
+            renderer[key] = value
+        }
+        return ["musicMultiRowListItemRenderer": renderer]
+    }
+
     private func makePodcastShowItem(id: String, title: String) -> [String: Any] {
         [
             "musicTwoRowItemRenderer": [

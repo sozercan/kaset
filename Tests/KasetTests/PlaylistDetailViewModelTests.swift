@@ -1992,8 +1992,8 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.title == "Test Playlist")
     }
 
-    @Test("Load preserves fallback author metadata when cleaning song count suffix")
-    func loadPreservesFallbackAuthorMetadataWhenCleaningSongCountSuffix() async {
+    @Test("Load preserves fallback author metadata when detail omits author")
+    func loadPreservesFallbackAuthorMetadata() async {
         let mockClient = MockYTMusicClient()
         let originalPlaylist = Playlist(
             id: "VL-test-playlist",
@@ -2003,7 +2003,7 @@ struct PlaylistDetailViewModelTests {
             trackCount: 145,
             author: Artist(
                 id: "UC123456",
-                name: "Test User • 145 songs",
+                name: "Test User",
                 thumbnailURL: URL(string: "https://example.com/author.jpg"),
                 subtitle: "123 subscribers",
                 profileKind: .profile

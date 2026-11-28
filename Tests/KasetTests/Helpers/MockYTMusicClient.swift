@@ -289,7 +289,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     struct AddSongToPlaylistCall: Equatable {
         let videoId: String
         let playlistId: String
-        let allowDuplicate: Bool
     }
 
     struct RemoveSongFromPlaylistCall: Equatable {
@@ -1037,8 +1036,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return "PLCREATED"
     }
 
-    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws {
-        self.addSongToPlaylistCalls.append(AddSongToPlaylistCall(videoId: videoId, playlistId: playlistId, allowDuplicate: allowDuplicate))
+    func addSongToPlaylist(videoId: String, playlistId: String) async throws {
+        self.addSongToPlaylistCalls.append(AddSongToPlaylistCall(videoId: videoId, playlistId: playlistId))
         if let error = shouldThrowError {
             throw error
         }

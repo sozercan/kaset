@@ -178,7 +178,7 @@ protocol YTMusicClientProtocol: Sendable {
 
     func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu
 
-    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws
+    func addSongToPlaylist(videoId: String, playlistId: String) async throws
 
     func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws
 

@@ -290,8 +290,7 @@ enum LibraryMutationActions {
                 try self.checkAccountBoundary(boundaryGeneration)
                 try await client.addSongToPlaylist(
                     videoId: song.videoId,
-                    playlistId: playlist.playlistId,
-                    allowDuplicate: false
+                    playlistId: playlist.playlistId
                 )
                 try self.checkAccountBoundary(boundaryGeneration)
                 self.invalidateResponseCaches()

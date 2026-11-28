@@ -417,7 +417,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return nil
         }
         let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
-        let author = ParsingHelpers.extractSubtitle(from: data)
 
         return Playlist(
             id: browseId,
@@ -425,7 +424,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             description: nil,
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: author.map { Artist.inline(name: $0, namespace: "playlist-author") }
+            author: ParsingHelpers.extractPlaylistAuthor(from: data)
         )
     }
 
@@ -725,16 +724,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             }
 
             if Self.isPlaylistBrowseId(browseId, browseEndpoint: browseEndpoint) {
-                let author = ParsingHelpers.extractFirstNavigableArtist(from: runs)
-                    ?? runs.compactMap { run -> Artist? in
-                        guard let text = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-                              !text.isEmpty,
-                              text != "•"
-                        else {
-                            return nil
-                        }
-                        return Artist.inline(name: text, namespace: "playlist-author")
-                    }.first
+                let author = ParsingHelpers.extractPlaylistAuthor(from: runs)
 
                 return .playlist(Playlist(
                     id: browseId,

@@ -448,7 +448,7 @@ enum HomeResponseParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") }
+                author: ParsingHelpers.extractPlaylistAuthorFromFlexColumns(data)
             )
             return .playlist(playlist)
 
@@ -541,7 +541,7 @@ enum HomeResponseParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") }
+                author: ParsingHelpers.extractPlaylistAuthor(from: data)
             )
             return .playlist(playlist)
 
