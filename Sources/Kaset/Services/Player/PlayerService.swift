@@ -230,6 +230,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     var suppressNextEmptyQueuePersistence = false
 
+    var preservesSavedSessionWhileDisabled = false
+
     var restoredPlaybackSessionOwnerScope: String?
 
     var hasResolvedStartupPlaybackOwnership = false

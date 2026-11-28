@@ -9,6 +9,7 @@ struct AppIntentsBridgeTests {
     private final class Environment {
         var isAuthInitializing = false
         var isSignedIn = false
+        var isMusicEnabled = true
         var acceptsTransport = true
         var transportPayloads: [RemoteMusicCommandPayload] = []
         var showMainWindowCount = 0
@@ -29,6 +30,7 @@ struct AppIntentsBridgeTests {
             client: client,
             isAuthInitializing: { environment.isAuthInitializing },
             hasPersonalAccount: { environment.isSignedIn },
+            isMusicEnabled: { environment.isMusicEnabled },
             transportHandler: { payload in
                 environment.transportPayloads.append(payload)
                 return environment.acceptsTransport
@@ -452,5 +454,46 @@ struct AppIntentsBridgeTests {
 
         #expect(library.playablePlaylists.map(\.id) == ["PL-mix"])
         #expect(library.playableAlbums.map(\.id) == ["MPREb_album"])
+    }
+
+    @Test("Music intents reject playback and return empty searches when Music is disabled")
+    func musicDisabledRejectsPlaybackAndSearch() async throws {
+        let environment = Environment()
+        environment.isMusicEnabled = false
+        let client = MockYTMusicClient()
+        let bridge = self.makeBridge(client: client, environment: environment)
+
+        await #expect(throws: AppIntentsError.musicDisabled) {
+            try await bridge.play(song: TestFixtures.makeSong(id: "disabled-song"))
+        }
+        await #expect(throws: AppIntentsError.musicDisabled) {
+            try await bridge.playSearchResult(for: "test")
+        }
+        await #expect(throws: AppIntentsError.musicDisabled) {
+            try await bridge.play(playlist: LikedMusicPlaylist.playlist)
+        }
+        #expect(try await bridge.searchSongs(matching: "test").isEmpty)
+        #expect(try await bridge.searchPlaylists(matching: "test").isEmpty)
+        #expect(try await bridge.searchAlbums(matching: "test").isEmpty)
+        #expect(await bridge.song(videoId: "disabled-song") == nil)
+        #expect(environment.showMainWindowCount == 0)
+    }
+
+    @Test("Music intents recheck availability if Music is disabled while waiting for startup")
+    func musicDisabledDuringStartupWaitRejectsPlayback() async {
+        let environment = Environment()
+        let bridge = self.makeBridge(environment: environment, startupComplete: false)
+        bridge.startupTimeout = .seconds(5)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            environment.isMusicEnabled = false
+            bridge.markStartupComplete()
+        }
+
+        await #expect(throws: AppIntentsError.musicDisabled) {
+            try await bridge.play(song: TestFixtures.makeSong(id: "disabled-mid-wait"))
+        }
+        #expect(environment.showMainWindowCount == 0)
     }
 }

@@ -684,3 +684,10 @@
 "Talk to a companion app" = "Yardımcı bir uygulamayla iletişim kurma";
 "Request a connection to its companion app." = "Kendi yardımcı uygulamasına bağlantı isteğinde bulunabilir.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Oturum açıkken gösterilen bilgileri okuyabilir ve paylaşabilir. Yalnızca güveniyorsanız etkinleştirin.";
+
+"App Mode" = "Uygulama Modu";
+"Choose whether to show YouTube Music, YouTube, or both" = "YouTube Music, YouTube veya her ikisinin gösterilmesini seçin";
+"Music & YouTube" = "Müzik ve YouTube";
+"Music Only" = "Yalnızca Müzik";
+"YouTube Only" = "Yalnızca YouTube";
+"YouTube Music is disabled in Kaset's App Mode settings." = "YouTube Music, Kaset'in Uygulama Modu ayarlarında devre dışı bırakıldı.";

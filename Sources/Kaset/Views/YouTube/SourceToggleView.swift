@@ -69,7 +69,9 @@ struct SourceToggleView: View {
     }
 
     private func select(_ source: AppSource) {
-        guard self.settings.appSource != source else { return }
+        guard self.settings.appExperience.showsSourceToggle,
+              self.settings.appSource != source
+        else { return }
 
         if source == .music {
             self.youtubePlayer.prepareForSourceSwitch()

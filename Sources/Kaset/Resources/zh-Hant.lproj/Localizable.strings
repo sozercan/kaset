@@ -683,3 +683,10 @@
 "Talk to a companion app" = "與配套應用程式通訊";
 "Request a connection to its companion app." = "要求連線到其配套應用程式。";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "它可能會讀取並分享你登入期間顯示的資訊。請僅在你信任它時啟用。";
+
+"App Mode" = "應用程式模式";
+"Choose whether to show YouTube Music, YouTube, or both" = "選擇顯示 YouTube Music、YouTube 或兩者同時顯示";
+"Music & YouTube" = "音樂與 YouTube";
+"Music Only" = "僅音樂";
+"YouTube Only" = "僅 YouTube";
+"YouTube Music is disabled in Kaset's App Mode settings." = "已在 Kaset 的應用程式模式設定中停用 YouTube Music。";

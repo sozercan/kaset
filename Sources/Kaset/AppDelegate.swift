@@ -45,7 +45,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.registerForSleepWakeNotifications()
 
-        self.playerService?.restoreQueueFromPersistence()
+        if SettingsManager.shared.appExperience.includesMusic {
+            self.playerService?.restoreQueueFromPersistence()
+        } else {
+            self.playerService?.loadPersistedPlaybackSessionOwnerScopeWithoutRestoring()
+        }
     }
 
     func applicationWillTerminate(_: Notification) {

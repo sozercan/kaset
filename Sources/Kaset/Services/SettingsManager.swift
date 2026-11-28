@@ -10,6 +10,7 @@ final class SettingsManager {
     enum Keys {
         static let appearance = "settings.appearance"
         static let appSource = "settings.appSource"
+        static let appExperience = "settings.appExperience"
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
         static let hapticFeedbackEnabled = "settings.hapticFeedbackEnabled"
@@ -228,7 +229,21 @@ final class SettingsManager {
 
     var appSource: AppSource {
         didSet {
+            let resolved = self.appExperience.resolvedSource(for: self.appSource)
+            if resolved != self.appSource {
+                self.appSource = resolved
+                return
+            }
             UserDefaults.standard.set(self.appSource.rawValue, forKey: Keys.appSource)
+        }
+    }
+
+    var appExperience: AppExperience {
+        didSet {
+            UserDefaults.standard.set(self.appExperience.rawValue, forKey: Keys.appExperience)
+            if let enforcedSource = self.appExperience.enforcedSource, self.appSource != enforcedSource {
+                self.appSource = enforcedSource
+            }
         }
     }
 
@@ -446,6 +461,15 @@ final class SettingsManager {
         defaults.string(forKey: Keys.appearance).flatMap(AppAppearance.init(rawValue:)) ?? .system
     }
 
+    static func loadAppExperience(from defaults: UserDefaults) -> AppExperience {
+        defaults.string(forKey: Keys.appExperience).flatMap(AppExperience.init(rawValue:)) ?? .both
+    }
+
+    static func loadAppSource(from defaults: UserDefaults, experience: AppExperience) -> AppSource {
+        let stored = defaults.string(forKey: Keys.appSource).flatMap(AppSource.init(rawValue:)) ?? .music
+        return experience.resolvedSource(for: stored)
+    }
+
     private init() {
         self.appearance = Self.loadAppearance(from: UserDefaults.standard)
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
@@ -526,13 +550,11 @@ final class SettingsManager {
             self.contentLanguage = .system
         }
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.appSource),
-           let source = AppSource(rawValue: rawValue)
-        {
-            self.appSource = source
-        } else {
-            self.appSource = .music
-        }
+        let experience = Self.loadAppExperience(from: UserDefaults.standard)
+        let source = Self.loadAppSource(from: UserDefaults.standard, experience: experience)
+        self.appExperience = experience
+        self.appSource = source
+        UserDefaults.standard.set(source.rawValue, forKey: Keys.appSource)
 
         AppLocalization.setLanguage(self.contentLanguage.languageCode)
 

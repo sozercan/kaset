@@ -104,3 +104,10 @@
 "Talk to a companion app" = "Talk to a companion app";
 "Request a connection to its companion app." = "Request a connection to its companion app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "It could read and share information shown while you’re signed in. Only turn it on if you trust it.";
+
+"App Mode" = "App Mode";
+"Choose whether to show YouTube Music, YouTube, or both" = "Choose whether to show YouTube Music, YouTube, or both";
+"Music & YouTube" = "Music & YouTube";
+"Music Only" = "Music Only";
+"YouTube Only" = "YouTube Only";
+"YouTube Music is disabled in Kaset's App Mode settings." = "YouTube Music is disabled in Kaset's App Mode settings.";
