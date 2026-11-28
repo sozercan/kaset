@@ -428,6 +428,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             if !self.settings.appExperience.includesMusic {
                 self.playerService.clearPlaybackForSignOut()
                 self.playerService.preservesSavedSessionWhileDisabled = true
+                self.rebuildMusicViewModels(accountId: newAccountId)
             }
         }
         self.libraryViewModel?.activateAccountScope(
