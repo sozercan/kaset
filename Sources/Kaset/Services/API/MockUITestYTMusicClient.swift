@@ -111,6 +111,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return HomeResponse(sections: Self.defaultHomeSections())
     }
 
+    func getHistoryFirstPageSnapshot() async throws -> HomeResponse {
+        try await self.getHistory()
+    }
+
     func getHistoryContinuation() async throws -> [HomeSection]? {
         nil
     }

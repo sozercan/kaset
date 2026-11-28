@@ -163,7 +163,18 @@ extension YouTubeWatchWebView {
                 const isReplacementElement = !hasBoundOccurrence && mediaGeneration > 0;
                 const previousMediaVideoId = mediaVideoId;
                 const sourceChanged = hasBoundOccurrence && source !== mediaSource;
-                const mediaTimeReset = hasBoundOccurrence && currentTime + 2 < lastMediaCurrentTime;
+                const activePendingSeekRecovery = window.__kasetPendingSeekAttempt != null
+                    && (
+                        (window.__kasetPendingSeekInFlightAttempt != null
+                            && window.__kasetPendingSeekInFlightAttempt === window.__kasetPendingSeekAttempt)
+                        || (window.__kasetPendingSeekMonitoringAttempt != null
+                            && window.__kasetPendingSeekMonitoringAttempt === window.__kasetPendingSeekAttempt)
+                    )
+                    && !sourceChanged
+                    && (!resolvedVideoId || !mediaVideoId || resolvedVideoId === mediaVideoId);
+                const mediaTimeReset = hasBoundOccurrence
+                    && !activePendingSeekRecovery
+                    && currentTime + 2 < lastMediaCurrentTime;
                 const identityChanged = !!resolvedVideoId
                     && !!mediaVideoId
                     && resolvedVideoId !== mediaVideoId;
@@ -260,7 +271,8 @@ extension YouTubeWatchWebView {
                 const seekAttempt = window.__kasetPendingSeekAttempt || 0;
                 window.__kasetPendingSeekAttempt = seekAttempt;
                 if (window.__kasetPendingSeekInFlightAttempt === seekAttempt) { return; }
-                window.__kasetPendingSeekInFlightAttempt = seekAttempt;
+                    window.__kasetPendingSeekInFlightAttempt = seekAttempt;
+                    window.__kasetPendingSeekMonitoringAttempt = seekAttempt;
                 try {
                     const seekMediaGeneration = video.__kasetMediaGeneration || 0;
                     const seekSource = video.currentSrc;
@@ -281,10 +293,39 @@ extension YouTubeWatchWebView {
                         ? Math.min(Math.max(target, 0), video.duration)
                         : Math.min(Math.max(target, firstSeekable), lastSeekable);
                     window.__kasetPendingSeekWaits = 0;
-                    video.currentTime = resolvedTarget;
+                    window.__kasetPendingSeekRetried = false;
+                    window.__kasetPendingSeekResolvedTarget = resolvedTarget;
+                    window.__kasetPendingSeekMediaGeneration = seekMediaGeneration;
+                    window.__kasetPendingSeekSource = seekSource;
+                    window.__kasetPendingSeekExpectedVideoId = expectedVideoId;
+                    let recoverySettled = false;
+                    let recoveryConfirmed = false;
+                    let deadlineTimer = null;
+                    function clearPendingSeekConfirmation() {
+                        if (deadlineTimer !== null && typeof clearTimeout === 'function') {
+                            clearTimeout(deadlineTimer);
+                        }
+                        deadlineTimer = null;
+                        if (window.__kasetPendingSeekConfirmHandler === handleSeekObservation) {
+                            window.__kasetPendingSeekConfirmHandler = null;
+                            if (window.__kasetPendingSeekMonitoringAttempt === seekAttempt) {
+                                window.__kasetPendingSeekMonitoringAttempt = null;
+                            }
+                        }
+                    }
+                    function stillMatchesRecoveryMedia() {
+                        return video === videoEl()
+                            && (video.__kasetBoundVideoId || '') === (expectedVideoId || '')
+                            && (video.__kasetMediaGeneration || 0) === seekMediaGeneration
+                            && video.currentSrc === seekSource
+                            && window.__kasetPendingSeekAttempt === seekAttempt;
+                    }
                     function reportSeekResult() {
+                        if (recoverySettled) return;
+                        recoverySettled = true;
+                        clearPendingSeekConfirmation();
                         if (!stillOwnsSeekOperation()) return;
-                        if (Math.abs(video.currentTime - resolvedTarget) <= 1.5) {
+                        if (!video.seeking && Math.abs(video.currentTime - resolvedTarget) <= 1.5) {
                             window.__kasetPendingSeek = null;
                             window.__kasetPendingSeekVideoId = null;
                             window.__kasetPendingSeekWaits = 0;
@@ -308,18 +349,86 @@ extension YouTubeWatchWebView {
                         window.__kasetPendingSeekInFlightAttempt = null;
                         sendUpdate(true);
                     }
-                    setTimeout(function() {
-                        if (!stillOwnsSeekOperation()) return;
-                        if (Math.abs(video.currentTime - resolvedTarget) > 1.5) {
+                    function handleSeekObservation(observedVideo) {
+                        if (recoverySettled) return;
+                        if (observedVideo && observedVideo !== video) return;
+                        if (recoveryConfirmed) {
+                            if (!stillMatchesRecoveryMedia()) {
+                                recoverySettled = true;
+                                clearPendingSeekConfirmation();
+                                return;
+                            }
+                            if (!video.seeking
+                                && video.currentTime < resolvedTarget - 1.5
+                                && !window.__kasetPendingSeekRetried) {
+                                window.__kasetPendingSeekRetried = true;
+                                try { video.currentTime = resolvedTarget; } catch (e) {}
+                                recoverySettled = true;
+                                clearPendingSeekConfirmation();
+                            }
+                            return;
+                        }
+                        if (!stillOwnsSeekOperation()) {
+                            recoverySettled = true;
+                            clearPendingSeekConfirmation();
+                            return;
+                        }
+                        if (video.seeking) return;
+                        if (Math.abs(video.currentTime - resolvedTarget) <= 1.5) {
+                            recoveryConfirmed = true;
+                            window.__kasetPendingSeek = null;
+                            window.__kasetPendingSeekVideoId = null;
+                            window.__kasetPendingSeekWaits = 0;
+                            window.__kasetPendingSeekApplied = true;
+                            window.__kasetPendingSeekResultTarget = target;
+                            window.__kasetPendingSeekResultVideoId = expectedVideoId
+                                || currentVideoId()
+                                || video.__kasetBoundVideoId
+                                || '';
+                            window.__kasetPendingSeekInFlightAttempt = null;
+                            sendUpdate(true);
+                            return;
+                        }
+                        if (!window.__kasetPendingSeekRetried) {
+                            window.__kasetPendingSeekRetried = true;
                             try { video.currentTime = resolvedTarget; } catch (e) {}
-                            setTimeout(reportSeekResult, 400);
+                        }
+                    }
+                    window.__kasetPendingSeekConfirmHandler = handleSeekObservation;
+                    video.currentTime = resolvedTarget;
+                    deadlineTimer = setTimeout(function() {
+                        if (recoverySettled) return;
+                        if (recoveryConfirmed) {
+                            if (stillMatchesRecoveryMedia()
+                                && !video.seeking
+                                && video.currentTime < resolvedTarget - 1.5
+                                && !window.__kasetPendingSeekRetried) {
+                                window.__kasetPendingSeekRetried = true;
+                                try { video.currentTime = resolvedTarget; } catch (e) {}
+                            }
+                            recoverySettled = true;
+                            clearPendingSeekConfirmation();
+                            return;
+                        }
+                        if (!stillOwnsSeekOperation()) {
+                            recoverySettled = true;
+                            clearPendingSeekConfirmation();
+                            return;
+                        }
+                        if (Math.abs(video.currentTime - resolvedTarget) > 1.5 && !window.__kasetPendingSeekRetried) {
+                            window.__kasetPendingSeekRetried = true;
+                            try { video.currentTime = resolvedTarget; } catch (e) {}
+                            deadlineTimer = setTimeout(reportSeekResult, 400);
                             return;
                         }
                         reportSeekResult();
-                    }, 400);
+                    }, 1500);
                 } catch (e) {
                     if (window.__kasetPendingSeekInFlightAttempt === seekAttempt) {
                         window.__kasetPendingSeekInFlightAttempt = null;
+                    }
+                    if (window.__kasetPendingSeekMonitoringAttempt === seekAttempt) {
+                        window.__kasetPendingSeekMonitoringAttempt = null;
                     }
                 }
             }
@@ -361,6 +470,9 @@ extension YouTubeWatchWebView {
                 if (event && (event.type === 'seeked' || event.type === 'loadedmetadata'
                     || event.type === 'canplay')) {
                     armEndedOccurrence(video);
+                    if (typeof window.__kasetPendingSeekConfirmHandler === 'function') {
+                        window.__kasetPendingSeekConfirmHandler(video);
+                    }
                 }
                 sendUpdate(true);
             }
@@ -369,6 +481,9 @@ extension YouTubeWatchWebView {
                 const video = eventVideo(event);
                 if (!video) return;
                 bindVideoIdentity(video, false);
+                if (typeof window.__kasetPendingSeekConfirmHandler === 'function') {
+                    window.__kasetPendingSeekConfirmHandler(video);
+                }
                 applyPendingSeek(video);
                 if (!video.paused && !video.ended) {
                     sendUpdate(false);

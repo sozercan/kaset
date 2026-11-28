@@ -254,7 +254,36 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     func getHistory() async throws -> HomeResponse {
-        try await self.fetchPaginatedContent(type: .history, ttl: nil)
+        self.logger.info("Fetching history page")
+
+        let paginationEpoch = (self.paginationEpochs[.history] ?? 0) &+ 1
+        let generation = self.continuationGeneration
+        let body: [String: Any] = [
+            "browseId": PaginatedContentType.history.rawValue,
+        ]
+
+        let data = try await self.request("browse", body: body, ttl: nil, bypassCache: false)
+        try Task.checkCancellation()
+        let response = HomeResponseParser.parse(data)
+
+        let token = HomeResponseParser.extractContinuationToken(from: data)
+        if generation == self.continuationGeneration {
+            self.paginationEpochs[.history] = paginationEpoch
+            self.continuationTokens[.history] = token
+        }
+
+        let hasMore = generation == self.continuationGeneration && token != nil
+        self.logger.info("History page loaded: \(response.sections.count) initial sections, hasMore: \(hasMore)")
+        return response
+    }
+
+    func getHistoryFirstPageSnapshot() async throws -> HomeResponse {
+        self.logger.info("Fetching history first-page snapshot")
+        let body: [String: Any] = [
+            "browseId": PaginatedContentType.history.rawValue,
+        ]
+        let data = try await self.request("browse", body: body, ttl: nil, bypassCache: true)
+        return HomeResponseParser.parse(data)
     }
 
     func getHistoryContinuation() async throws -> [HomeSection]? {
@@ -265,11 +294,16 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         self.logger.info("Fetching history continuation")
         let generation = self.continuationGeneration
+        let paginationEpoch = self.paginationEpochs[.history] ?? 0
 
         do {
             let continuationData = try await self.requestContinuation(continuation, authPolicy: .required)
+            try Task.checkCancellation()
             let additionalSections = HomeResponseParser.parseContinuation(continuationData)
-            guard generation == self.continuationGeneration else {
+            try Task.checkCancellation()
+            guard generation == self.continuationGeneration,
+                  (self.paginationEpochs[.history] ?? 0) == paginationEpoch
+            else {
                 self.logger.info("Discarding stale history continuation after session reset")
                 return nil
             }
@@ -278,9 +312,11 @@ final class YTMusicClient: YTMusicClientProtocol {
 
             self.logger.info("History continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
             return additionalSections
+        } catch is CancellationError {
+            self.logger.debug("History continuation request cancelled")
+            throw CancellationError()
         } catch {
             self.logger.warning("Failed to fetch history continuation: \(error.localizedDescription)")
-            self.continuationTokens[.history] = nil
             throw error
         }
     }

@@ -12,6 +12,8 @@ final class YouTubeHomeViewModel {
 
     private(set) var hasMoreVideos = true
 
+    private(set) var paginationCursorGeneration = 0
+
     private(set) var hasMoreTopicRails = false
 
     private(set) var isLoadingTopicRails = false
@@ -55,6 +57,8 @@ final class YouTubeHomeViewModel {
     private var continueWatchingRefreshTask: Task<Void, Never>?
 
     private var inFlightRefreshGeneration: Int?
+
+    private var seenContinuationTokens: Set<String> = []
 
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
@@ -107,6 +111,10 @@ final class YouTubeHomeViewModel {
             let gridVideos = bundle.feed.videos.filter { !self.shelfVideoIDs.contains($0.videoId) }
 
             self.videos = gridVideos
+            self.seenContinuationTokens = []
+            if let initialContinuation = bundle.feed.continuation {
+                self.seenContinuationTokens.insert(initialContinuation)
+            }
             self.hasMoreVideos = self.client.hasMoreHomeFeed
             let gridReady = !gridVideos.isEmpty
             if gridReady {
@@ -412,6 +420,7 @@ final class YouTubeHomeViewModel {
 
         self.loadingState = .loadingMore
         do {
+            var didAdvanceCursor = false
             for _ in 0 ..< Self.maxEmptyContinuationPages {
                 guard let feed = try await client.getHomeFeedContinuation() else {
                     self.hasMoreVideos = false
@@ -422,10 +431,22 @@ final class YouTubeHomeViewModel {
                     !self.shelfVideoIDs.contains(video.videoId) && existing.insert(video.videoId).inserted
                 }
                 self.videos.append(contentsOf: newVideos)
+
+                if let token = feed.continuation {
+                    if !self.seenContinuationTokens.insert(token).inserted {
+                        self.hasMoreVideos = false
+                        break
+                    }
+                    didAdvanceCursor = true
+                }
+
                 self.hasMoreVideos = self.client.hasMoreHomeFeed
                 if !newVideos.isEmpty || !self.hasMoreVideos {
                     break
                 }
+            }
+            if didAdvanceCursor, self.hasMoreVideos {
+                self.paginationCursorGeneration &+= 1
             }
             self.loadingState = .loaded
         } catch {
