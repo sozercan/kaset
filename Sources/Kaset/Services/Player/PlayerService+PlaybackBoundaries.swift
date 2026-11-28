@@ -80,6 +80,7 @@ extension PlayerService {
         self.currentLyricsLineIndex = nil
         self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
+        self.resetAdPlaybackState()
         self.showMiniPlayer = false
         self.isMiniPlayerVisible = false
         self.showLyrics = false
