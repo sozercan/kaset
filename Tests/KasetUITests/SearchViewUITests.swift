@@ -60,7 +60,11 @@ final class SearchViewUITests: KasetUITestCase {
         searchField.click()
         searchField.typeText("test\n")
 
-        Thread.sleep(forTimeInterval: 1)
+        let firstResult = app.buttons[TestAccessibilityID.Search.resultRow(index: 0)]
+        XCTAssertTrue(
+            waitForElement(firstResult, timeout: 10),
+            "Submitting a search should render the mock search results"
+        )
     }
 
     func testFilterChipsExistAfterSearch() {
@@ -74,9 +78,16 @@ final class SearchViewUITests: KasetUITestCase {
         searchField.click()
         searchField.typeText("test\n")
 
-        Thread.sleep(forTimeInterval: 2)
-
         let allFilterButton = app.buttons["All"]
+        let songsFilterButton = app.buttons["Songs"]
+        XCTAssertTrue(
+            waitForElement(allFilterButton, timeout: 10),
+            "All filter chip should appear after search results load"
+        )
+        XCTAssertTrue(
+            waitForElement(songsFilterButton, timeout: 5),
+            "Songs filter chip should appear after search results load"
+        )
     }
 
     func testSearchFieldIsFocusedOnAppear() {

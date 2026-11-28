@@ -197,4 +197,35 @@ final class VideoUITests: KasetUITestCase {
         let afterClickValue = videoButton.value as? String ?? ""
         XCTAssertEqual(afterClickValue, "Playing", "Video should be playing after clicking the player control")
     }
+
+    func testVideoKeyboardShortcutTogglesWindow() throws {
+        try self.skipVideoWindowAssertionsOnMacOS15()
+
+        launchWithMockPlayerWithVideo(isPlaying: true)
+
+        navigateToHome()
+
+        let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
+        XCTAssertTrue(waitForHittable(videoButton))
+        XCTAssertEqual(videoButton.value as? String ?? "", "Off")
+
+        let mainWindow = app.windows.firstMatch
+        XCTAssertTrue(waitForElement(mainWindow, timeout: 5))
+        mainWindow.click()
+        app.typeKey("v", modifierFlags: [.command, .shift])
+
+        let videoWindow = self.videoWindow
+        XCTAssertTrue(
+            waitForElement(videoWindow, timeout: 5),
+            "Shift+Command+V should open the video window"
+        )
+        XCTAssertEqual(videoButton.value as? String ?? "", "Playing")
+
+        app.typeKey("v", modifierFlags: [.command, .shift])
+        XCTAssertTrue(
+            waitForElementToDisappear(videoWindow, timeout: 5),
+            "Shift+Command+V should close the video window"
+        )
+        XCTAssertEqual(videoButton.value as? String ?? "", "Off")
+    }
 }

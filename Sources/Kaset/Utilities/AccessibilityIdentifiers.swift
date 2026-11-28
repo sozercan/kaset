@@ -82,6 +82,7 @@ enum AccessibilityID {
     }
 
     enum Lyrics {
+        static let panel = "lyrics.panel"
         static let fallbackPanel = "lyrics.fallbackPanel"
     }
 
