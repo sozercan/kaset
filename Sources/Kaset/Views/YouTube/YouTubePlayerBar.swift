@@ -163,7 +163,7 @@ struct YouTubePlayerBar: View {
                         )
                     }
                 }
-                .frame(width: 129, height: 29, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: 29, maxHeight: 29, alignment: .leading)
             }
 
             if self.hasPersonalAccount {
