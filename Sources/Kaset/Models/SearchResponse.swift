@@ -85,38 +85,6 @@ struct SearchResponse {
         self.items = items
         self.continuationToken = value
     }
-
-    init(
-        songs: [Song] = [],
-        videos: [Song] = [],
-        albums: [Album] = [],
-        audiobooks: [Album] = [],
-        artists: [Artist] = [],
-        profiles: [Artist] = [],
-        playlists: [Playlist] = [],
-        podcastShows: [PodcastShow] = [],
-        podcastEpisodes: [PodcastEpisode] = [],
-        continuationToken value: String? = nil
-    ) {
-        var items: [SearchResultItem] = []
-        items.reserveCapacity(
-            songs.count + videos.count + albums.count + audiobooks.count + artists.count
-                + profiles.count + playlists.count + podcastShows.count + podcastEpisodes.count
-        )
-        items.append(contentsOf: songs.map(SearchResultItem.song))
-        items.append(contentsOf: videos.map(SearchResultItem.video))
-        items.append(contentsOf: albums.map(SearchResultItem.album))
-        items.append(contentsOf: audiobooks.map(SearchResultItem.audiobook))
-        items.append(contentsOf: artists.map { artist in
-            artist.profileKind == .profile ? .profile(artist) : .artist(artist)
-        })
-        items.append(contentsOf: profiles.map(SearchResultItem.profile))
-        items.append(contentsOf: playlists.map(SearchResultItem.playlist))
-        items.append(contentsOf: podcastShows.map(SearchResultItem.podcastShow))
-        items.append(contentsOf: podcastEpisodes.map(SearchResultItem.podcastEpisode))
-
-        self.init(items: items, continuationToken: value)
-    }
 }
 
 enum SearchResultItem: Identifiable, Hashable {

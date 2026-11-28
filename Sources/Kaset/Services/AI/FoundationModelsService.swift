@@ -37,7 +37,7 @@ final class FoundationModelsService {
 
     var isDisabledByUser: Bool = false {
         didSet {
-            UserDefaults.standard.set(self.isDisabledByUser, forKey: Self.disabledKey)
+            self.defaults.set(self.isDisabledByUser, forKey: Self.disabledKey)
             NotificationCenter.default.post(name: .intelligenceAvailabilityChanged, object: nil)
         }
     }
@@ -48,10 +48,12 @@ final class FoundationModelsService {
     }
 
     private let logger = DiagnosticsLogger.ai
+    private let defaults: UserDefaults
     private static let disabledKey = "intelligence.disabled"
 
-    private init() {
-        self.isDisabledByUser = UserDefaults.standard.bool(forKey: Self.disabledKey)
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.isDisabledByUser = defaults.bool(forKey: Self.disabledKey)
     }
 
     func warmup() async {

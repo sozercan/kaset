@@ -5,6 +5,19 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct SettingsManagerTests {
+    private struct IsolatedSettings {
+        let manager: SettingsManager
+        let defaults: UserDefaults
+        let suiteName: String
+    }
+
+    private func makeIsolatedManager() throws -> IsolatedSettings {
+        let suiteName = "SettingsManagerTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        return IsolatedSettings(manager: SettingsManager(defaults: defaults), defaults: defaults, suiteName: suiteName)
+    }
+
     @Test("LaunchPage has correct display names")
     func launchPageDisplayNames() {
         #expect(SettingsManager.LaunchPage.home.displayName == "Home")
@@ -45,42 +58,48 @@ struct SettingsManagerTests {
     }
 
     @Test("Default showNowPlayingNotifications is true")
-    func defaultShowNowPlayingNotifications() {
-        let manager = SettingsManager.shared
+    func defaultShowNowPlayingNotifications() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         #expect(manager.showNowPlayingNotifications == true)
     }
 
     @Test("Default hapticFeedbackEnabled is true")
-    func defaultHapticFeedbackEnabled() {
-        let manager = SettingsManager.shared
+    func defaultHapticFeedbackEnabled() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         #expect(manager.hapticFeedbackEnabled == true)
     }
 
     @Test("Default rememberPlaybackSettings is false")
-    func defaultRememberPlaybackSettings() {
-        let manager = SettingsManager.shared
+    func defaultRememberPlaybackSettings() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         #expect(manager.rememberPlaybackSettings == false)
     }
 
     @Test("Default popOutVideoOnNavigateAway is true")
-    func defaultPopOutVideoOnNavigateAway() {
-        let manager = SettingsManager.shared
+    func defaultPopOutVideoOnNavigateAway() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         #expect(manager.popOutVideoOnNavigateAway == true)
     }
 
     @Test("popOutVideoOnNavigateAway persists to UserDefaults")
-    func popOutVideoOnNavigateAwayPersists() {
-        let manager = SettingsManager.shared
-        let originalValue = manager.popOutVideoOnNavigateAway
-        defer {
-            manager.popOutVideoOnNavigateAway = originalValue
-        }
+    func popOutVideoOnNavigateAwayPersists() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
         manager.popOutVideoOnNavigateAway = false
-        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == false)
+        #expect(defaults.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == false)
 
         manager.popOutVideoOnNavigateAway = true
-        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
+        #expect(defaults.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
     }
 
     @Test("Missing showYouTubeControlsOnVideo value loads as false")
@@ -106,18 +125,16 @@ struct SettingsManagerTests {
     }
 
     @Test("showYouTubeControlsOnVideo persists to UserDefaults")
-    func showYouTubeControlsOnVideoPersists() {
-        let manager = SettingsManager.shared
-        let originalValue = manager.showYouTubeControlsOnVideo
-        defer {
-            manager.showYouTubeControlsOnVideo = originalValue
-        }
+    func showYouTubeControlsOnVideoPersists() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
         manager.showYouTubeControlsOnVideo = true
-        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.showYouTubeControlsOnVideo) == true)
+        #expect(defaults.bool(forKey: SettingsManager.Keys.showYouTubeControlsOnVideo) == true)
 
         manager.showYouTubeControlsOnVideo = false
-        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.showYouTubeControlsOnVideo) == false)
+        #expect(defaults.bool(forKey: SettingsManager.Keys.showYouTubeControlsOnVideo) == false)
     }
 
     @Test("Missing keepYouTubeVideoOnTop value loads as false")
@@ -153,22 +170,12 @@ struct SettingsManagerTests {
         #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == false)
     }
 
-    @Test("keepYouTubeVideoOnTop persists to shared UserDefaults")
-    func keepYouTubeVideoOnTopPersists() {
-        let manager = SettingsManager.shared
-        let defaults = UserDefaults.standard
+    @Test("keepYouTubeVideoOnTop persists to isolated UserDefaults")
+    func keepYouTubeVideoOnTopPersists() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let key = SettingsManager.Keys.keepYouTubeVideoOnTop
-        let originalValue = manager.keepYouTubeVideoOnTop
-        let originalStoredObject = defaults.object(forKey: key)
-
-        defer {
-            manager.keepYouTubeVideoOnTop = originalValue
-            if let originalStoredObject {
-                defaults.set(originalStoredObject, forKey: key)
-            } else {
-                defaults.removeObject(forKey: key)
-            }
-        }
 
         manager.keepYouTubeVideoOnTop = true
         #expect(defaults.object(forKey: key) as? Bool == true)
@@ -178,19 +185,21 @@ struct SettingsManagerTests {
     }
 
     @Test("Disabling rememberPlaybackSettings clears persisted values")
-    func disablingRememberPlaybackSettingsClearsValues() {
-        let manager = SettingsManager.shared
+    func disablingRememberPlaybackSettingsClearsValues() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let shuffleKey = "playerShuffleEnabled"
         let repeatKey = "playerRepeatMode"
 
-        UserDefaults.standard.set(true, forKey: shuffleKey)
-        UserDefaults.standard.set("all", forKey: repeatKey)
+        defaults.set(true, forKey: shuffleKey)
+        defaults.set("all", forKey: repeatKey)
 
         manager.rememberPlaybackSettings = true
         manager.rememberPlaybackSettings = false
 
-        #expect(UserDefaults.standard.object(forKey: shuffleKey) == nil)
-        #expect(UserDefaults.standard.object(forKey: repeatKey) == nil)
+        #expect(defaults.object(forKey: shuffleKey) == nil)
+        #expect(defaults.object(forKey: repeatKey) == nil)
     }
 
     @Test("Content languages expose stable API codes in locale-code order")
@@ -252,13 +261,17 @@ struct SettingsManagerTests {
     }
 
     @Test("Changing content language invalidates API cache and updates localization bundle")
-    func changingContentLanguageInvalidatesCacheAndUpdatesLocalizationBundle() {
-        let manager = SettingsManager.shared
-        let originalLanguage = manager.contentLanguage
+    func changingContentLanguageInvalidatesCacheAndUpdatesLocalizationBundle() throws {
+        let suiteName = "SettingsManagerTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        let manager = SettingsManager(defaults: defaults, applyLocalization: AppLocalization.setLanguage)
+        let originalSharedLanguage = SettingsManager.shared.contentLanguage
 
         defer {
             APICache.shared.invalidateAll()
-            manager.contentLanguage = originalLanguage
+            AppLocalization.setLanguage(originalSharedLanguage.languageCode)
+            defaults.removePersistentDomain(forName: suiteName)
         }
 
         manager.contentLanguage = .english
@@ -273,42 +286,37 @@ struct SettingsManagerTests {
     }
 
     @Test("launchPage returns defaultLaunchPage for non-lastUsed")
-    func launchPageReturnsDefault() {
-        let manager = SettingsManager.shared
-        let originalPage = manager.defaultLaunchPage
+    func launchPageReturnsDefault() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
         manager.defaultLaunchPage = .explore
 
         #expect(manager.launchPage == .explore)
-
-        manager.defaultLaunchPage = originalPage
     }
 
     @Test("launchPage returns lastUsedPage when set to lastUsed")
-    func launchPageReturnsLastUsed() {
-        let manager = SettingsManager.shared
-        let originalPage = manager.defaultLaunchPage
-        let originalLastUsed = manager.lastUsedPage
+    func launchPageReturnsLastUsed() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
         manager.defaultLaunchPage = .lastUsed
         manager.lastUsedPage = .charts
 
         #expect(manager.launchPage == .charts)
-
-        manager.defaultLaunchPage = originalPage
-        manager.lastUsedPage = originalLastUsed
     }
 
     @Test("launchNavigationItem returns correct item")
-    func launchNavigationItemReturnsCorrect() {
-        let manager = SettingsManager.shared
-        let originalPage = manager.defaultLaunchPage
+    func launchNavigationItemReturnsCorrect() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
         manager.defaultLaunchPage = .likedMusic
 
         #expect(manager.launchNavigationItem == .likedMusic)
-
-        manager.defaultLaunchPage = originalPage
     }
 
     @Test("MediaControlStyle has correct display names")
@@ -333,8 +341,10 @@ struct SettingsManagerTests {
     }
 
     @Test("Default mediaControlStyle is nextPreviousTrack")
-    func defaultMediaControlStyle() {
-        let manager = SettingsManager.shared
+    func defaultMediaControlStyle() throws {
+        let isolated = try self.makeIsolatedManager()
+        let (manager, defaults, suiteName) = (isolated.manager, isolated.defaults, isolated.suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         #expect(manager.mediaControlStyle == .nextPreviousTrack)
     }
 

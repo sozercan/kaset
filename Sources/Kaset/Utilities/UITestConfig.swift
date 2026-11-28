@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 enum UITestConfig {
     static let uiTestModeArgument = "-UITestMode"
@@ -37,14 +38,46 @@ enum UITestConfig {
     }
 
     static var isRunningUnitTests: Bool {
-        NSClassFromString("XCTestCase") != nil
-            || NSClassFromString("Testing.Test") != nil
-            || NSClassFromString("_Testing.Case") != nil
-            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            || Bundle.main.bundleURL.path.contains("Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents")
-            || Bundle.main.bundleURL.path.hasSuffix(".xctest")
-            || ProcessInfo.processInfo.environment["SWIFT_TESTING_ENABLED"] == "1"
+        let explicitOverride: Bool
+        #if DEBUG
+            explicitOverride = self.explicitUnitTestHostOverride
+        #else
+            explicitOverride = false
+        #endif
+        return Self.detectUnitTestHost(
+            environment: ProcessInfo.processInfo.environment,
+            hasXCTestCaseClass: NSClassFromString("XCTestCase") != nil,
+            explicitOverride: explicitOverride
+        )
     }
+
+    static func detectUnitTestHost(
+        environment: [String: String],
+        hasXCTestCaseClass: Bool,
+        explicitOverride: Bool = false
+    ) -> Bool {
+        if explicitOverride {
+            return true
+        }
+        return environment["XCTestConfigurationFilePath"] != nil
+            || environment["XCTestBundlePath"] != nil
+            || environment["SWIFT_TESTING_ENABLED"] == "1"
+            || environment["KASET_UNIT_TEST_HOST"] == "1"
+            || hasXCTestCaseClass
+    }
+
+    #if DEBUG
+        private static let explicitUnitTestHostOverrideStorage = Atomic<Bool>(false)
+
+        static var explicitUnitTestHostOverride: Bool {
+            get {
+                self.explicitUnitTestHostOverrideStorage.load(ordering: .acquiring)
+            }
+            set {
+                self.explicitUnitTestHostOverrideStorage.store(newValue, ordering: .releasing)
+            }
+        }
+    #endif
 
     static var shouldSkipAuth: Bool {
         CommandLine.arguments.contains(skipAuthArgument)

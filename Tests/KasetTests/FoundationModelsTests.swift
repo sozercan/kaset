@@ -2,11 +2,11 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct PlaylistChangesTests {
     @Test("PlaylistChanges with empty removals")
     func emptyRemovals() {
+        guard #available(macOS 26.0, *) else { return }
         let changes = PlaylistChanges(
             removals: [],
             reorderedIds: nil,
@@ -20,6 +20,7 @@ struct PlaylistChangesTests {
 
     @Test("PlaylistChanges with removals")
     func withRemovals() {
+        guard #available(macOS 26.0, *) else { return }
         let changes = PlaylistChanges(
             removals: ["video1", "video2"],
             reorderedIds: nil,
@@ -33,6 +34,7 @@ struct PlaylistChangesTests {
 
     @Test("PlaylistChanges with reordering")
     func withReordering() {
+        guard #available(macOS 26.0, *) else { return }
         let newOrder = ["video3", "video1", "video2"]
         let changes = PlaylistChanges(
             removals: [],
@@ -46,6 +48,7 @@ struct PlaylistChangesTests {
 
     @Test("PlaylistChanges reasoning is present")
     func reasoningPresent() {
+        guard #available(macOS 26.0, *) else { return }
         let changes = PlaylistChanges(
             removals: ["video1"],
             reorderedIds: nil,
@@ -57,6 +60,7 @@ struct PlaylistChangesTests {
 
     @Test("PlaylistChanges normalizes empty reordering to nil")
     func normalizesEmptyReordering() {
+        guard #available(macOS 26.0, *) else { return }
         let changes = PlaylistChanges(
             removals: [],
             reorderedIds: [],
@@ -69,6 +73,7 @@ struct PlaylistChangesTests {
 
     @Test("PlaylistChanges normalizes unchanged ordering to nil")
     func normalizesUnchangedOrdering() {
+        guard #available(macOS 26.0, *) else { return }
         let originalOrder = ["video1", "video2", "video3"]
         let changes = PlaylistChanges(
             removals: [],
@@ -82,6 +87,7 @@ struct PlaylistChangesTests {
 
     @Test("PlaylistChanges preserves meaningful reordering")
     func preservesMeaningfulReordering() {
+        guard #available(macOS 26.0, *) else { return }
         let originalOrder = ["video1", "video2", "video3"]
         let newOrder = ["video3", "video1", "video2"]
         let changes = PlaylistChanges(
@@ -95,11 +101,11 @@ struct PlaylistChangesTests {
     }
 }
 
-@available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct LyricsSummaryTests {
     @Test("LyricsSummary with minimal themes")
     func minimalThemes() {
+        guard #available(macOS 26.0, *) else { return }
         let summary = LyricsSummary(
             themes: ["love", "loss"],
             mood: "melancholic",
@@ -113,6 +119,7 @@ struct LyricsSummaryTests {
 
     @Test("LyricsSummary mood is single word or short phrase")
     func moodFormat() {
+        guard #available(macOS 26.0, *) else { return }
         let summary = LyricsSummary(
             themes: ["hope", "resilience", "growth"],
             mood: "uplifting",
@@ -125,6 +132,7 @@ struct LyricsSummaryTests {
 
     @Test("LyricsSummary explanation is concise")
     func explanationConcise() {
+        guard #available(macOS 26.0, *) else { return }
         let summary = LyricsSummary(
             themes: ["nostalgia", "youth", "summer"],
             mood: "nostalgic",
@@ -137,6 +145,7 @@ struct LyricsSummaryTests {
 
     @Test("LyricsSummary with multiple themes")
     func multipleThemes() {
+        guard #available(macOS 26.0, *) else { return }
         let summary = LyricsSummary(
             themes: ["rebellion", "freedom", "youth", "identity"],
             mood: "defiant",
@@ -148,11 +157,11 @@ struct LyricsSummaryTests {
     }
 }
 
-@available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct FoundationModelsBudgetTests {
     @Test("prompt budget total includes schema tokens")
     func promptBudgetTotalIncludesSchemaTokens() {
+        guard #available(macOS 26.0, *) else { return }
         let budget = FoundationModelsPromptBudget(
             contextSize: 4096,
             instructionsTokens: 100,
@@ -167,6 +176,7 @@ struct FoundationModelsBudgetTests {
 
     @Test("bestFittingPrefixCount allows zero-line fallback")
     func bestFittingPrefixCountAllowsZeroLineFallback() async {
+        guard #available(macOS 26.0, *) else { return }
         let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 4) { count in
             count == 0
         }
@@ -176,6 +186,7 @@ struct FoundationModelsBudgetTests {
 
     @Test("bestFittingPrefixCount returns the largest fitting prefix")
     func bestFittingPrefixCountReturnsLargestFit() async {
+        guard #available(macOS 26.0, *) else { return }
         let bestFit = await FoundationModelsService.bestFittingPrefixCount(maxCount: 6) { count in
             count <= 3
         }
@@ -185,6 +196,7 @@ struct FoundationModelsBudgetTests {
 
     @Test("bestFittingTruncatedContent trims short content below the old 128-char floor")
     func bestFittingTruncatedContentHandlesShortInputs() async {
+        guard #available(macOS 26.0, *) else { return }
         let bestFit = await FoundationModelsService.bestFittingTruncatedContent(
             "small input",
             truncationMarker: "..."
@@ -197,6 +209,7 @@ struct FoundationModelsBudgetTests {
 
     @Test("bestFittingTruncatedContent allows an empty fallback")
     func bestFittingTruncatedContentAllowsEmptyFallback() async {
+        guard #available(macOS 26.0, *) else { return }
         let bestFit = await FoundationModelsService.bestFittingTruncatedContent(
             "small input",
             truncationMarker: "..."

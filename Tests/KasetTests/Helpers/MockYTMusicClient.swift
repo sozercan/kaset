@@ -589,7 +589,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.songsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: response.songs,
+            items: response.songs.map(SearchResultItem.song),
             continuationToken: response.continuationToken
         )
     }
@@ -604,7 +604,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.videosSearchResponse ?? self.searchResponse
         return SearchResponse(
-            videos: response.videos,
+            items: response.videos.map(SearchResultItem.video),
             continuationToken: response.continuationToken
         )
     }
@@ -618,9 +618,16 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
             throw error
         }
         let response = self.albumsSearchResponse ?? self.searchResponse
+        let items = response.allItems.filter {
+            switch $0 {
+            case .album, .audiobook:
+                true
+            default:
+                false
+            }
+        }
         return SearchResponse(
-            albums: response.albums,
-            audiobooks: response.audiobooks,
+            items: items,
             continuationToken: response.continuationToken
         )
     }
@@ -635,7 +642,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.artistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            artists: response.artists,
+            items: response.artists.map(SearchResultItem.artist),
             continuationToken: response.continuationToken
         )
     }
@@ -650,7 +657,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.profilesSearchResponse ?? self.searchResponse
         return SearchResponse(
-            profiles: response.profiles,
+            items: response.profiles.map(SearchResultItem.profile),
             continuationToken: response.continuationToken
         )
     }
@@ -665,7 +672,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.playlistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            playlists: response.playlists,
+            items: response.playlists.map(SearchResultItem.playlist),
             continuationToken: response.continuationToken
         )
     }
@@ -680,7 +687,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.featuredPlaylistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            playlists: response.playlists,
+            items: response.playlists.map(SearchResultItem.playlist),
             continuationToken: response.continuationToken
         )
     }
@@ -695,7 +702,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.communityPlaylistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            playlists: response.playlists,
+            items: response.playlists.map(SearchResultItem.playlist),
             continuationToken: response.continuationToken
         )
     }
@@ -710,7 +717,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.podcastsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            podcastShows: response.podcastShows,
+            items: response.podcastShows.map(SearchResultItem.podcastShow),
             continuationToken: response.continuationToken
         )
     }
@@ -725,7 +732,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         let response = self.episodesSearchResponse ?? self.searchResponse
         return SearchResponse(
-            podcastEpisodes: response.podcastEpisodes,
+            items: response.podcastEpisodes.map(SearchResultItem.podcastEpisode),
             continuationToken: response.continuationToken
         )
     }

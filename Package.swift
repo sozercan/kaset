@@ -95,17 +95,8 @@ let package = Package(
             name: "KasetTests",
             dependencies: ["Kaset"],
             exclude: [
-                "AIErrorHandlerTests.swift",
-                "AIToolTests.swift",
-                "CommandBarViewModelTests.swift",
-                "CommandExecutorTests.swift",
-                "CommandIntentParserTests.swift",
                 "FoundationModelsOptimizedPromptIntegrationTests.swift",
-                "FoundationModelsPromptLibraryTests.swift",
-                "FoundationModelsServiceTests.swift",
-                "FoundationModelsTests.swift",
                 "MusicIntentIntegrationTests.swift",
-                "MusicIntentTests.swift",
             ],
             resources: [
                 .process("Fixtures"),
