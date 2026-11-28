@@ -88,6 +88,7 @@ final class PlayCommand: NSScriptCommand {
         }
         logger.info("Executing play command")
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             if playerService.hasNoLoadedMusicPlayback, !playerService.queueEntries.isEmpty {
                 await playerService.playFromQueue(at: playerService.currentIndex)
             } else {
@@ -117,6 +118,7 @@ final class PlayVideoCommand: NSScriptCommand {
         logger.info("Executing play video command with ID: \(videoId)")
         let intent = MainActor.assumeIsolated { playerService.beginMusicPlaybackIntent() }
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             await playerService.playWithRadio(song: .placeholder(videoId: videoId), intent: intent)
         }
         return nil
@@ -151,6 +153,7 @@ final class PlayPauseCommand: NSScriptCommand {
         }
         logger.info("Executing playPause command")
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             await playerService.playPause()
         }
         return nil
@@ -447,7 +450,7 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
         guard let (entryID, reservation) = selection else { return nil }
         logger.info("Executing playTrackAtIndex command with index: \(indexValue)")
         Task { @MainActor in
-            guard let intent = playerService.claimMusicPlaybackIntent(
+            guard SettingsManager.shared.appExperience.includesMusic, let intent = playerService.claimMusicPlaybackIntent(
                 reservation,
                 queueEntryID: entryID
             ) else { return }
@@ -499,6 +502,7 @@ final class PlayVideosCommand: NSScriptCommand {
         }
         guard let installedQueue else { return nil }
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             await playerService.startInstalledQueue(installedQueue)
         }
         return nil

@@ -592,6 +592,7 @@ struct KasetApp: App {
             self.showCommandBar = false
             AppIntentsBridge.shared.updateLibrary(.empty)
         }
+        self.equalizerService.syncForAppExperience()
     }
 
     private func handleYouTubeSurfaceLocationChange(_ location: YouTubePlayerService.SurfaceLocation) {

@@ -51,6 +51,8 @@ final class EqualizerService {
 
     private let playbackProgress: @MainActor () -> TimeInterval
 
+    private let isFeatureAvailable: @MainActor () -> Bool
+
     private let hasCapturePermission: @MainActor () -> Bool
     private let requestCapturePermission: @MainActor () -> Bool
 
@@ -71,6 +73,7 @@ final class EqualizerService {
         engine: any EqualizerAudioEngineProtocol = EqualizerAudioEngine(),
         isPlaybackActive: @escaping @MainActor () -> Bool = { PlayerService.shared?.isPlaying ?? false },
         playbackProgress: @escaping @MainActor () -> TimeInterval = { PlayerService.shared?.progress ?? 0 },
+        isFeatureAvailable: @escaping @MainActor () -> Bool = { SettingsManager.shared.appExperience.includesMusic },
         hasCapturePermission: @escaping @MainActor () -> Bool = { CGPreflightScreenCaptureAccess() },
         requestCapturePermission: @escaping @MainActor () -> Bool = { CGRequestScreenCaptureAccess() },
         scanRetryInterval: Duration = .seconds(2),
@@ -79,6 +82,7 @@ final class EqualizerService {
         self.engine = engine
         self.isPlaybackActive = isPlaybackActive
         self.playbackProgress = playbackProgress
+        self.isFeatureAvailable = isFeatureAvailable
         self.hasCapturePermission = hasCapturePermission
         self.requestCapturePermission = requestCapturePermission
         self.scanRetryInterval = scanRetryInterval
@@ -114,11 +118,11 @@ final class EqualizerService {
     }
 
     private func handleDefaultOutputDeviceChange() {
-        guard self.settings.isEnabled else { return }
+        guard self.settings.isEnabled, self.isFeatureAvailable() else { return }
         self.deviceChangeTask?.cancel()
         self.deviceChangeTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(50))
-            guard let self, !Task.isCancelled, self.settings.isEnabled else { return }
+            guard let self, !Task.isCancelled, self.settings.isEnabled, self.isFeatureAvailable() else { return }
             self.logger.info("default output device changed — rebinding equalizer engine")
             self.engine.stop()
             self.attemptStart(playbackKnownActive: self.isPlaybackActive())
@@ -167,15 +171,19 @@ final class EqualizerService {
         self.settings = next
     }
 
+    func syncForAppExperience() {
+        self.syncEngine()
+    }
+
     func retryStartIfEnabled() {
-        guard self.settings.isEnabled, !self.engine.isRunning else { return }
+        guard self.settings.isEnabled, self.isFeatureAvailable(), !self.engine.isRunning else { return }
         self.scanRetryCount = 0
         self.scanRetryTask?.cancel()
         self.retryTask?.cancel()
         self.retryTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
             guard let self, !Task.isCancelled,
-                  self.settings.isEnabled, !self.engine.isRunning
+                  self.settings.isEnabled, self.isFeatureAvailable(), !self.engine.isRunning
             else { return }
             self.attemptStart(playbackKnownActive: true)
         }
@@ -238,7 +246,7 @@ final class EqualizerService {
     }
 
     private func syncEngine() {
-        if self.settings.isEnabled {
+        if self.settings.isEnabled, self.isFeatureAvailable() {
             self.attemptStart(playbackKnownActive: false)
         } else {
             self.retryTask?.cancel()
