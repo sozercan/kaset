@@ -158,6 +158,7 @@
 "Equalizer is processing Kaset's audio output." = "等化器正在處理 Kaset 的音訊輸出。";
 "Error: %@" = "錯誤：%@";
 "Exit Guest Mode" = "結束訪客模式";
+"Exit full view" = "結束全螢幕檢視";
 "Expand Ask Gemini" = "展開詢問 Gemini";
 "Explain lyrics with AI" = "用 AI 解讀歌詞";
 "Explicit" = "限制級";

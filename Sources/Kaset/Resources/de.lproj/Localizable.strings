@@ -153,6 +153,7 @@
 "Equalizer is processing Kaset's audio output." = "Der Equalizer verarbeitet die Audioausgabe von Kaset.";
 "Error: %@" = "Fehler: %@";
 "Exit Guest Mode" = "Gastmodus beenden";
+"Exit full view" = "Vollansicht beenden";
 "Explain lyrics with AI" = "Songtexte mit KI erklären";
 "Explicit" = "Explizit";
 "Explore" = "Entdecken";

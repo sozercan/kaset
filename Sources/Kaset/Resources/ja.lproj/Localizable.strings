@@ -157,6 +157,7 @@
 "Equalizer is processing Kaset's audio output." = "イコライザが Kaset のオーディオ出力を処理しています。";
 "Error: %@" = "エラー：%@";
 "Exit Guest Mode" = "ゲストモードを終了";
+"Exit full view" = "フルビューを終了";
 "Expand Ask Gemini" = "「Gemini に質問」を展開";
 "Explain lyrics with AI" = "AI で歌詞を説明";
 "Explicit" = "不適切な表現を含む";

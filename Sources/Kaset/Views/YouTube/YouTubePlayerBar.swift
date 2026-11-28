@@ -350,12 +350,18 @@ struct YouTubePlayerBar: View {
             PlayerBarIconButton(
                 action: self.openYouTubeFullView,
                 accessibilityID: AccessibilityID.YouTubeContent.watchFullView,
-                accessibilityLabel: String(localized: "Full view"),
+                accessibilityLabel: self.youtubePlayer.isWindowFullscreen
+                    ? String(localized: "Exit full view")
+                    : String(localized: "Full view"),
                 icon: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 15, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.primary)
+                    Image(
+                        systemName: self.youtubePlayer.isWindowFullscreen
+                            ? "arrow.down.right.and.arrow.up.left"
+                            : "arrow.up.left.and.arrow.down.right"
+                    )
+                    .font(.system(size: 15, weight: .regular))
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(.primary)
                 }
             )
             .disabled(self.youtubePlayer.currentVideo == nil)
