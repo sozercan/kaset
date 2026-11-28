@@ -99,6 +99,14 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
 }
 
 @MainActor
+protocol NowPlayingInfoPublishing: AnyObject {
+    var nowPlayingInfo: [String: Any]? { get set }
+    var playbackState: MPNowPlayingPlaybackState { get set }
+}
+
+extension MPNowPlayingInfoCenter: NowPlayingInfoPublishing {}
+
+@MainActor
 @Observable
 final class NowPlayingManager {
     static let shared = NowPlayingManager()
@@ -106,7 +114,7 @@ final class NowPlayingManager {
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
-    private var isAssertingNativeClaim = false
+    private var nativeOwnership: NativeNowPlayingOwnership = .none
     @ObservationIgnored private var nowPlayingObservationGeneration: UInt64 = 0
 
     private weak var youtubePlayerService: YouTubePlayerService?
@@ -121,75 +129,112 @@ final class NowPlayingManager {
     enum NativeClaimPlaybackState: Equatable, Sendable {
         case playing
         case paused
+
+        var mediaPlayerPlaybackState: MPNowPlayingPlaybackState {
+            switch self {
+            case .playing: .playing
+            case .paused: .paused
+            }
+        }
     }
 
     enum NowPlayingClaim: Equatable {
         case handsOff
+        case stateOnly(NativeClaimPlaybackState)
         case release
         case claim(title: String, artist: String, playbackState: NativeClaimPlaybackState)
+    }
+
+    enum NativeNowPlayingOwnership: Equatable {
+        case none
+        case stateOnly
+        case claim
     }
 
     struct ActiveVideoClaim: Equatable, Sendable {
         let title: String
         let artist: String
         let playbackState: NativeClaimPlaybackState
-        let isPlaybackConfirmed: Bool
     }
 
     nonisolated static func desiredClaim(
         state: PlayerService.PlaybackState,
-        track: (title: String, artist: String)?,
+        hasTrack: Bool,
         activeVideo: ActiveVideoClaim?
     ) -> NowPlayingClaim {
         if let activeVideo {
-            guard activeVideo.isPlaybackConfirmed else {
-                return .claim(
-                    title: activeVideo.title,
-                    artist: activeVideo.artist,
-                    playbackState: activeVideo.playbackState
-                )
-            }
-            return .handsOff
+            return .claim(
+                title: activeVideo.title,
+                artist: activeVideo.artist,
+                playbackState: activeVideo.playbackState
+            )
         }
 
         switch state {
-        case .playing, .buffering, .loading:
+        case .playing:
+            return .stateOnly(.playing)
+        case .buffering, .loading:
             return .handsOff
         case .idle, .paused, .ended, .error:
-            guard let track else { return .release }
-            return .claim(title: track.title, artist: track.artist, playbackState: .paused)
+            return hasTrack ? .stateOnly(.paused) : .release
         }
     }
 
     private func updateNowPlayingClaim() {
         guard let player = self.playerService else { return }
-        let track = player.currentTrack.map { song in
-            (title: song.title, artist: song.artists.map(\.name).joined(separator: ", "))
-        }
         let claim = Self.desiredClaim(
             state: player.state,
-            track: track,
+            hasTrack: player.currentTrack != nil,
             activeVideo: self.activeVideoClaimInput
         )
         self.applyNowPlayingClaim(claim)
     }
 
     private func applyNowPlayingClaim(_ claim: NowPlayingClaim) {
-        let center = MPNowPlayingInfoCenter.default()
+        self.nativeOwnership = Self.apply(
+            claim,
+            to: MPNowPlayingInfoCenter.default(),
+            ownership: self.nativeOwnership
+        )
+    }
+
+    static func apply(
+        _ claim: NowPlayingClaim,
+        to center: any NowPlayingInfoPublishing,
+        ownership: NativeNowPlayingOwnership
+    ) -> NativeNowPlayingOwnership {
         switch claim {
         case .handsOff:
-            guard self.isAssertingNativeClaim else { return }
-            guard Self.isNativeClaim(center.nowPlayingInfo) else {
-                self.isAssertingNativeClaim = false
-                return
+            switch ownership {
+            case .none:
+                return .none
+            case .stateOnly:
+                center.playbackState = .playing
+                return .stateOnly
+            case .claim:
+                guard self.isNativeClaim(center.nowPlayingInfo) else { return .none }
+                center.playbackState = .playing
+                return .claim
             }
-            center.playbackState = .playing
+        case let .stateOnly(playbackState):
+            if self.isNativeClaim(center.nowPlayingInfo) {
+                center.nowPlayingInfo = nil
+            }
+            center.playbackState = playbackState.mediaPlayerPlaybackState
+            return .stateOnly
         case .release:
-            guard self.isAssertingNativeClaim else { return }
-            self.isAssertingNativeClaim = false
-            guard Self.isNativeClaim(center.nowPlayingInfo) else { return }
-            center.playbackState = .stopped
-            center.nowPlayingInfo = nil
+            switch ownership {
+            case .none:
+                return .none
+            case .stateOnly:
+                center.playbackState = .stopped
+                return .none
+            case .claim:
+                guard self.isNativeClaim(center.nowPlayingInfo) else { return .none }
+                center.playbackState = .stopped
+                center.nowPlayingInfo = nil
+                return .none
+            }
         case let .claim(title, artist, playbackState):
             var info: [String: Any] = [
                 MPMediaItemPropertyTitle: title,
@@ -199,11 +244,8 @@ final class NowPlayingManager {
                 info[MPMediaItemPropertyArtist] = artist
             }
             center.nowPlayingInfo = info
-            center.playbackState = switch playbackState {
-            case .playing: .playing
-            case .paused: .paused
-            }
-            self.isAssertingNativeClaim = true
+            center.playbackState = playbackState.mediaPlayerPlaybackState
+            return .claim
         }
     }
 
@@ -220,8 +262,7 @@ final class NowPlayingManager {
         return ActiveVideoClaim(
             title: video.title,
             artist: video.channelName ?? "",
-            playbackState: youtube.isPlaying || youtube.isPlaybackLoading ? .playing : .paused,
-            isPlaybackConfirmed: youtube.isPlaying && !youtube.isPlaybackLoading
+            playbackState: youtube.isPlaying || youtube.isPlaybackLoading ? .playing : .paused
         )
     }
 

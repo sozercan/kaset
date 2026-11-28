@@ -52,8 +52,12 @@ extension SingletonPlayerWebView {
                         ms.setActionHandler = function(type, handler) {
                             var isSeekSkip = type === 'seekforward' || type === 'seekbackward';
                             var isNextPrevious = type === 'nexttrack' || type === 'previoustrack';
+                            var isPlayPause = type === 'play' || type === 'pause';
                             if (isSeekSkip) {
                                 return orig(type, null);
+                            }
+                            if (isPlayPause && !window.__kasetInstallingMediaControlHandlers) {
+                                return undefined;
                             }
                             if (isNextPrevious) {
                                 if (window.__kasetUseNextPrev) {
@@ -130,12 +134,32 @@ extension SingletonPlayerWebView {
             }
 
             function applyOverride() {
-                if (!window.__kasetUseNextPrev) {
-                    return;
-                }
                 try {
                     var ms = navigator.mediaSession;
                     withKasetMediaControlInstall(function() {
+                        ms.setActionHandler('play', function() {
+                            window.webkit.messageHandlers.singletonPlayer
+                                .postMessage({
+                                    type: 'REMOTE_PLAY',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
+                                });
+                        });
+                        ms.setActionHandler('pause', function() {
+                            window.webkit.messageHandlers.singletonPlayer
+                                .postMessage({
+                                    type: 'REMOTE_PAUSE',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
+                                });
+                        });
+                        if (!window.__kasetUseNextPrev) {
+                            return;
+                        }
                         ms.setActionHandler('seekforward', null);
                         ms.setActionHandler('seekbackward', null);
                         ms.setActionHandler('nexttrack', function() {

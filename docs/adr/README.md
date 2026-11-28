@@ -84,3 +84,4 @@ What becomes easier or more difficult because of this change?
 | [0047](0047-view-and-viewmodel-invariants.md) | View and ViewModel Invariants | Accepted |
 | [0048](0048-test-fixture-and-isolation-invariants.md) | Test Fixture and Isolation Invariants | Accepted |
 | [0049](0049-api-contract-invariants.md) | API Request, Cache, and Pagination Invariants | Accepted |
+| [0050](0050-single-now-playing-entry.md) | Single Now Playing entry | Accepted |

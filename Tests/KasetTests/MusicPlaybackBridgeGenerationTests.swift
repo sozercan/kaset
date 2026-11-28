@@ -3,10 +3,12 @@ import Foundation
 import Testing
 @testable import Kaset
 
+private let mediaKeyMessageTypes = ["REMOTE_NEXT", "REMOTE_PREVIOUS", "REMOTE_PLAY", "REMOTE_PAUSE"]
+
 @Suite("YouTube Music playback bridge generation", .tags(.service))
 @MainActor
 struct MusicPlaybackBridgeGenerationTests {
-    @Test("Current-document media keys pass the document ID gate during navigation", arguments: ["REMOTE_NEXT", "REMOTE_PREVIOUS"])
+    @Test("Current-document media keys pass the document ID gate during navigation", arguments: mediaKeyMessageTypes)
     func currentDocumentMediaKeysPassDocumentIDGateDuringNavigation(messageType: String) {
         var generation = WebPlaybackDocumentGeneration()
         let committed = generation.beginNavigation()
@@ -715,13 +717,12 @@ struct MusicPlaybackBridgeGenerationTests {
             terminator: "});"
         )
 
-        #expect(self.occurrenceCount(of: "postMessage(", in: script) == 2)
-        #expect(payloads.count == 2)
+        #expect(self.occurrenceCount(of: "postMessage(", in: script) == 4)
+        #expect(payloads.count == 4)
         for payload in payloads {
             #expect(payload.contains("documentGeneration: window.__kasetDocumentGeneration"))
         }
-        #expect(payloads.contains { $0.contains("type: 'REMOTE_NEXT'") })
-        #expect(payloads.contains { $0.contains("type: 'REMOTE_PREVIOUS'") })
+        #expect(mediaKeyMessageTypes.allSatisfy { type in payloads.contains { $0.contains("type: '\(type)'") } })
         #expect(script.contains("function __kasetEventTimestampMilliseconds()"))
         #expect(script.contains("Number(performance.timeOrigin) + Number(performance.now())"))
         for payload in payloads where payload.contains("type: 'REMOTE_") {
