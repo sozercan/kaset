@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SidebarFooterView: View {
+    @State private var settings = SettingsManager.shared
+
     var body: some View {
         VStack(spacing: 0) {
             Divider()
@@ -8,9 +10,11 @@ struct SidebarFooterView: View {
 
             SidebarProfileView()
 
-            SourceToggleView()
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
+            if self.settings.appExperience.showsSourceToggle {
+                SourceToggleView()
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+            }
         }
     }
 }

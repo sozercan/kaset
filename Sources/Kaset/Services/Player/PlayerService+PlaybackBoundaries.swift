@@ -6,6 +6,8 @@ extension PlayerService {
         self.hasResolvedStartupPlaybackOwnership = true
         self.logger.info("Clearing active playback state for guest startup")
         guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else {
+            self.preservesSavedSessionWhileDisabled = false
+            self.suppressNextEmptyQueuePersistence = false
             self.clearSavedQueue()
             self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
             return
@@ -17,14 +19,35 @@ extension PlayerService {
         self.hasResolvedStartupPlaybackOwnership = true
         guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else { return }
         self.logger.info("Clearing guest-owned playback state for authenticated startup")
+        self.preservesSavedSessionWhileDisabled = false
+        self.suppressNextEmptyQueuePersistence = false
         self.clearSavedQueue()
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
     func clearPlaybackForSignOut() {
         self.hasResolvedStartupPlaybackOwnership = true
+        self.preservesSavedSessionWhileDisabled = false
+        self.suppressNextEmptyQueuePersistence = false
         self.logger.info("Clearing playback state for sign-out")
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
+    }
+
+    func tearDownForExperienceChange() {
+        self.logger.info("Tearing down music playback for experience mode change")
+        if !self.queue.isEmpty || self.currentTrack != nil {
+            self.saveQueueForPersistence(syncWebQueue: false)
+        }
+        self.preservesSavedSessionWhileDisabled = true
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: false)
+    }
+
+    func resumeAfterExperienceChange() {
+        guard self.preservesSavedSessionWhileDisabled else { return }
+        self.preservesSavedSessionWhileDisabled = false
+        if self.queue.isEmpty, self.currentTrack == nil {
+            _ = self.restoreQueueFromPersistence()
+        }
     }
 
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
@@ -57,6 +80,7 @@ extension PlayerService {
         self.currentLyricsLineIndex = nil
         self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
+        self.resetAdPlaybackState()
         self.showMiniPlayer = false
         self.isMiniPlayerVisible = false
         self.showLyrics = false

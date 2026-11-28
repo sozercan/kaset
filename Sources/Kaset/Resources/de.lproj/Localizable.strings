@@ -683,3 +683,10 @@
 "Talk to a companion app" = "Mit einer Begleit-App kommunizieren";
 "Request a connection to its companion app." = "Eine Verbindung zu ihrer Begleit-App anfordern.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Sie könnte Informationen lesen und weitergeben, die angezeigt werden, während du angemeldet bist. Aktiviere sie nur, wenn du ihr vertraust.";
+
+"App Mode" = "App-Modus";
+"Choose whether to show YouTube Music, YouTube, or both" = "Wähle aus, ob YouTube Music, YouTube oder beides angezeigt wird";
+"Music & YouTube" = "Musik & YouTube";
+"Music Only" = "Nur Musik";
+"YouTube Only" = "Nur YouTube";
+"YouTube Music is disabled in Kaset's App Mode settings." = "YouTube Music ist in den App-Modus-Einstellungen von Kaset deaktiviert.";

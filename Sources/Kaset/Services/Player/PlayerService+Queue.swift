@@ -615,8 +615,7 @@ extension PlayerService {
     }
 
     func playFromQueue(at index: Int, intent: MusicPlaybackIntent) async {
-        guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        guard index >= 0, index < self.queueEntries.count else { return }
+        guard self.acceptsMusicPlaybackIntent(intent), index >= 0, index < self.queueEntries.count else { return }
         let queueGeneration = self.queueLoadGeneration
         self.clearForwardSkipNavigationStack()
         self.currentIndex = index
@@ -1109,6 +1108,10 @@ extension PlayerService {
             if shouldSyncWebQueue {
                 self.clearWebQueueInjectionState()
             }
+            if self.preservesSavedSessionWhileDisabled {
+                self.logger.info("Skipped clearing saved playback session while Music is disabled")
+                return
+            }
             if self.suppressNextEmptyQueuePersistence {
                 self.suppressNextEmptyQueuePersistence = false
                 self.logger.info("Skipped clearing saved playback session after guest-startup cleanup")
@@ -1120,6 +1123,7 @@ extension PlayerService {
         }
 
         self.suppressNextEmptyQueuePersistence = false
+        self.preservesSavedSessionWhileDisabled = false
 
         let activeQueueEntryID = self.queueEntryIDOwningCurrentPlayback
         let persistedEntries: [QueueEntry]
@@ -1325,6 +1329,27 @@ extension PlayerService {
             self.lastSavedPlaybackSessionSignature = nil
         } catch {
             self.logger.error("Failed to update playback session owner scope: \(error.localizedDescription)")
+        }
+    }
+
+    func loadPersistedPlaybackSessionOwnerScopeWithoutRestoring() {
+        self.preservesSavedSessionWhileDisabled = true
+        guard let sessionData = self.queuePersistenceDefaults.data(forKey: self.savedPlaybackSessionKey) else {
+            self.restoredPlaybackSessionOwnerScope = nil
+            return
+        }
+        do {
+            let savedSession = try JSONDecoder().decode(PersistedPlaybackSession.self, from: sessionData)
+            let restoredQueue = savedSession.ownerScope == Self.playbackSessionScopeGuest
+                ? Self.queueWithoutAccountMetadata(savedSession.queue)
+                : savedSession.queue
+            guard !restoredQueue.isEmpty else {
+                self.restoredPlaybackSessionOwnerScope = nil
+                return
+            }
+            self.restoredPlaybackSessionOwnerScope = savedSession.ownerScope
+        } catch {
+            self.restoredPlaybackSessionOwnerScope = nil
         }
     }
 

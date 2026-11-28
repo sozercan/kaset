@@ -50,12 +50,21 @@ struct GeneralSettingsView: View {
             }
 
             Section {
+                Picker(String(localized: "App Mode"), selection: self.$settings.appExperience) {
+                    ForEach(AppExperience.allCases) { experience in
+                        Text(experience.displayName).tag(experience)
+                    }
+                }
+                .help(String(localized: "Choose whether to show YouTube Music, YouTube, or both"))
+
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help(String(localized: "Provide tactile feedback for actions on Force Touch trackpads"))
 
-                Picker(String(localized: "Default Page on Launch"), selection: self.$settings.defaultLaunchPage) {
-                    ForEach(SettingsManager.LaunchPage.allCases) { page in
-                        Text(page.displayName).tag(page)
+                if self.settings.appExperience.includesMusic {
+                    Picker(String(localized: "Default Page on Launch"), selection: self.$settings.defaultLaunchPage) {
+                        ForEach(SettingsManager.LaunchPage.allCases) { page in
+                            Text(page.displayName).tag(page)
+                        }
                     }
                 }
             } header: {

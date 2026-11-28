@@ -6,6 +6,8 @@ private let errPlayerNotAvailable: Int = -1728
 
 private let playerNotAvailableMessage = "Player service not initialized. Please wait for the app to fully launch."
 
+private let musicDisabledMessage = "YouTube Music is disabled in Kaset's App Mode settings. Change App Mode to enable Music commands."
+
 private let invalidVideoIdMessage = "Video ID must be a non-empty string of letters, digits, - and _."
 
 private let invalidVideoIdListMessage = "Video IDs must be a non-empty list of video IDs (letters, digits, - and _)."
@@ -13,8 +15,16 @@ private let invalidVideoIdListMessage = "Video IDs must be a non-empty list of v
 private let logger = DiagnosticsLogger.scripting
 
 @MainActor
+private func unavailablePlayerMessage() -> String {
+    SettingsManager.shared.appExperience.includesMusic
+        ? playerNotAvailableMessage
+        : musicDisabledMessage
+}
+
+@MainActor
 private func getPlayerService() -> PlayerService? {
-    PlayerService.shared
+    guard SettingsManager.shared.appExperience.includesMusic else { return nil }
+    return PlayerService.shared
 }
 
 private let videoIdCharacters = CharacterSet(
@@ -73,11 +83,12 @@ final class PlayCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("Play command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing play command")
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             if playerService.hasNoLoadedMusicPlayback, !playerService.queueEntries.isEmpty {
                 await playerService.playFromQueue(at: playerService.currentIndex)
             } else {
@@ -101,12 +112,13 @@ final class PlayVideoCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("PlayVideo command failed: PlayerService.shared is nil")
             self.scriptErrorNumber = errPlayerNotAvailable
-            self.scriptErrorString = playerNotAvailableMessage
+            self.scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing play video command with ID: \(videoId)")
         let intent = MainActor.assumeIsolated { playerService.beginMusicPlaybackIntent() }
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             await playerService.playWithRadio(song: .placeholder(videoId: videoId), intent: intent)
         }
         return nil
@@ -119,7 +131,7 @@ final class PauseCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("Pause command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing pause command")
@@ -136,11 +148,12 @@ final class PlayPauseCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("PlayPause command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing playPause command")
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             await playerService.playPause()
         }
         return nil
@@ -153,7 +166,7 @@ final class NextTrackCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("NextTrack command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing next track command")
@@ -170,7 +183,7 @@ final class PreviousTrackCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("PreviousTrack command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing previous track command")
@@ -196,7 +209,7 @@ final class SetVolumeCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("SetVolume command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing setVolume command with value: \(volumeValue)")
@@ -213,7 +226,7 @@ final class ToggleShuffleCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("ToggleShuffle command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing toggleShuffle command")
@@ -230,7 +243,7 @@ final class CycleRepeatCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("CycleRepeat command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing cycleRepeat command")
@@ -247,7 +260,7 @@ final class ToggleMuteCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("ToggleMute command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing toggleMute command")
@@ -317,7 +330,7 @@ final class GetPlayerInfoCommand: NSScriptCommand {
 
         if result.hasPrefix("{\"error\"") {
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
         }
 
         return result
@@ -330,7 +343,7 @@ final class LikeTrackCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("LikeTrack command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing likeTrack command")
@@ -347,7 +360,7 @@ final class DislikeTrackCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("DislikeTrack command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
+            scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
         logger.info("Executing dislikeTrack command")
@@ -398,7 +411,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
 
         if result.hasPrefix("{\"error\"") {
             self.scriptErrorNumber = errPlayerNotAvailable
-            self.scriptErrorString = playerNotAvailableMessage
+            self.scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
         }
 
         return result
@@ -418,7 +431,7 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("PlayTrackAtIndex command failed: PlayerService.shared is nil")
             self.scriptErrorNumber = errPlayerNotAvailable
-            self.scriptErrorString = playerNotAvailableMessage
+            self.scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
 
@@ -437,7 +450,7 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
         guard let (entryID, reservation) = selection else { return nil }
         logger.info("Executing playTrackAtIndex command with index: \(indexValue)")
         Task { @MainActor in
-            guard let intent = playerService.claimMusicPlaybackIntent(
+            guard SettingsManager.shared.appExperience.includesMusic, let intent = playerService.claimMusicPlaybackIntent(
                 reservation,
                 queueEntryID: entryID
             ) else { return }
@@ -474,7 +487,7 @@ final class PlayVideosCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("PlayVideos command failed: PlayerService.shared is nil")
             self.scriptErrorNumber = errPlayerNotAvailable
-            self.scriptErrorString = playerNotAvailableMessage
+            self.scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
 
@@ -489,6 +502,7 @@ final class PlayVideosCommand: NSScriptCommand {
         }
         guard let installedQueue else { return nil }
         Task { @MainActor in
+            guard SettingsManager.shared.appExperience.includesMusic else { return }
             await playerService.startInstalledQueue(installedQueue)
         }
         return nil
@@ -515,7 +529,7 @@ final class AddToQueueCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("AddToQueue command failed: PlayerService.shared is nil")
             self.scriptErrorNumber = errPlayerNotAvailable
-            self.scriptErrorString = playerNotAvailableMessage
+            self.scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
 
@@ -551,7 +565,7 @@ final class RemoveFromQueueCommand: NSScriptCommand {
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("RemoveFromQueue command failed: PlayerService.shared is nil")
             self.scriptErrorNumber = errPlayerNotAvailable
-            self.scriptErrorString = playerNotAvailableMessage
+            self.scriptErrorString = MainActor.assumeIsolated { unavailablePlayerMessage() }
             return nil
         }
 

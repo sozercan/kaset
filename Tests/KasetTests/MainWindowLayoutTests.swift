@@ -93,5 +93,12 @@ struct MainWindowLayoutTests {
             isPendingRestoredLoadDeferred: true,
             showVideo: true
         ))
+        #expect(!MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: isLoggedIn,
+            pendingVideoId: "playing-video",
+            isPendingRestoredLoadDeferred: false,
+            showVideo: false,
+            includesMusic: false
+        ))
     }
 }

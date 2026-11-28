@@ -683,3 +683,10 @@
 "Talk to a companion app" = "도우미 앱과 통신";
 "Request a connection to its companion app." = "확장 프로그램의 도우미 앱에 연결을 요청합니다.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "로그인한 동안 표시되는 정보를 읽고 공유할 수 있습니다. 신뢰할 수 있는 경우에만 켜세요.";
+
+"App Mode" = "앱 모드";
+"Choose whether to show YouTube Music, YouTube, or both" = "YouTube Music, YouTube 또는 둘 다 표시할지 선택합니다";
+"Music & YouTube" = "Music 및 YouTube";
+"Music Only" = "Music만";
+"YouTube Only" = "YouTube만";
+"YouTube Music is disabled in Kaset's App Mode settings." = "Kaset의 앱 모드 설정에서 YouTube Music이 비활성화되어 있습니다.";
