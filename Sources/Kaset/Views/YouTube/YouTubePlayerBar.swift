@@ -68,7 +68,7 @@ struct YouTubePlayerBar: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .compatGlass(interactive: true, in: .capsule)
+            .compatGlass(in: .capsule)
             .compatGlassID("youtubePlayerBar", in: self.playerNamespace)
         }
         .padding(.horizontal, 16)
