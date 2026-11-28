@@ -4,10 +4,10 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
-    private static let baseYouTubeOptionsWidth: CGFloat = 210
+    private static let baseYouTubeOptionsWidth: CGFloat = 244
     private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
-    private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
+    private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 614
 
     private static let hiddenDetailsLeadingInset: CGFloat = 16
 
